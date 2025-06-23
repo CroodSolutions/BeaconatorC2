@@ -74,11 +74,9 @@ def main():
         
         shutdown_thread = threading.Thread(target=shutdown_with_timeout, daemon=True)
         shutdown_thread.start()
-        shutdown_thread.join(timeout=2.0)  # Wait max 2 seconds
+        shutdown_thread.join(timeout=3.0)  # Wait max 3 seconds
         
-        # Force exit regardless of shutdown status
-        import os
-        os._exit(0)
+
         
     window.closeEvent = extended_close_event
     
