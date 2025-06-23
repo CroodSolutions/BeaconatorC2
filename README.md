@@ -1,4 +1,4 @@
-# AutoPwnKey
+# BeaconatorC2
 
 
 ## --- Introduction ---
@@ -15,7 +15,7 @@ TODO
 
 ## --- How to Contribute ---
 
-We welcome and encourage contributions, participation, and feedback - as long as all participation is legal and ethical in nature. Please develop new scripts, contribute ideas, improve the scripts that we have created. The goal of this project is to come up with a robust testing framework that is available to red/blue/purple teams for assessment purposes, with the hope that one day we can archive this project because improvements to detection logic make this attack vector irrelevant.
+We welcome and encourage contributions, participation, and feedback - as long as all participation is legal and ethical in nature. 
 
 1. Fork the project
 2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
