@@ -1,5 +1,5 @@
 import re
-from PyQt6.QtWidgets import QTextEdit
+from PyQt6.QtWidgets import QTextEdit, QSizePolicy
 from PyQt6.QtCore import pyqtSlot
 from PyQt6.QtGui import QFont, QSyntaxHighlighter, QTextCharFormat, QColor
 from utils import FontManager
@@ -9,6 +9,10 @@ class LogWidget(QTextEdit):
         super().__init__()
         self.setReadOnly(True)
         self.setPlaceholderText("Logs will appear here...")
+        
+        # Set size policy to control expansion behavior
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        self.setMinimumHeight(100)
         
         # Set monospace font for better log readability
         font = QFont("Consolas", 9)

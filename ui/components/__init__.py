@@ -6,5 +6,5 @@ from .settings_page import SettingsPage
 from .documentation_panel import DocumentationPanel
 from .agent_settings_widget import AgentSettingsWidget
 
-__all__ = ['AgentTableWidget', 'CommandWidget', 'NavigationMenu', 
+__all__ = ['AgentTableWidget', 'CommandWidget', 'DynamicCommandWidget', 'NavigationMenu', 
            'FileTransferWidget', 'SettingsPage', 'DocumentationPanel', 'AgentSettingsWidget']

@@ -10,20 +10,17 @@ class AgentTableWidget(QTableWidget):
         super().__init__()
         self.selected_agent_id = None
         self.setup_table()
-        self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding)
+        
+        # Set fixed size constraints to prevent dynamic resizing
+        self.setMinimumWidth(400)
+        self.setMaximumWidth(600)
+        self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Expanding)
+        
         # Try to use FontManager, but don't fail if it's not available
         try:
             FontManager().add_relative_font_widget(self, 0)
         except:
             pass
-
-    def sizeHint(self):
-        width = sum([self.horizontalHeader().sectionSize(i) 
-                    for i in range(self.columnCount())])
-        height = self.verticalHeader().length() + self.horizontalHeader().height()
-        
-        calculated_width = min(width + 3, 800)  
-        return QSize(calculated_width, height)
 
     def setup_table(self):
         # Try to set font, but use default if not available
@@ -35,7 +32,7 @@ class AgentTableWidget(QTableWidget):
             pass
             
         self.setColumnCount(4)
-        self.setHorizontalHeaderLabels(["Agent ID", "Computer Name", "Status", "Last Check-in"])
+        self.setHorizontalHeaderLabels(["Beacon ID", "Computer Name", "Status", "Last Check-in"])
         self.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
         self.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)

@@ -1,5 +1,5 @@
 import re
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QPlainTextEdit
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QPlainTextEdit, QSizePolicy
 from PyQt6.QtGui import QFont
 from database import AgentRepository
 from workers import CommandOutputMonitor
@@ -11,6 +11,11 @@ class OutputDisplay(QWidget):
         self.agent_repository = agent_repository
         self.current_agent_id = None
         self.output_monitor = None
+        
+        # Set size policy to prevent unwanted expansion
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        self.setMinimumHeight(120)
+        self.setMaximumHeight(400)
         
         # Try to use FontManager, but don't fail if it's not available
         try:

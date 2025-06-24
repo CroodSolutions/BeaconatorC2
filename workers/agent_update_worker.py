@@ -19,7 +19,7 @@ class AgentUpdateWorker(QThread):
             except Exception as e:
                 if utils.logger:
                     utils.logger.log_message(f"Error updating agents: {e}")
-            self.msleep(1000)  # 1 second delay
+            self.msleep(3000)  # 3 second delay
 
     def stop(self):  # Implement stop method
         self._running = False

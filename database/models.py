@@ -19,6 +19,7 @@ class Agent(Base):
     pending_command: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
     output_file: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
     last_response: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    schema_file: Mapped[Optional[str]] = mapped_column(String(256), nullable=True)  # Beacon schema file location
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert agent to dictionary representation"""

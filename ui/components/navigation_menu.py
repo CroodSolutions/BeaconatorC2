@@ -43,7 +43,7 @@ class NavigationMenu(QWidget):
         self.nav_buttons = {}
         nav_items = {
             "toggle": ("Hide", QStyle.StandardPixmap.SP_ArrowLeft),
-            "agents": ("Agents", QStyle.StandardPixmap.SP_ComputerIcon),
+            "agents": ("Beacons", QStyle.StandardPixmap.SP_ComputerIcon),
             "settings": ("Settings", QStyle.StandardPixmap.SP_FileDialogListView),
             "docs": ("Documentation", QStyle.StandardPixmap.SP_FileDialogDetailedView),  
         }

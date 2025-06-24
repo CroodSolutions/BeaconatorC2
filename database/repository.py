@@ -76,3 +76,19 @@ class AgentRepository:
                 session.commit()
                 return True
             return False
+    
+    def update_beacon_schema(self, agent_id: str, schema_file: Optional[str]) -> bool:
+        """Update a beacon's associated schema file"""
+        with self._get_session() as session:
+            if agent := session.query(Agent).filter_by(agent_id=agent_id).first():
+                agent.schema_file = schema_file
+                session.commit()
+                return True
+            return False
+    
+    def get_beacon_schema(self, agent_id: str) -> Optional[str]:
+        """Get a beacon's associated schema file"""
+        with self._get_session() as session:
+            if agent := session.query(Agent).filter_by(agent_id=agent_id).first():
+                return agent.schema_file
+            return None

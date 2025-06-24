@@ -46,7 +46,7 @@ class MainWindow(QMainWindow):
         app.setFont(main_font)
 
         self.setWindowTitle("Beaconator Manager")
-        self.setMinimumSize(1200, 800)
+        self.setMinimumSize(1400, 850)
         
         # Try to set icon, but don't fail if it doesn't exist
         try:
@@ -101,36 +101,40 @@ class MainWindow(QMainWindow):
         main_layout.setSpacing(0)
         main_layout.setContentsMargins(0, 0, 0, 0)
         
-        # Create content layout
-        content_layout = QHBoxLayout()
-        content_layout.setSpacing(0)
-        content_layout.setContentsMargins(0, 0, 0, 0)
+        # Create main horizontal splitter for better size control
+        main_splitter = QSplitter(Qt.Orientation.Horizontal)
+        main_splitter.setChildrenCollapsible(False)  # Prevent panels from collapsing completely
         
         # Create left side with the agent table and log widget
         left_widget = QWidget()
+        left_widget.setMinimumWidth(600)  # Ensure minimum width for table column
+        left_widget.setMaximumWidth(600)  # Prevent expansion beyond this width
         left_layout = QVBoxLayout()
         left_layout.setContentsMargins(0, 0, 0, 0)
         
         self.agent_table = AgentTableWidget()
         self.agent_table.agent_selected.connect(self.on_agent_selected)
         
-        # Add splitter between table and log
-        splitter = QSplitter(Qt.Orientation.Vertical)
-        splitter.addWidget(self.agent_table)
+        # Add vertical splitter between table and log
+        left_splitter = QSplitter(Qt.Orientation.Vertical)
+        left_splitter.addWidget(self.agent_table)
         
         # Create log widget
         self.log_widget = LogWidget()
-        splitter.addWidget(self.log_widget)
-        splitter.setSizes([500, 500])  # Set initial sizes for splitter
+        left_splitter.addWidget(self.log_widget)
+        left_splitter.setSizes([300, 300])  # Set initial sizes for vertical splitter
+        left_splitter.setStretchFactor(0, 1)  # Table gets more space
+        left_splitter.setStretchFactor(1, 1)  # Log gets less space
         
-        left_layout.addWidget(splitter)
+        left_layout.addWidget(left_splitter)
         left_widget.setLayout(left_layout)
         
         # Create right panel with tabs
         right_panel = QTabWidget()
+        right_panel.setMinimumWidth(600)  # Ensure minimum width for command column
         
         # Create and add tab widgets
-        self.command_widget = CommandWidget(self.agent_repository, self.module_handler, self.doc_panel)
+        self.command_widget = CommandWidget(self.agent_repository, self.doc_panel)
         right_panel.addTab(self.command_widget, "Modules")
         
         self.file_transfer_widget = FileTransferWidget(self.agent_repository)
@@ -140,14 +144,23 @@ class MainWindow(QMainWindow):
         right_panel.addTab(self.keylogger_display, "KeyLogger")
 
         self.agent_settings_widget = AgentSettingsWidget(self.agent_repository)
-        right_panel.addTab(self.agent_settings_widget, "Agent Settings")
+        self.agent_settings_widget.schema_applied.connect(self.command_widget.on_schema_applied)
+        right_panel.addTab(self.agent_settings_widget, "Beacon Settings")
         
-        # Add widgets to content layout
-        content_layout.addWidget(left_widget)
-        content_layout.addWidget(right_panel)
+        # Add widgets to main splitter
+        main_splitter.addWidget(left_widget)
+        main_splitter.addWidget(right_panel)
+        
+        # Set initial sizes for main splitter (left:right ratio)
+        main_splitter.setSizes([600, 600])  # Initial sizes
+        main_splitter.setStretchFactor(0, 0)  # Left panel fixed width
+        main_splitter.setStretchFactor(1, 1)  # Right panel gets all stretch
         
         # Create content widget and set its layout
         content_widget = QWidget()
+        content_layout = QVBoxLayout()
+        content_layout.setContentsMargins(0, 0, 0, 0)
+        content_layout.addWidget(main_splitter)
         content_widget.setLayout(content_layout)
         
         # Add content widget to main layout
@@ -190,15 +203,12 @@ class MainWindow(QMainWindow):
             self.doc_panel.hide_panel()
 
     def on_agent_selected(self, agent_id: str):
-        """Handle agent selection"""
-        # Update all widgets that need to know about the selected agent
+        """Handle beacon selection"""
+        # Update all widgets that need to know about the selected beacon
         self.command_widget.set_agent(agent_id)
         self.file_transfer_widget.set_agent(agent_id)
         self.keylogger_display.set_agent(agent_id)
         self.agent_settings_widget.set_agent(agent_id)
-        
-        if utils.logger:
-            utils.logger.log_message(f"Selected agent: {agent_id}")
 
     def on_command_sent(self, agent_id: str, command: str):
         """Handle command being sent to agent"""
