@@ -1,0 +1,166 @@
+# Agent Module Schema Format Specification v1.1
+# This file defines the complete structure for agent-specific module schemas
+# Updated with lessons learned from implementing 22 Windows C2 modules
+
+schema_version: "1.1"
+agent_info:
+  agent_type: "string"          # Type identifier for the agent (e.g., "windows_beacon", "linux_beacon")
+  version: "string"             # Agent version (semantic versioning recommended)
+  description: "string"         # Agent description
+  supported_platforms: []       # List of supported platforms ["windows", "linux", "macos"]
+
+# Module categories - organize modules by tactical purpose
+categories:
+  category_name:                # Internal category identifier (snake_case recommended)
+    display_name: "string"     # Human-readable category name
+    description: "string"      # Category description and purpose
+    modules:
+      module_name:              # Internal module identifier (snake_case recommended)
+        display_name: "string" # Human-readable module name
+        description: "string"  # Module description (used in UI tooltips)
+        command_template: "string" # Command format template with parameter substitution
+        
+        # Module parameters definition (can be empty {} for parameterless modules)
+        parameters:
+          param_name:           # Parameter identifier (snake_case recommended)
+            type: "string"      # Parameter type - see SUPPORTED TYPES below
+            display_name: "string" # Human-readable parameter name
+            description: "string"  # Parameter description/tooltip
+            required: boolean   # Whether parameter is required (default: true)
+            default: "any"      # Default value (type depends on parameter type)
+            
+            # Type-specific validation rules
+            validation:         # Optional validation rules object
+              min_length: int   # For text/textarea types - minimum character length
+              max_length: int   # For text/textarea types - maximum character length
+              min_value: num    # For integer/float types - minimum value
+              max_value: num    # For integer/float types - maximum value
+              pattern: "regex"  # Regex pattern for text validation (e.g., "^[A-Za-z]:\\\\.*")
+              
+            choices: []         # For choice type - list of valid string options
+            file_filters: []    # For file type - file extension filters [".txt", ".exe"]
+            
+        # Documentation and help content
+        documentation:
+          content: "string"     # Detailed module documentation
+          examples: []          # List of usage example strings
+          references: []        # List of reference URLs or documentation links
+          
+        # Module execution settings
+        execution:
+          timeout: int          # Execution timeout in seconds (default: 300)
+          requires_admin: boolean # Whether module requires administrative privileges
+          platform_specific: {} # Platform-specific execution settings (reserved for future use)
+          
+        # UI customization and layout
+        ui:
+          icon: "string"        # Icon identifier (see ICON REFERENCE below)
+          color: "string"       # Color theme: default, red, green, yellow, blue
+          layout: "string"      # Layout type: simple, advanced, tabbed
+          grouping: []          # Parameter grouping for complex layouts (array of arrays)
+
+# ==============================================================================
+# IMPLEMENTATION REFERENCE
+# ==============================================================================
+
+# SUPPORTED PARAMETER TYPES:
+# - "text": Single-line text input (QLineEdit)
+# - "textarea": Multi-line text input (QTextEdit, max height 150px)
+# - "integer": Integer number input (QSpinBox)
+# - "float": Floating-point number input (QDoubleSpinBox)
+# - "boolean": Checkbox input (QCheckBox)
+# - "choice": Dropdown selection (QComboBox) - requires 'choices' array
+# - "file": File selection with browse button - supports 'file_filters'
+# - "directory": Directory selection with browse button
+
+# COMMAND TEMPLATE PATTERNS:
+# Basic patterns discovered from 22-module implementation:
+# - No parameters: "execute_module|ModuleName"
+# - Single parameter: "execute_module|ModuleName|{param}"
+# - Multiple parameters: "execute_module|ModuleName|{param1},{param2},{param3}"
+# - Custom format: "{command}" (for direct command execution)
+# - Complex format: "execute_module|ModuleName|{url},{path},{dir}" (Install MSI)
+
+# LAYOUT TYPES:
+# - "simple": Single grid layout (default) - suitable for 1-4 parameters
+# - "advanced": Grouped parameters with QGroupBox containers
+# - "tabbed": Parameters organized in tabs - requires 'grouping' specification
+
+# PARAMETER GROUPING:
+# For advanced/tabbed layouts, use grouping to organize parameters:
+# grouping: [["param1", "param2"], ["param3", "param4"]]
+# - Each inner array becomes a group/tab
+# - Parameters not in any group are placed in default group
+
+# ICON REFERENCE:
+# Common icons used in 22-module implementation:
+# - "terminal": Command execution, basic operations
+# - "powershell": PowerShell/scripting modules
+# - "search": Discovery and reconnaissance
+# - "shield": Security/PII detection
+# - "server": Domain controllers, infrastructure
+# - "link": Trust relationships, connections
+# - "crown": Administrative/privileged operations
+# - "warning": Security warnings, delegation issues
+# - "users": User membership, groups
+# - "network": Network scanning, connectivity
+# - "firewall": Firewall and traffic control
+# - "block": Blocking and denial operations
+# - "unlink": Unhooking, evasion techniques
+# - "key": Privilege escalation, UAC bypass
+# - "user": User operations, impersonation
+# - "user-plus": User creation, addition
+# - "registry": Registry operations
+# - "clock": Scheduled operations, timing
+# - "package": Software installation, MSI
+# - "remote-desktop": RDP connections
+# - "lock": Encryption operations
+# - "unlock": Decryption operations
+
+# VALIDATION PATTERNS:
+# Common regex patterns from implementation:
+# - Windows paths: "^[A-Za-z]:\\\\.*"
+# - IP addresses: "^[0-9.,\\-/\\s]+$"
+# - Alphanumeric usernames: "^[a-zA-Z0-9_]+$"
+
+# COLOR THEMES:
+# - "default": Standard module appearance
+# - "red": High-impact operations (encryption, destruction)
+# - "green": Recovery operations (decryption, restoration)
+# - "yellow": Warning/caution operations
+# - "blue": Information gathering operations
+
+# TIMEOUT RECOMMENDATIONS:
+# Based on 22-module analysis:
+# - Quick operations (registry, user management): 30-60 seconds
+# - Standard operations (most modules): 120-300 seconds
+# - Network operations (scanning, RDP): 600-1800 seconds
+# - File operations (encryption, large transfers): 1800+ seconds
+
+# CATEGORY ORGANIZATION:
+# Tactical categories based on MITRE ATT&CK framework:
+# - "basic_commands": Fundamental command execution
+# - "discovery": Information gathering and reconnaissance
+# - "evasion": Defense evasion techniques
+# - "privilege_escalation": Privilege escalation methods
+# - "persistence": Persistence mechanisms
+# - "lateral_movement": Lateral movement techniques
+# - "impact": Data impact and destruction operations
+
+# EMPTY PARAMETERS:
+# For modules without parameters, use: parameters: {}
+# The UI will automatically hide the parameters section
+
+# PARAMETER DEFAULTS:
+# - Text fields: Use empty string "" or sample values
+# - Numeric fields: Use reasonable default numbers
+# - Boolean fields: Use true/false
+# - Choice fields: Use one of the choices values
+# - File/Directory fields: Use example paths appropriate to platform
+
+# SCHEMA VALIDATION:
+# The SchemaService automatically validates:
+# - Required fields presence
+# - Parameter type validity
+# - Command template format
+# - Reference integrity between grouping and parameter names
