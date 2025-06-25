@@ -1,24 +1,24 @@
 from PyQt6.QtCore import QThread, pyqtSignal
-from database import AgentRepository
+from database import BeaconRepository
 
-class AgentUpdateWorker(QThread):
-    """Background worker to update agent statuses"""
-    agent_updated = pyqtSignal(list)
+class BeaconUpdateWorker(QThread):
+    """Background worker to update beacon statuses"""
+    beacon_updated = pyqtSignal(list)
 
-    def __init__(self, agent_repository: AgentRepository):
+    def __init__(self, beacon_repository: BeaconRepository):
         super().__init__()
-        self.agent_repository = agent_repository
+        self.beacon_repository = beacon_repository
         self._running = True  # Add running flag
 
     def run(self):
         import utils  # Import here to avoid circular imports
         while self._running:  # Use running flag
             try:
-                agents = self.agent_repository.get_all_agents()
-                self.agent_updated.emit([agent.to_dict() for agent in agents])
+                beacons = self.beacon_repository.get_all_beacons()
+                self.beacon_updated.emit([beacon.to_dict() for beacon in beacons])
             except Exception as e:
                 if utils.logger:
-                    utils.logger.log_message(f"Error updating agents: {e}")
+                    utils.logger.log_message(f"Error updating beacons: {e}")
             self.msleep(1000)  # 1 second delay
 
     def stop(self):  # Implement stop method

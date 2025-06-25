@@ -1,14 +1,14 @@
 import re
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QPlainTextEdit, QSizePolicy
 from PyQt6.QtGui import QFont
-from database import AgentRepository
+from database import BeaconRepository
 from workers import CommandOutputMonitor
 from utils import FontManager
 
 class OutputDisplay(QWidget):
-    def __init__(self, agent_repository: AgentRepository):
+    def __init__(self, beacon_repository: BeaconRepository):
         super().__init__()
-        self.agent_repository = agent_repository
+        self.beacon_repository = beacon_repository
         self.current_agent_id = None
         self.output_monitor = None
         
@@ -55,9 +55,13 @@ class OutputDisplay(QWidget):
         # Start new monitor
         from config import ServerConfig
         config = ServerConfig()
-        self.output_monitor = CommandOutputMonitor(agent_id, self.agent_repository, config)
+        self.output_monitor = CommandOutputMonitor(agent_id, self.beacon_repository, config)
         self.output_monitor.output_received.connect(self.update_output)
         self.output_monitor.start()
+    
+    def set_beacon(self, beacon_id: str):
+        """Set the current beacon ID - delegates to set_agent for compatibility"""
+        self.set_agent(beacon_id)
 
     def update_output(self, text: str):
         """Update the display with new content, filtering out blank lines"""

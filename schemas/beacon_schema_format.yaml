@@ -1,12 +1,12 @@
-# Agent Module Schema Format Specification v1.1
-# This file defines the complete structure for agent-specific module schemas
+# Beacon Module Schema Format Specification v1.1
+# This file defines the complete structure for beacon-specific module schemas
 # Updated with lessons learned from implementing 22 Windows C2 modules
 
 schema_version: "1.1"
-agent_info:
-  agent_type: "string"          # Type identifier for the agent (e.g., "windows_beacon", "linux_beacon")
-  version: "string"             # Agent version (semantic versioning recommended)
-  description: "string"         # Agent description
+beacon_info:
+  beacon_type: "string"          # Type identifier for the beacon (e.g., "windows_beacon", "linux_beacon")
+  version: "string"             # Beacon version (semantic versioning recommended)
+  description: "string"         # Beacon description
   supported_platforms: []       # List of supported platforms ["windows", "linux", "macos"]
 
 # Module categories - organize modules by tactical purpose
@@ -77,7 +77,7 @@ categories:
 # - No parameters: "execute_module|ModuleName"
 # - Single parameter: "execute_module|ModuleName|{param}"
 # - Multiple parameters: "execute_module|ModuleName|{param1},{param2},{param3}"
-# - Custom format: "{command}" (for direct command execution)
+# - Custom format: "{command}" (for direct command execution) TODO: Make execution its own module
 
 # LAYOUT TYPES:
 # - "simple": Single grid layout (default) - suitable for 1-4 parameters
@@ -99,13 +99,6 @@ categories:
 # - "green": Recovery operations (decryption, restoration)
 # - "yellow": Warning/caution operations
 # - "blue": Information gathering operations
-
-# TIMEOUT RECOMMENDATIONS:
-# Based on 22-module analysis:
-# - Quick operations (registry, user management): 30-60 seconds
-# - Standard operations (most modules): 120-300 seconds
-# - Network operations (scanning, RDP): 600-1800 seconds
-# - File operations (encryption, large transfers): 1800+ seconds
 
 # CATEGORY ORGANIZATION:
 # Tactical categories based on MITRE ATT&CK framework:

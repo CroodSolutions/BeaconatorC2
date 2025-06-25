@@ -1,21 +1,21 @@
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QGroupBox, 
                             QLineEdit, QPushButton, QLabel, QMessageBox, QComboBox)
 from PyQt6.QtCore import pyqtSignal
-from database import AgentRepository
+from database import BeaconRepository
 from services import SchemaService
 from utils import FontManager
 
-class AgentSettingsWidget(QWidget):
+class BeaconSettingsWidget(QWidget):
     """Widget for managing beacon settings and lifecycle"""
     
     # Signal emitted when a schema is applied to a beacon
     schema_applied = pyqtSignal(str, str)  # agent_id, schema_file
     
-    def __init__(self, agent_repository: AgentRepository):
+    def __init__(self, beacon_repository: BeaconRepository):
         super().__init__()
-        self.agent_repository = agent_repository
+        self.beacon_repository = beacon_repository
         self.schema_service = SchemaService()
-        self.current_agent_id = None
+        self.current_beacon_id = None
         
         # Try to use FontManager, but don't fail if it's not available
         try:
@@ -104,20 +104,28 @@ class AgentSettingsWidget(QWidget):
         schema_group = QGroupBox("Beacon Schema")
         schema_layout = QVBoxLayout()
         
-        # Schema selection combo
+        # Schema selection with button in same row
         schema_select_layout = QHBoxLayout()
         schema_select_layout.addWidget(QLabel("Schema:"))
         self.schema_combo = QComboBox()
         self.schema_combo.setMinimumWidth(200)
+        self.schema_combo.setMinimumHeight(30)  # Ensure adequate height
+        # Ensure dropdown appears properly without conflicts
+        self.schema_combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToContents)
+        self.schema_combo.setMaxVisibleItems(10)  # Limit dropdown height
         schema_select_layout.addWidget(self.schema_combo)
-        schema_select_layout.addStretch()
         
-        # Apply button
-        apply_schema_btn = QPushButton("Apply Schema to Beacon")
+        # Apply button in same row to avoid dropdown overlap
+        apply_schema_btn = QPushButton("Apply")
+        apply_schema_btn.setMinimumWidth(80)
+        apply_schema_btn.setToolTip("Apply selected schema to this beacon")
         apply_schema_btn.clicked.connect(self.apply_schema)
+        schema_select_layout.addWidget(apply_schema_btn)
         
         schema_layout.addLayout(schema_select_layout)
-        schema_layout.addWidget(apply_schema_btn)
+        
+        # Add some spacing to prevent any layout issues
+        schema_layout.addSpacing(10)
         schema_group.setLayout(schema_layout)
 
         # Add sections to main layout
@@ -154,7 +162,7 @@ class AgentSettingsWidget(QWidget):
     
     def apply_schema(self):
         """Apply selected schema to the current beacon"""
-        if not self.current_agent_id:
+        if not self.current_beacon_id:
             QMessageBox.warning(self, "Warning", "No beacon selected!")
             return
         
@@ -163,44 +171,44 @@ class AgentSettingsWidget(QWidget):
         try:
             if schema_file:
                 # Update beacon's schema in database
-                success = self.agent_repository.update_beacon_schema(self.current_agent_id, schema_file)
+                success = self.beacon_repository.update_beacon_schema(self.current_beacon_id, schema_file)
                 if success:
                     # Emit signal to notify other widgets about the schema change
-                    self.schema_applied.emit(self.current_agent_id, schema_file)
+                    self.schema_applied.emit(self.current_beacon_id, schema_file)
                     QMessageBox.information(
                         self,
                         "Success",
-                        f"Schema '{schema_file}' applied to beacon {self.current_agent_id}"
+                        f"Schema '{schema_file}' applied to beacon {self.current_beacon_id}"
                     )
                 else:
                     QMessageBox.warning(
                         self,
                         "Error",
-                        f"Failed to apply schema to beacon {self.current_agent_id}"
+                        f"Failed to apply schema to beacon {self.current_beacon_id}"
                     )
             else:
                 # Remove schema association
-                success = self.agent_repository.update_beacon_schema(self.current_agent_id, None)
+                success = self.beacon_repository.update_beacon_schema(self.current_beacon_id, None)
                 if success:
                     # Emit signal to notify other widgets about the schema removal
-                    self.schema_applied.emit(self.current_agent_id, "")
+                    self.schema_applied.emit(self.current_beacon_id, "")
                     QMessageBox.information(
                         self,
                         "Success",
-                        f"Schema removed from beacon {self.current_agent_id}"
+                        f"Schema removed from beacon {self.current_beacon_id}"
                     )
                 else:
                     QMessageBox.warning(
                         self,
                         "Error",
-                        f"Failed to remove schema from beacon {self.current_agent_id}"
+                        f"Failed to remove schema from beacon {self.current_beacon_id}"
                     )
         except Exception as e:
             QMessageBox.warning(self, "Error", f"Schema update error: {str(e)}")
 
     def send_UpdateCheckIn(self):
         """Update beacon check-in interval"""
-        if not self.current_agent_id:
+        if not self.current_beacon_id:
             QMessageBox.warning(self, "Warning", "No beacon selected!")
             return
 
@@ -209,11 +217,11 @@ class AgentSettingsWidget(QWidget):
 
             command = f"execute_module|UpdateCheckIn|{interval}"
 
-            self.agent_repository.update_agent_command(self.current_agent_id, command)
+            self.beacon_repository.update_beacon_command(self.current_beacon_id, command)
             QMessageBox.information(
                 self,
                 "Success",
-                f"Check-in interval update scheduled for beacon {self.current_agent_id}"
+                f"Check-in interval update scheduled for beacon {self.current_beacon_id}"
             )
             self.interval_input.clear()
         except ValueError:
@@ -223,70 +231,70 @@ class AgentSettingsWidget(QWidget):
 
     def shutdown_agent(self):
         """Shutdown the selected beacon"""
-        if not self.current_agent_id:
+        if not self.current_beacon_id:
             QMessageBox.warning(self, "Warning", "No beacon selected!")
             return
 
         reply = QMessageBox.question(
             self,
             "Confirm Shutdown",
-            f"Are you sure you want to shutdown beacon {self.current_agent_id}?",
+            f"Are you sure you want to shutdown beacon {self.current_beacon_id}?",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
         )
         
         if reply == QMessageBox.StandardButton.Yes:
             try:
                 # Placeholder for actual implementation
-                self.agent_repository.update_agent_command(
-                    self.current_agent_id,
+                self.beacon_repository.update_beacon_command(
+                    self.current_beacon_id,
                     "shutdown"
                 )
                 QMessageBox.information(
                     self,
                     "Success",
-                    f"Shutdown command sent to beacon {self.current_agent_id}"
+                    f"Shutdown command sent to beacon {self.current_beacon_id}"
                 )
             except Exception as e:
                 QMessageBox.warning(self, "Error", f"Shutdown error: {str(e)}")
 
     def delete_agent(self):
         """Delete the selected beacon"""
-        if not self.current_agent_id:
+        if not self.current_beacon_id:
             QMessageBox.warning(self, "Warning", "No beacon selected!")
             return
 
         reply = QMessageBox.question(
             self,
             "Confirm Delete",
-            f"Are you sure you want to delete beacon {self.current_agent_id}?\nThis action cannot be undone.",
+            f"Are you sure you want to delete beacon {self.current_beacon_id}?\nThis action cannot be undone.",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
         )
         
         if reply == QMessageBox.StandardButton.Yes:
             try:
-                if self.agent_repository.delete_agent(self.current_agent_id):
+                if self.beacon_repository.delete_beacon(self.current_beacon_id):
                     QMessageBox.information(
                         self,
                         "Success",
-                        f"Beacon {self.current_agent_id} has been deleted"
+                        f"Beacon {self.current_beacon_id} has been deleted"
                     )
                 else:
                     QMessageBox.warning(
                         self,
                         "Error",
-                        f"Beacon {self.current_agent_id} not found"
+                        f"Beacon {self.current_beacon_id} not found"
                     )
             except Exception as e:
                 QMessageBox.warning(self, "Error", f"Delete error: {str(e)}")
 
-    def set_agent(self, agent_id: str):
+    def set_beacon(self, beacon_id: str):
         """Set the current beacon ID and load its associated schema"""
-        self.current_agent_id = agent_id
+        self.current_beacon_id = beacon_id
         
         # Load beacon's current schema if available
-        if agent_id:
+        if beacon_id:
             try:
-                current_schema = self.agent_repository.get_beacon_schema(agent_id)
+                current_schema = self.beacon_repository.get_beacon_schema(beacon_id)
                 if current_schema:
                     index = self.schema_combo.findData(current_schema)
                     if index >= 0:
@@ -301,3 +309,8 @@ class AgentSettingsWidget(QWidget):
             except Exception as e:
                 # Handle error silently, just default to no selection
                 self.schema_combo.setCurrentIndex(0)
+    
+    # Compatibility method for existing code
+    def set_agent(self, agent_id: str):
+        """Compatibility method - delegates to set_beacon"""
+        self.set_beacon(agent_id)

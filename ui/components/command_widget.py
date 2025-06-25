@@ -13,7 +13,7 @@ from PyQt6.QtGui import QFont, QIcon
 from PyQt6.QtWidgets import QStyle
 from typing import Dict, Any, Optional, List, Tuple
 
-from database import AgentRepository
+from database import BeaconRepository
 from services import SchemaService, AgentSchema, Module, Category, ParameterType
 from utils import FontManager
 import utils
@@ -160,10 +160,10 @@ class ParameterWidget:
 
 class ModuleInterface(QWidget):
     """Interface for a single module"""
-    def __init__(self, module: Module, agent_repository: AgentRepository, module_yaml_data: dict = None, parent=None):
+    def __init__(self, module: Module, beacon_repository: BeaconRepository, module_yaml_data: dict = None, parent=None):
         super().__init__(parent)
         self.module = module
-        self.agent_repository = agent_repository
+        self.beacon_repository = beacon_repository
         self.module_yaml_data = module_yaml_data or {}
         self.parameter_widgets: Dict[str, ParameterWidget] = {}
         self.current_agent_id = None
@@ -203,6 +203,7 @@ class ModuleInterface(QWidget):
         
         # Execution button
         execute_btn = QPushButton("Execute")
+        execute_btn.setIcon(QIcon("resources/bolt.svg"))
         execute_btn.clicked.connect(self.execute_module)
         layout.addWidget(execute_btn)
         
@@ -330,11 +331,7 @@ class ModuleInterface(QWidget):
             command = self.module.format_command(parameter_values)
             
             # Send command to agent via repository
-            self.agent_repository.update_agent_command(self.current_agent_id, command)
-            
-            # Log the command execution
-            if utils.logger:
-                utils.logger.log_message(f"Command sent to {self.current_agent_id}: {command}")
+            self.beacon_repository.update_beacon_command(self.current_agent_id, command)            
             
             # Show success message with a tooltip-style notification
             self.show_success_notification(f"Module '{self.module.display_name}' queued for agent {self.current_agent_id}")
@@ -374,9 +371,9 @@ class ModuleInterface(QWidget):
 class CommandWidget(QWidget):
     """Dynamic command widget that generates UI from schemas"""
     
-    def __init__(self, agent_repository: AgentRepository, doc_panel: DocumentationPanel = None):
+    def __init__(self, beacon_repository: BeaconRepository, doc_panel: DocumentationPanel = None):
         super().__init__()
-        self.agent_repository = agent_repository
+        self.beacon_repository = beacon_repository
         self.doc_panel = doc_panel
         self.current_agent_id = None
         self.schema_service = SchemaService()
@@ -418,7 +415,7 @@ class CommandWidget(QWidget):
         content_splitter.setStretchFactor(1, 1)  # Module area gets most stretch
         
         # Output display
-        self.output_display = OutputDisplay(self.agent_repository)
+        self.output_display = OutputDisplay(self.beacon_repository)
         self.output_display.setMinimumHeight(250)
         
         # Create vertical splitter for content and output
@@ -501,7 +498,7 @@ class CommandWidget(QWidget):
                 module_yaml_data = self.get_module_yaml_data(cat_name, mod_name)
                 
                 # Create module interface
-                module_interface = ModuleInterface(module, self.agent_repository, module_yaml_data, self)
+                module_interface = ModuleInterface(module, self.beacon_repository, module_yaml_data, self)
                 
                 # Set current agent if one is already selected
                 if self.current_agent_id:
@@ -586,7 +583,7 @@ class CommandWidget(QWidget):
         if agent_id:
             
             # Get beacon's associated schema
-            schema_file = self.agent_repository.get_beacon_schema(agent_id)
+            schema_file = self.beacon_repository.get_beacon_schema(agent_id)
             
             if schema_file:
                 # Load the beacon's schema
@@ -597,6 +594,10 @@ class CommandWidget(QWidget):
             else:
                 # No schema associated with this beacon
                 self.show_no_schema_message(agent_id)
+    
+    def set_beacon(self, beacon_id: str):
+        """Set the current beacon ID - delegates to set_agent for compatibility"""
+        self.set_agent(beacon_id)
 
     def on_schema_applied(self, agent_id: str, schema_file: str):
         """Handle schema being applied to a beacon"""

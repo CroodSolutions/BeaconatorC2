@@ -2,7 +2,7 @@ import threading
 import time
 from socketserver import ThreadingTCPServer, BaseRequestHandler
 from config import ServerConfig
-from database import AgentRepository
+from database import BeaconRepository
 from .command_processor import CommandProcessor
 from .file_transfer import FileTransferService
 from .module_handler import ModuleHandler
@@ -11,12 +11,12 @@ import utils
 
 class ServerManager:
     """Manages server lifecycle and coordination"""
-    def __init__(self, config: ServerConfig, agent_repository: AgentRepository):
+    def __init__(self, config: ServerConfig, beacon_repository: BeaconRepository):
         self.config = config
-        self.agent_repository = agent_repository
-        self.command_processor = CommandProcessor(agent_repository)
+        self.beacon_repository = beacon_repository
+        self.command_processor = CommandProcessor(beacon_repository)
         self.file_transfer_service = FileTransferService()
-        self.module_handler = ModuleHandler(agent_repository)
+        self.module_handler = ModuleHandler(beacon_repository)
         self.connection_handler = ConnectionHandler(
             self.command_processor,
             self.file_transfer_service,
@@ -38,9 +38,9 @@ class ServerManager:
         )
         self.server_thread.start()
         
-        # Start agent status monitor
+        # Start beacon status monitor
         monitor_thread = threading.Thread(
-            target=self._monitor_agent_status,
+            target=self._monitor_beacon_status,
             daemon=True,
             name="StatusMonitorThread"
         )
@@ -84,11 +84,11 @@ class ServerManager:
         finally:
             utils.logger.log_message("Server thread stopping")
 
-    def _monitor_agent_status(self):
-        """Monitor and update agent status"""
+    def _monitor_beacon_status(self):
+        """Monitor and update beacon status"""
         while not self._shutdown.is_set():
             try:
-                self.agent_repository.mark_timed_out_agents(
+                self.beacon_repository.mark_timed_out_beacons(
                     self.config.AGENT_TIMEOUT_MINUTES
                 )
             except Exception as e:

