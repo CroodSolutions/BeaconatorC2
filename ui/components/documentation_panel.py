@@ -1,20 +1,23 @@
 import re
-from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QTextEdit, QFrame, QApplication)
+import yaml
+from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QTextEdit, QFrame, QApplication, QSplitter)
 from PyQt6.QtCore import Qt, QPropertyAnimation
 from PyQt6.QtGui import (QColor, QFont, QTextCursor, QTextCharFormat, 
                         QTextBlockFormat, QFontDatabase)
 from utils import DocumentationManager, FontManager
 
 class DocumentationPanel(QWidget):
-    def __init__(self, doc_manager: DocumentationManager):
+    def __init__(self, doc_manager: DocumentationManager, command_widget=None):
         super().__init__()
         self.doc_manager = doc_manager
+        self.command_widget = command_widget  # Reference to command widget for visibility updates
         self.expanded = False
         self.min_width = 0
         self.default_width = 500
         self.max_width = 900
         self.current_width = self.default_width
         self.resize_active = False
+        self.current_module = None  # Track currently displayed module
         
         # Try to use FontManager, but don't fail if it's not available
         try:
@@ -40,6 +43,10 @@ class DocumentationPanel(QWidget):
         layout = QVBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
         
+        # Create splitter for documentation and YAML sections
+        self.content_splitter = QSplitter(Qt.Orientation.Vertical)
+        
+        # Documentation view (read-only)
         self.doc_view = QTextEdit()
         self.doc_view.setReadOnly(True)
         self.doc_view.setStyleSheet("""
@@ -48,6 +55,24 @@ class DocumentationPanel(QWidget):
                 border: none;
             }
         """)
+        
+        # YAML editor (editable)
+        self.yaml_editor = QTextEdit()
+        self.yaml_editor.setPlaceholderText("Module YAML content will appear here...")
+        self.yaml_editor.setStyleSheet("""
+            QTextEdit {
+                background-color: #1e1e1e;
+                border: 1px solid #404040;
+                color: #f8f8f2;
+                font-family: 'Consolas', 'Monaco', monospace;
+                font-size: 11px;
+            }
+        """)
+        
+        # Add both to splitter
+        self.content_splitter.addWidget(self.doc_view)
+        self.content_splitter.addWidget(self.yaml_editor)
+        self.content_splitter.setSizes([300, 200])  # Documentation gets more space initially
         
         # Add resize handle area with visual indicator
         self.resize_area = QWidget()
@@ -94,7 +119,7 @@ class DocumentationPanel(QWidget):
         container = QHBoxLayout()
         container.setContentsMargins(0, 0, 0, 0)
         container.setSpacing(0)
-        container.addWidget(self.doc_view)
+        container.addWidget(self.content_splitter)
         container.addWidget(self.resize_area)
         
         layout.addLayout(container)
@@ -310,6 +335,61 @@ class DocumentationPanel(QWidget):
         content = self.doc_manager.get_section(section_name)
         self.convert_markdown_to_rich_text(content)
         self.doc_view.verticalScrollBar().setValue(0)
+    
+    def set_module_documentation(self, module, module_yaml_data: dict):
+        """Display module documentation and YAML content"""
+        # Track the currently displayed module
+        self.current_module = module
+        
+        # Format documentation section
+        doc_content = f"#### {module.display_name}\n\n"
+        
+        if module.documentation.content:
+            doc_content += f"\n\n{module.documentation.content}\n\n"
+        else:
+            doc_content += f"**Description:** {module.description}\n\n"
+        
+        if module.documentation.examples:
+            doc_content += "##### Examples\n\n"
+            for example in module.documentation.examples:
+                doc_content += f"- {example}\n"
+            doc_content += "\n"
+        
+        if module.execution.requires_admin:
+            doc_content += "⚠️ **Requires Administrator Privileges**\n\n"
+        
+        doc_content += f"**Timeout:** {module.execution.timeout} seconds\n\n"
+        
+        if module.parameters:
+            doc_content += "##### Parameters\n\n"
+            for param_name, param in module.parameters.items():
+                required_text = "**Required**" if param.required else "Optional"
+                doc_content += f"- **{param.display_name}** ({param.type.value}) - {required_text}\n"
+                doc_content += f"  {param.description}\n"
+                if param.default is not None:
+                    doc_content += f"  Default: `{param.default}`\n"
+                doc_content += "\n"
+        
+        # Display the formatted documentation
+        self.convert_markdown_to_rich_text(doc_content)
+        self.doc_view.verticalScrollBar().setValue(0)
+        
+        # Display the YAML content in the editor
+        try:
+            yaml_content = yaml.dump(module_yaml_data, default_flow_style=False, indent=2, sort_keys=False)
+            self.yaml_editor.setPlainText(yaml_content)
+        except Exception as e:
+            self.yaml_editor.setPlainText(f"Error displaying YAML: {e}")
+    
+    def get_yaml_content(self) -> str:
+        """Get the current YAML content from the editor"""
+        return self.yaml_editor.toPlainText()
+    
+    def clear_content(self):
+        """Clear both documentation and YAML content"""
+        self.doc_view.clear()
+        self.yaml_editor.clear()
+        self.current_module = None
         
     def start_resize(self, event):
         if self.expanded:
@@ -355,15 +435,31 @@ class DocumentationPanel(QWidget):
     def handle_animation_finished(self):
         if not self.expanded:
             self.hide()
+            # Clear current module when panel is hidden
+            self.current_module = None
+        # Notify command widget of visibility change
+        if self.command_widget:
+            self.command_widget.update_documentation_visibility()
     
     def show_panel(self):
         self.show()
         if not self.expanded:
             self.toggle_panel()
+        # Notify command widget of visibility change
+        if self.command_widget:
+            self.command_widget.update_documentation_visibility()
             
     def hide_panel(self):
         if self.expanded:
             self.toggle_panel()
+    
+    def is_visible(self):
+        """Check if the panel is currently expanded/visible"""
+        return self.expanded
+    
+    def is_showing_module(self, module):
+        """Check if the panel is currently showing documentation for the specified module"""
+        return self.expanded and self.current_module == module
 
     def resizeEvent(self, event):
         super().resizeEvent(event)

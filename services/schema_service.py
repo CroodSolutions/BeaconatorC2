@@ -82,7 +82,6 @@ class ModuleExecution:
 @dataclass
 class ModuleUI:
     """Module UI customization"""
-    icon: str = "gear"
     color: str = "default"
     layout: str = "simple"  # simple, advanced, tabbed
     grouping: List[List[str]] = field(default_factory=list)
@@ -277,7 +276,6 @@ class SchemaService:
         # Parse UI settings
         ui_data = mod_data.get('ui', {})
         ui = ModuleUI(
-            icon=ui_data.get('icon', 'gear'),
             color=ui_data.get('color', 'default'),
             layout=ui_data.get('layout', 'simple'),
             grouping=ui_data.get('grouping', [])

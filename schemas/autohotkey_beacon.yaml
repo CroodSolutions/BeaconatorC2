@@ -37,7 +37,6 @@ categories:
           timeout: 300
           requires_admin: false
         ui:
-          icon: "terminal"
           layout: "simple"
 
       winget_ps_execution:
@@ -68,7 +67,6 @@ categories:
           timeout: 600
           requires_admin: false
         ui:
-          icon: "powershell"
           layout: "advanced"
 
   discovery:
@@ -87,7 +85,6 @@ categories:
           timeout: 120
           requires_admin: false
         ui:
-          icon: "search"
           layout: "simple"
 
       discover_pii:
@@ -121,7 +118,6 @@ categories:
           timeout: 600
           requires_admin: false
         ui:
-          icon: "shield"
           layout: "simple"
           grouping:
             - ["directory_path"]
@@ -139,7 +135,6 @@ categories:
           timeout: 120
           requires_admin: false
         ui:
-          icon: "server"
           layout: "simple"
 
       domain_trusts:
@@ -154,7 +149,6 @@ categories:
           timeout: 120
           requires_admin: false
         ui:
-          icon: "link"
           layout: "simple"
 
       domain_admins:
@@ -169,7 +163,6 @@ categories:
           timeout: 120
           requires_admin: false
         ui:
-          icon: "crown"
           layout: "simple"
 
       unconstrained_delegation:
@@ -184,7 +177,6 @@ categories:
           timeout: 120
           requires_admin: false
         ui:
-          icon: "warning"
           layout: "simple"
 
       active_user_membership:
@@ -199,7 +191,6 @@ categories:
           timeout: 120
           requires_admin: false
         ui:
-          icon: "users"
           layout: "simple"
 
       port_scanner:
@@ -249,7 +240,6 @@ categories:
           timeout: 1800
           requires_admin: false
         ui:
-          icon: "network"
           layout: "advanced"
           grouping:
             - ["target_ips", "ports"]
@@ -281,7 +271,6 @@ categories:
           timeout: 300
           requires_admin: true
         ui:
-          icon: "firewall"
           layout: "simple"
 
       host_file_url_block:
@@ -307,7 +296,6 @@ categories:
           timeout: 120
           requires_admin: true
         ui:
-          icon: "block"
           layout: "simple"
 
       unhook_ntdll:
@@ -322,7 +310,6 @@ categories:
           timeout: 60
           requires_admin: false
         ui:
-          icon: "unlink"
           layout: "simple"
 
   privilege_escalation:
@@ -352,7 +339,6 @@ categories:
           timeout: 300
           requires_admin: false
         ui:
-          icon: "key"
           layout: "simple"
 
       run_as_user:
@@ -389,7 +375,6 @@ categories:
           timeout: 300
           requires_admin: true
         ui:
-          icon: "user"
           layout: "simple"
           grouping:
             - ["username", "password"]
@@ -431,7 +416,6 @@ categories:
           timeout: 60
           requires_admin: true
         ui:
-          icon: "user-plus"
           layout: "simple"
 
       add_startup_to_registry:
@@ -457,7 +441,6 @@ categories:
           timeout: 30
           requires_admin: false
         ui:
-          icon: "registry"
           layout: "simple"
 
       add_scheduled_task:
@@ -500,7 +483,6 @@ categories:
           timeout: 60
           requires_admin: false
         ui:
-          icon: "clock"
           layout: "simple"
           grouping:
             - ["task_name", "action"]
@@ -550,7 +532,6 @@ categories:
           timeout: 1800
           requires_admin: false
         ui:
-          icon: "package"
           layout: "simple"
           grouping:
             - ["download_url"]
@@ -613,7 +594,6 @@ categories:
           timeout: 600
           requires_admin: false
         ui:
-          icon: "remote-desktop"
           layout: "advanced"
           grouping:
             - ["hostname", "username", "password"]
@@ -657,7 +637,6 @@ categories:
           timeout: 1800
           requires_admin: false
         ui:
-          icon: "lock"
           layout: "advanced"
           color: "red"
           grouping:
@@ -694,6 +673,5 @@ categories:
           timeout: 1800
           requires_admin: false
         ui:
-          icon: "unlock"
           layout: "simple"
           color: "green"

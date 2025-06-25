@@ -54,7 +54,6 @@ categories:
           
         # UI customization and layout
         ui:
-          icon: "string"        # Icon identifier (see ICON REFERENCE below)
           color: "string"       # Color theme: default, red, green, yellow, blue
           layout: "string"      # Layout type: simple, advanced, tabbed
           grouping: []          # Parameter grouping for complex layouts (array of arrays)
@@ -79,7 +78,6 @@ categories:
 # - Single parameter: "execute_module|ModuleName|{param}"
 # - Multiple parameters: "execute_module|ModuleName|{param1},{param2},{param3}"
 # - Custom format: "{command}" (for direct command execution)
-# - Complex format: "execute_module|ModuleName|{url},{path},{dir}" (Install MSI)
 
 # LAYOUT TYPES:
 # - "simple": Single grid layout (default) - suitable for 1-4 parameters
@@ -92,36 +90,8 @@ categories:
 # - Each inner array becomes a group/tab
 # - Parameters not in any group are placed in default group
 
-# ICON REFERENCE:
-# Common icons used in 22-module implementation:
-# - "terminal": Command execution, basic operations
-# - "powershell": PowerShell/scripting modules
-# - "search": Discovery and reconnaissance
-# - "shield": Security/PII detection
-# - "server": Domain controllers, infrastructure
-# - "link": Trust relationships, connections
-# - "crown": Administrative/privileged operations
-# - "warning": Security warnings, delegation issues
-# - "users": User membership, groups
-# - "network": Network scanning, connectivity
-# - "firewall": Firewall and traffic control
-# - "block": Blocking and denial operations
-# - "unlink": Unhooking, evasion techniques
-# - "key": Privilege escalation, UAC bypass
-# - "user": User operations, impersonation
-# - "user-plus": User creation, addition
-# - "registry": Registry operations
-# - "clock": Scheduled operations, timing
-# - "package": Software installation, MSI
-# - "remote-desktop": RDP connections
-# - "lock": Encryption operations
-# - "unlock": Decryption operations
-
-# VALIDATION PATTERNS:
-# Common regex patterns from implementation:
-# - Windows paths: "^[A-Za-z]:\\\\.*"
-# - IP addresses: "^[0-9.,\\-/\\s]+$"
-# - Alphanumeric usernames: "^[a-zA-Z0-9_]+$"
+# UI CUSTOMIZATION:
+# Layout and visual customization options for modules
 
 # COLOR THEMES:
 # - "default": Standard module appearance

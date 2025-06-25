@@ -160,12 +160,14 @@ class ParameterWidget:
 
 class ModuleInterface(QWidget):
     """Interface for a single module"""
-    def __init__(self, module: Module, agent_repository: AgentRepository, parent=None):
+    def __init__(self, module: Module, agent_repository: AgentRepository, module_yaml_data: dict = None, parent=None):
         super().__init__(parent)
         self.module = module
         self.agent_repository = agent_repository
+        self.module_yaml_data = module_yaml_data or {}
         self.parameter_widgets: Dict[str, ParameterWidget] = {}
         self.current_agent_id = None
+        self.parent_widget = parent  # Store reference to parent CommandWidget
         self.setup_ui()
     
     def set_agent(self, agent_id: str):
@@ -205,10 +207,10 @@ class ModuleInterface(QWidget):
         layout.addWidget(execute_btn)
         
         # Documentation button (if available)
-        if self.module.documentation.content:
+        if self.module.documentation.content or self.module.parameters:
             docs_btn = QPushButton("Show Documentation")
             docs_btn.setIcon(QIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_FileDialogDetailedView)))
-            # TODO: Connect to documentation panel
+            docs_btn.clicked.connect(self.show_documentation)
             layout.addWidget(docs_btn)
         
         layout.addStretch()
@@ -352,6 +354,22 @@ class ModuleInterface(QWidget):
         msg.setText(message)
         msg.setStandardButtons(QMessageBox.StandardButton.Ok)
         msg.exec()
+    
+    def show_documentation(self):
+        """Show module documentation in the documentation panel or toggle it closed if already showing this module"""
+        if hasattr(self.parent_widget, 'doc_panel') and self.parent_widget.doc_panel:
+            doc_panel = self.parent_widget.doc_panel
+            
+            # Check if the panel is currently showing this exact module
+            if doc_panel.is_showing_module(self.module):
+                # Same module is displayed, toggle panel closed
+                doc_panel.toggle_panel()
+            else:
+                # Different module or panel is closed, show documentation
+                doc_panel.set_module_documentation(self.module, self.module_yaml_data)
+                doc_panel.show_panel()
+                # Track that documentation panel is now visible
+                self.parent_widget.documentation_visible = True
 
 class CommandWidget(QWidget):
     """Dynamic command widget that generates UI from schemas"""
@@ -363,6 +381,7 @@ class CommandWidget(QWidget):
         self.current_agent_id = None
         self.schema_service = SchemaService()
         self.current_schema: Optional[AgentSchema] = None
+        self.documentation_visible = False  # Track if documentation panel is currently shown
         
         FontManager().add_relative_font_widget(self, 0)
         self.setup_ui()
@@ -400,7 +419,7 @@ class CommandWidget(QWidget):
         
         # Output display
         self.output_display = OutputDisplay(self.agent_repository)
-        self.output_display.setMinimumHeight(150)
+        self.output_display.setMinimumHeight(250)
         
         # Create vertical splitter for content and output
         main_splitter = QSplitter(Qt.Orientation.Vertical)
@@ -478,8 +497,11 @@ class CommandWidget(QWidget):
                 mod_item.setData(0, Qt.ItemDataRole.UserRole, ("module", cat_name, mod_name))
                 cat_item.addChild(mod_item)
                 
+                # Get the module YAML data for documentation
+                module_yaml_data = self.get_module_yaml_data(cat_name, mod_name)
+                
                 # Create module interface
-                module_interface = ModuleInterface(module, self.agent_repository, self)
+                module_interface = ModuleInterface(module, self.agent_repository, module_yaml_data, self)
                 
                 # Set current agent if one is already selected
                 if self.current_agent_id:
@@ -489,11 +511,46 @@ class CommandWidget(QWidget):
                 self.module_interfaces[(cat_name, mod_name)] = module_interface
             
             self.nav_tree.addTopLevelItem(cat_item)
-        
-        # Force a repaint and expansion of the tree
 
         self.nav_tree.update()
         self.nav_tree.repaint()
+    
+    def get_module_yaml_data(self, category_name: str, module_name: str) -> dict:
+        """Extract the YAML data for a specific module from the loaded schema"""
+        try:
+            # Get the schema file path that was loaded
+            schema_file = None
+            for file, schema in self.schema_service.loaded_schemas.items():
+                if schema == self.current_schema:
+                    schema_file = file
+                    break
+            
+            if not schema_file:
+                return {}
+            
+            # Re-read the YAML file to get the raw data
+            schema_path = self.schema_service.schemas_directory / schema_file
+            if schema_path.exists():
+                import yaml
+                with open(schema_path, 'r', encoding='utf-8') as file:
+                    data = yaml.safe_load(file)
+                
+                # Extract the specific module data
+                categories_data = data.get('categories', {})
+                category_data = categories_data.get(category_name, {})
+                modules_data = category_data.get('modules', {})
+                module_data = modules_data.get(module_name, {})
+                
+                return module_data
+        except Exception as e:
+            print(f"Error loading module YAML data: {e}")
+        
+        return {}
+    
+    def update_documentation_visibility(self):
+        """Update the documentation visibility state based on panel state"""
+        if self.doc_panel:
+            self.documentation_visible = self.doc_panel.is_visible()
 
     
     def on_nav_changed(self, current, previous):
@@ -512,6 +569,11 @@ class CommandWidget(QWidget):
                 index = self.module_stack.indexOf(interface)
                 if index >= 0:
                     self.module_stack.setCurrentIndex(index)
+                    
+                    # If documentation panel is currently visible, update it with the new module
+                    if self.documentation_visible and self.doc_panel:
+                        module_yaml_data = self.get_module_yaml_data(cat_name, mod_name)
+                        self.doc_panel.set_module_documentation(interface.module, module_yaml_data)
     
     def set_agent(self, agent_id: str):
         """Set the current beacon ID and load associated schema"""
