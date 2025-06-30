@@ -21,7 +21,6 @@ class MainWindow(QMainWindow):
         self.beacon_repository = server_manager.beacon_repository
         self.command_processor = server_manager.command_processor
         self.file_transfer_service = server_manager.file_transfer_service
-        self.module_handler = server_manager.module_handler
         self.config_manager = ConfigManager()
         self.beacon_update_worker = None
         
