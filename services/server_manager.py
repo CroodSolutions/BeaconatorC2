@@ -5,7 +5,6 @@ from config import ServerConfig
 from database import BeaconRepository
 from .command_processor import CommandProcessor
 from .file_transfer import FileTransferService
-from .module_handler import ModuleHandler
 from .connection_handler import ConnectionHandler
 import utils
 
@@ -16,7 +15,6 @@ class ServerManager:
         self.beacon_repository = beacon_repository
         self.command_processor = CommandProcessor(beacon_repository)
         self.file_transfer_service = FileTransferService()
-        self.module_handler = ModuleHandler(beacon_repository)
         self.connection_handler = ConnectionHandler(
             self.command_processor,
             self.file_transfer_service,

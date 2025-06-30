@@ -36,41 +36,6 @@ categories:
           requires_admin: false
         ui:
           layout: simple
-      winget_ps_execution:
-        display_name: WinGet PS Execution
-        description: Execute PowerShell scripts using WinGet module
-        command_template: execute_module|ExecuteWinGetPS
-        parameters:
-          script:
-            type: textarea
-            display_name: PowerShell Script
-            description: Enter PowerShell script to execute
-            required: true
-            default: '$logFile = "C:\\Temp\\log.txt";
-
-              $host = Get-Host;
-
-              Set-Content $logFile $host;
-
-              $proc = Get-ExecutionPolicy;
-
-              Add-Content $logFile -Value $proc;
-
-              '
-            validation:
-              min_length: 1
-              max_length: 32768
-        documentation:
-          content: Execute PowerShell scripts through the WinGet execution module.
-            Scripts are executed in the context of the beacon process.
-          examples:
-          - Get-Process | Select-Object Name, CPU
-          - Get-WmiObject -Class Win32_ComputerSystem
-        execution:
-          timeout: 600
-          requires_admin: false
-        ui:
-          layout: advanced
   discovery:
     display_name: Discovery
     description: Information gathering and reconnaissance modules
