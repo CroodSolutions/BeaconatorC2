@@ -3,6 +3,7 @@ from .documentation_manager import DocumentationManager
 from .font_manager import FontManager
 from .helpers import literal, literal_presenter, ensure_directories
 
+
 # Global logger instance - will be set during initialization
 logger = None
 

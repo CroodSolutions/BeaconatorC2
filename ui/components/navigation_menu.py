@@ -96,7 +96,7 @@ class NavigationMenu(QWidget):
         """
         self.setStyleSheet(base_style + style)
         
-    def toggle_menu(self):
+    def toggle_menu(self, checked=None):
         self.expanded = not self.expanded
         new_width = self.max_width if self.expanded else self.min_width
         

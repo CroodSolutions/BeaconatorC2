@@ -17,6 +17,11 @@ class BeaconSettingsWidget(QWidget):
         self.schema_service = SchemaService()
         self.current_beacon_id = None
         
+        # Schema cache shared with command widget to avoid duplicate queries
+        self._schema_cache = getattr(beacon_repository, '_schema_cache', {})
+        if not hasattr(beacon_repository, '_schema_cache'):
+            beacon_repository._schema_cache = self._schema_cache
+        
         # Try to use FontManager, but don't fail if it's not available
         try:
             FontManager().add_relative_font_widget(self, 0)
@@ -288,13 +293,21 @@ class BeaconSettingsWidget(QWidget):
                 QMessageBox.warning(self, "Error", f"Delete error: {str(e)}")
 
     def set_beacon(self, beacon_id: str):
-        """Set the current beacon ID and load its associated schema"""
+        """Set the current beacon ID and load its associated schema with caching"""
+        # Early exit if same beacon
+        if beacon_id == self.current_beacon_id:
+            return
+            
         self.current_beacon_id = beacon_id
         
         # Load beacon's current schema if available
         if beacon_id:
             try:
-                current_schema = self.beacon_repository.get_beacon_schema(beacon_id)
+                # Check cache first to avoid database query
+                current_schema = self._schema_cache.get(beacon_id)
+                if current_schema is None:  # Not in cache
+                    current_schema = self.beacon_repository.get_beacon_schema(beacon_id)
+                    self._schema_cache[beacon_id] = current_schema
                 if current_schema:
                     index = self.schema_combo.findData(current_schema)
                     if index >= 0:

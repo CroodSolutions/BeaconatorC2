@@ -1,8 +1,8 @@
 import sys
 from pathlib import Path
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
-                            QApplication, QSplitter, QStackedWidget, QStackedLayout, QTabWidget)
-from PyQt6.QtCore import Qt
+                            QApplication, QSplitter, QStackedWidget, QStackedLayout, QTabWidget, QLabel)
+from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QFont, QIcon, QFontDatabase
 
 from config import ConfigManager
@@ -24,6 +24,7 @@ class MainWindow(QMainWindow):
         self.module_handler = server_manager.module_handler
         self.config_manager = ConfigManager()
         self.beacon_update_worker = None
+        
         self.setup_ui()
         self.start_background_workers()
 
@@ -80,7 +81,7 @@ class MainWindow(QMainWindow):
         self.doc_manager = DocumentationManager()
         self.doc_panel = DocumentationPanel(self.doc_manager)
         self.doc_panel.hide()
-        self.doc_panel.set_content("Introduction")
+        self.doc_panel.set_content("--- Introduction ---")
         container_layout.addWidget(self.doc_panel)
 
         # Set layout for container
@@ -135,6 +136,8 @@ class MainWindow(QMainWindow):
         
         # Create and add tab widgets
         self.command_widget = CommandWidget(self.beacon_repository, self.doc_panel)
+        # Establish bidirectional reference between doc panel and command widget
+        self.doc_panel.command_widget = self.command_widget
         right_panel.addTab(self.command_widget, "Modules")
         
         self.file_transfer_widget = FileTransferWidget(self.beacon_repository)
@@ -203,12 +206,26 @@ class MainWindow(QMainWindow):
             self.doc_panel.hide_panel()
 
     def on_beacon_selected(self, beacon_id: str):
-        """Handle beacon selection"""
-        # Update all widgets that need to know about the selected beacon
-        self.command_widget.set_beacon(beacon_id)
+        """Handle beacon selection with optimized async updates"""
+        # Fast operations first (minimal delay)
         self.file_transfer_widget.set_beacon(beacon_id)
-        self.keylogger_display.set_beacon(beacon_id)
+        
+        # Defer heavy operations to next event loop cycle
+        # This prevents blocking the UI thread
+        QTimer.singleShot(0, lambda: self._update_beacon_widgets_async(beacon_id))
+    
+    def _update_beacon_widgets_async(self, beacon_id: str):
+        """Update heavy widgets asynchronously to avoid blocking selection"""
+        # Update widgets in order of priority/speed
+        
+        # 1. Command widget (needs schema but used most frequently)
+        self.command_widget.set_beacon(beacon_id)
+        
+        # 2. Settings widget (shares schema cache with command widget)
         self.beacon_settings_widget.set_beacon(beacon_id)
+        
+        # 3. Keylogger last (involves thread operations)
+        self.keylogger_display.set_beacon(beacon_id)
 
     def on_command_sent(self, beacon_id: str, command: str):
         """Handle command being sent to beacon"""

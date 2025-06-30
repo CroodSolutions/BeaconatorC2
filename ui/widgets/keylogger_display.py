@@ -2,6 +2,7 @@ import traceback
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPlainTextEdit, 
                             QPushButton, QMessageBox)
 from PyQt6.QtGui import QFont
+from PyQt6.QtCore import QTimer, QMetaObject, Qt
 from database import BeaconRepository
 from workers import KeyLoggerOutputMonitor
 from utils import FontManager
@@ -13,6 +14,12 @@ class KeyLoggerDisplay(QWidget):
         self.beacon_repository = beacon_repository
         self.current_agent_id = None
         self.output_monitor = None
+        
+        # Pending monitor change to avoid blocking UI
+        self._pending_agent_change = None
+        self._monitor_change_timer = QTimer()
+        self._monitor_change_timer.setSingleShot(True)
+        self._monitor_change_timer.timeout.connect(self._apply_pending_monitor_change)
         
         # Try to use FontManager, but don't fail if it's not available
         try:
@@ -79,19 +86,45 @@ class KeyLoggerDisplay(QWidget):
     def set_agent(self, agent_id: str):
         if agent_id == self.current_agent_id:
             return
-            
+        
+        # Don't block UI thread - defer monitor changes
+        self._pending_agent_change = agent_id
         self.current_agent_id = agent_id
+        
+        # Clear display immediately for responsiveness
         self.output_display.clear()
         
+        # Schedule monitor change for next event loop cycle
+        self._monitor_change_timer.start(1)  # 1ms delay
+    
+    def _apply_pending_monitor_change(self):
+        """Apply pending monitor change without blocking UI thread"""
+        agent_id = self._pending_agent_change
+        if agent_id is None:
+            return
+            
+        # Stop existing monitor (this can be slow)
         if self.output_monitor is not None:
             self.output_monitor.stop()
-            self.output_monitor.wait()
-        
+            # Use timer to wait for monitor stop without blocking
+            QTimer.singleShot(100, lambda: self._wait_for_monitor_stop())
+        else:
+            self._start_new_monitor(agent_id)
+    
+    def _wait_for_monitor_stop(self):
+        """Wait for monitor to stop and start new one"""
+        if self.output_monitor is not None:
+            self.output_monitor.wait()  # This is the blocking operation
+        self._start_new_monitor(self._pending_agent_change)
+    
+    def _start_new_monitor(self, agent_id: str):
+        """Start new monitor for agent"""
         from config import ServerConfig
         config = ServerConfig()
         self.output_monitor = KeyLoggerOutputMonitor(agent_id, self.beacon_repository, config)
         self.output_monitor.output_received.connect(self.update_output)
         self.output_monitor.start()
+        self._pending_agent_change = None
     
     def set_beacon(self, beacon_id: str):
         """Set the current beacon ID - delegates to set_agent for compatibility"""

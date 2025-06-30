@@ -1,5 +1,5 @@
 """
-Dynamic Command Widget - Schema-driven module interface
+Command Widget - Schema-driven module interface
 Generates UI dynamically based on agent module schemas
 """
 
@@ -160,7 +160,7 @@ class ParameterWidget:
 
 class ModuleInterface(QWidget):
     """Interface for a single module"""
-    def __init__(self, module: Module, beacon_repository: BeaconRepository, module_yaml_data: dict = None, parent=None):
+    def __init__(self, module: Module, beacon_repository: BeaconRepository, module_yaml_data: dict = None, parent=None, category_name: str = None, module_name: str = None):
         super().__init__(parent)
         self.module = module
         self.beacon_repository = beacon_repository
@@ -168,6 +168,8 @@ class ModuleInterface(QWidget):
         self.parameter_widgets: Dict[str, ParameterWidget] = {}
         self.current_agent_id = None
         self.parent_widget = parent  # Store reference to parent CommandWidget
+        self.category_name = category_name  # Store category name for documentation
+        self.module_name = module_name      # Store module name for documentation
         self.setup_ui()
     
     def set_agent(self, agent_id: str):
@@ -363,7 +365,8 @@ class ModuleInterface(QWidget):
                 doc_panel.toggle_panel()
             else:
                 # Different module or panel is closed, show documentation
-                doc_panel.set_module_documentation(self.module, self.module_yaml_data)
+                # Pass category and module names for Save & Apply functionality
+                doc_panel.set_module_documentation(self.module, self.module_yaml_data, self.category_name, self.module_name)
                 doc_panel.show_panel()
                 # Track that documentation panel is now visible
                 self.parent_widget.documentation_visible = True
@@ -379,6 +382,13 @@ class CommandWidget(QWidget):
         self.schema_service = SchemaService()
         self.current_schema: Optional[AgentSchema] = None
         self.documentation_visible = False  # Track if documentation panel is currently shown
+        
+        # Schema caching to avoid duplicate database queries
+        self._schema_cache: Dict[str, Optional[str]] = {}  # beacon_id -> schema_file
+        
+        # UI caching to avoid rebuilding navigation tree
+        self._loaded_schema_file: Optional[str] = None  # Currently loaded schema
+        self._ui_built_for_schema: Optional[str] = None  # Schema file for which UI is built
         
         FontManager().add_relative_font_widget(self, 0)
         self.setup_ui()
@@ -461,17 +471,33 @@ class CommandWidget(QWidget):
         message_widget.setLayout(message_layout)
         self.module_stack.addWidget(message_widget)
     
+
     def load_schema(self, schema_file: str):
         """Load and apply a schema"""
         try:
             self.current_schema = self.schema_service.load_schema(schema_file)
+            # Set schema_file attribute for caching
+            if self.current_schema:
+                self.current_schema.schema_file = schema_file
+            
             self.build_navigation_tree()
 
         except Exception as e:
             QMessageBox.warning(self, "Schema Error", f"Failed to load schema {schema_file}: {e}")
     
     def build_navigation_tree(self):
-        """Build the navigation tree from the current schema"""
+        """Build the navigation tree from the current schema with caching"""
+        # Check if UI is already built for this schema
+        schema_id = self._loaded_schema_file  # Use the loaded schema file instead
+
+        # Only cache hit if we have a real schema (not None) and it matches
+        if schema_id and schema_id == self._ui_built_for_schema and hasattr(self, 'module_interfaces'):
+            # UI already built for this actual schema, just update agent references
+            if self.current_agent_id and hasattr(self, 'module_interfaces'):
+                for interface in self.module_interfaces.values():
+                    interface.set_agent(self.current_agent_id)
+            return
+        
         self.nav_tree.clear()
         
         # Clear the stack widget by removing all widgets
@@ -479,12 +505,18 @@ class CommandWidget(QWidget):
             widget = self.module_stack.widget(0)
             self.module_stack.removeWidget(widget)
             widget.deleteLater()
-            
-        self.module_interfaces = {}
+        
+        # Mark that UI is built for this schema
+        self._ui_built_for_schema = schema_id
         
         if not self.current_schema:
+            # No schema - clear cache and return early (don't cache None state)
+            self.module_interfaces = {}
+            self.module_metadata = {} 
+            self._ui_built_for_schema = None  # Don't cache no-schema state
             return
         
+        # Build tree structure quickly without creating heavy module interfaces
         for cat_name, category in self.current_schema.categories.items():
             cat_item = QTreeWidgetItem([category.display_name])
             cat_item.setData(0, Qt.ItemDataRole.UserRole, ("category", cat_name))
@@ -493,54 +525,52 @@ class CommandWidget(QWidget):
                 mod_item = QTreeWidgetItem([module.display_name])
                 mod_item.setData(0, Qt.ItemDataRole.UserRole, ("module", cat_name, mod_name))
                 cat_item.addChild(mod_item)
-                
-                # Get the module YAML data for documentation
-                module_yaml_data = self.get_module_yaml_data(cat_name, mod_name)
-                
-                # Create module interface
-                module_interface = ModuleInterface(module, self.beacon_repository, module_yaml_data, self)
-                
-                # Set current agent if one is already selected
-                if self.current_agent_id:
-                    module_interface.set_agent(self.current_agent_id)
-                
-                self.module_stack.addWidget(module_interface)
-                self.module_interfaces[(cat_name, mod_name)] = module_interface
             
             self.nav_tree.addTopLevelItem(cat_item)
+        
+        # Initialize empty interfaces dict - interfaces will be created on-demand
+        if not hasattr(self, 'module_interfaces'):
+            self.module_interfaces = {}
+        else:
+            self.module_interfaces.clear()
+        
+        if not hasattr(self, 'module_metadata'):
+            self.module_metadata = {}
+        else:
+            self.module_metadata.clear()
+        
+        # Store module metadata for lazy interface creation
+        # We have current_schema at this point, so we can always store metadata
+        for cat_name, category in self.current_schema.categories.items():
+            for mod_name, module in category.modules.items():
+                # Get YAML data efficiently using the improved method
+                module_yaml_data = self.get_module_yaml_data(cat_name, mod_name)
+                self.module_metadata[(cat_name, mod_name)] = (module, module_yaml_data)
 
         self.nav_tree.update()
         self.nav_tree.repaint()
     
     def get_module_yaml_data(self, category_name: str, module_name: str) -> dict:
-        """Extract the YAML data for a specific module from the loaded schema"""
+        """Extract the YAML data for a specific module using efficient caching"""
         try:
-            # Get the schema file path that was loaded
+            # Get the schema file path - check current_schema first (available during build), then loaded file
             schema_file = None
-            for file, schema in self.schema_service.loaded_schemas.items():
-                if schema == self.current_schema:
-                    schema_file = file
-                    break
+            if self.current_schema and hasattr(self.current_schema, 'schema_file'):
+                schema_file = self.current_schema.schema_file
+            elif self._loaded_schema_file:
+                schema_file = self._loaded_schema_file
             
             if not schema_file:
+                print(f"Debug: No schema file available for {category_name}/{module_name}")
                 return {}
             
-            # Re-read the YAML file to get the raw data
-            schema_path = self.schema_service.schemas_directory / schema_file
-            if schema_path.exists():
-                import yaml
-                with open(schema_path, 'r', encoding='utf-8') as file:
-                    data = yaml.safe_load(file)
-                
-                # Extract the specific module data
-                categories_data = data.get('categories', {})
-                category_data = categories_data.get(category_name, {})
-                modules_data = category_data.get('modules', {})
-                module_data = modules_data.get(module_name, {})
-                
-                return module_data
+            # Use the schema service's efficient cached method
+            yaml_data = self.schema_service.get_module_yaml_data(schema_file, category_name, module_name)
+            print(f"Debug: YAML data for {category_name}/{module_name}: {len(str(yaml_data))} chars, keys: {list(yaml_data.keys()) if yaml_data else 'None'}")
+            return yaml_data
+            
         except Exception as e:
-            print(f"Error loading module YAML data: {e}")
+            print(f"Error loading module YAML data for {category_name}/{module_name}: {e}")
         
         return {}
     
@@ -551,7 +581,7 @@ class CommandWidget(QWidget):
 
     
     def on_nav_changed(self, current, previous):
-        """Handle navigation tree selection changes"""
+        """Handle navigation tree selection changes with lazy loading"""
         if not current:
             return
         
@@ -561,7 +591,22 @@ class CommandWidget(QWidget):
         
         if data[0] == "module":
             _, cat_name, mod_name = data
+            
+            # Check if interface already exists
             interface = self.module_interfaces.get((cat_name, mod_name))
+            if not interface:
+                # Create interface on-demand (lazy loading)
+                if (cat_name, mod_name) in self.module_metadata:
+                    module, module_yaml_data = self.module_metadata[(cat_name, mod_name)]
+                    interface = ModuleInterface(module, self.beacon_repository, module_yaml_data, self, cat_name, mod_name)
+                    
+                    # Set current agent if one is already selected
+                    if self.current_agent_id:
+                        interface.set_agent(self.current_agent_id)
+                    
+                    self.module_stack.addWidget(interface)
+                    self.module_interfaces[(cat_name, mod_name)] = interface
+            
             if interface:
                 index = self.module_stack.indexOf(interface)
                 if index >= 0:
@@ -569,11 +614,16 @@ class CommandWidget(QWidget):
                     
                     # If documentation panel is currently visible, update it with the new module
                     if self.documentation_visible and self.doc_panel:
-                        module_yaml_data = self.get_module_yaml_data(cat_name, mod_name)
-                        self.doc_panel.set_module_documentation(interface.module, module_yaml_data)
+                        if (cat_name, mod_name) in self.module_metadata:
+                            _, module_yaml_data = self.module_metadata[(cat_name, mod_name)]
+                            self.doc_panel.set_module_documentation(interface.module, module_yaml_data, cat_name, mod_name)
     
-    def set_agent(self, agent_id: str):
-        """Set the current beacon ID and load associated schema"""
+    def set_agent(self, agent_id: str, force_reload: bool = False):
+        """Set the current beacon ID and load associated schema with caching"""
+        # Early exit if same agent (unless force_reload is True)
+        if agent_id == self.current_agent_id and not force_reload:
+            return
+            
         self.current_agent_id = agent_id
         
         # Update output display
@@ -581,23 +631,35 @@ class CommandWidget(QWidget):
             self.output_display.set_agent(agent_id)
         
         if agent_id:
-            
-            # Get beacon's associated schema
-            schema_file = self.beacon_repository.get_beacon_schema(agent_id)
+            # Check cache first to avoid database query
+            schema_file = self._schema_cache.get(agent_id)
+            if schema_file is None:  # Not in cache
+                schema_file = self.beacon_repository.get_beacon_schema(agent_id)
+                self._schema_cache[agent_id] = schema_file
             
             if schema_file:
-                # Load the beacon's schema
-                try:
-                    self.load_schema(schema_file)
-                except Exception as e:
-                    self.show_schema_error(f"Failed to load beacon schema: {schema_file}")
+                # Only load schema if different from currently loaded one (unless force_reload is True)
+                if schema_file != self._loaded_schema_file or force_reload:
+                    try:
+                        self.load_schema(schema_file)
+                        self._loaded_schema_file = schema_file
+                    except Exception as e:
+                        self.show_schema_error(f"Failed to load beacon schema: {schema_file}")
+                else:
+                    # Same schema already loaded, just update agent references
+                    if hasattr(self, 'module_interfaces'):
+                        for interface in self.module_interfaces.values():
+                            interface.set_agent(agent_id)
             else:
-                # No schema associated with this beacon
+                # No schema associated with this beacon - always clear and show message
+                self._loaded_schema_file = None
+                self._ui_built_for_schema = None
+                self.current_schema = None
                 self.show_no_schema_message(agent_id)
     
-    def set_beacon(self, beacon_id: str):
+    def set_beacon(self, beacon_id: str, force_reload: bool = False):
         """Set the current beacon ID - delegates to set_agent for compatibility"""
-        self.set_agent(beacon_id)
+        self.set_agent(beacon_id, force_reload)
 
     def on_schema_applied(self, agent_id: str, schema_file: str):
         """Handle schema being applied to a beacon"""
@@ -623,6 +685,12 @@ class CommandWidget(QWidget):
             widget = self.module_stack.widget(0)
             self.module_stack.removeWidget(widget)
             widget.deleteLater()
+        
+        # Clear interfaces and metadata
+        if hasattr(self, 'module_interfaces'):
+            self.module_interfaces.clear()
+        if hasattr(self, 'module_metadata'):
+            self.module_metadata.clear()
         
         # Add a message widget
         message_widget = QWidget()

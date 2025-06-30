@@ -1,6 +1,7 @@
 import re
 import yaml
-from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QTextEdit, QFrame, QApplication, QSplitter)
+from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QTextEdit, QFrame, QApplication, QSplitter, 
+                            QPushButton, QMessageBox, QLabel)
 from PyQt6.QtCore import Qt, QPropertyAnimation
 from PyQt6.QtGui import (QColor, QFont, QTextCursor, QTextCharFormat, 
                         QTextBlockFormat, QFontDatabase)
@@ -18,6 +19,9 @@ class DocumentationPanel(QWidget):
         self.current_width = self.default_width
         self.resize_active = False
         self.current_module = None  # Track currently displayed module
+        self.current_module_yaml_data = None  # Track current module YAML data
+        self.current_category_name = None  # Track current category
+        self.current_module_name = None  # Track current module name
         
         # Try to use FontManager, but don't fail if it's not available
         try:
@@ -45,6 +49,11 @@ class DocumentationPanel(QWidget):
         
         # Create splitter for documentation and YAML sections
         self.content_splitter = QSplitter(Qt.Orientation.Vertical)
+        self.content_splitter.setStyleSheet("""
+            QSplitter {
+                background-color: #232323;
+            }
+        """)
         
         # Documentation view (read-only)
         self.doc_view = QTextEdit()
@@ -55,6 +64,75 @@ class DocumentationPanel(QWidget):
                 border: none;
             }
         """)
+        
+        # YAML editor section with controls
+        yaml_container = QWidget()
+        yaml_container.setStyleSheet("""
+            QWidget {
+                background-color: #232323;
+                border: none;
+            }
+        """)
+        yaml_layout = QVBoxLayout()
+        yaml_layout.setContentsMargins(0, 0, 0, 0)
+        yaml_layout.setSpacing(5)
+        
+        # YAML editor header with buttons
+        yaml_header = QHBoxLayout()
+        yaml_header.setContentsMargins(5, 5, 5, 0)
+        
+        yaml_label = QLabel("Module Configuration")
+        yaml_label.setStyleSheet("color: #f8f8f2; font-weight: bold; font-size: 12px;")
+        yaml_header.addWidget(yaml_label)
+        yaml_header.addStretch()
+        
+        # Save & Apply buttons
+        self.save_button = QPushButton("Save")
+        self.save_button.setFixedSize(60, 25)
+        self.save_button.setStyleSheet("""
+            QPushButton {
+                background-color: #4CAF50;
+                border: none;
+                color: white;
+                font-size: 10px;
+                font-weight: bold;
+                border-radius: 3px;
+            }
+            QPushButton:hover {
+                background-color: #45a049;
+            }
+            QPushButton:disabled {
+                background-color: #666666;
+                color: #999999;
+            }
+        """)
+        self.save_button.clicked.connect(self.save_yaml_changes)
+        self.save_button.setEnabled(False)
+        
+        self.apply_button = QPushButton("Apply")
+        self.apply_button.setFixedSize(60, 25)
+        self.apply_button.setStyleSheet("""
+            QPushButton {
+                background-color: #2196F3;
+                border: none;
+                color: white;
+                font-size: 10px;
+                font-weight: bold;
+                border-radius: 3px;
+            }
+            QPushButton:hover {
+                background-color: #1976D2;
+            }
+            QPushButton:disabled {
+                background-color: #666666;
+                color: #999999;
+            }
+        """)
+        self.apply_button.clicked.connect(self.apply_yaml_changes)
+        self.apply_button.setEnabled(False)
+        
+        yaml_header.addWidget(self.save_button)
+        yaml_header.addWidget(self.apply_button)
         
         # YAML editor (editable)
         self.yaml_editor = QTextEdit()
@@ -69,9 +147,16 @@ class DocumentationPanel(QWidget):
             }
         """)
         
+        # Track changes to enable/disable buttons
+        self.yaml_editor.textChanged.connect(self.on_yaml_content_changed)
+        
+        yaml_layout.addLayout(yaml_header)
+        yaml_layout.addWidget(self.yaml_editor)
+        yaml_container.setLayout(yaml_layout)
+        
         # Add both to splitter
         self.content_splitter.addWidget(self.doc_view)
-        self.content_splitter.addWidget(self.yaml_editor)
+        self.content_splitter.addWidget(yaml_container)
         self.content_splitter.setSizes([300, 200])  # Documentation gets more space initially
         
         # Add resize handle area with visual indicator
@@ -336,10 +421,17 @@ class DocumentationPanel(QWidget):
         self.convert_markdown_to_rich_text(content)
         self.doc_view.verticalScrollBar().setValue(0)
     
-    def set_module_documentation(self, module, module_yaml_data: dict):
+    def set_module_documentation(self, module, module_yaml_data: dict, category_name: str = None, module_name: str = None):
         """Display module documentation and YAML content"""
-        # Track the currently displayed module
+        # Track the currently displayed module and its context
         self.current_module = module
+        self.current_module_yaml_data = module_yaml_data.copy()  # Store original for comparison
+        self.current_category_name = category_name
+        self.current_module_name = module_name
+        
+        # Reset button states
+        self.save_button.setEnabled(False)
+        self.apply_button.setEnabled(False)
         
         # Format documentation section
         doc_content = f"#### {module.display_name}\n\n"
@@ -384,6 +476,130 @@ class DocumentationPanel(QWidget):
     def get_yaml_content(self) -> str:
         """Get the current YAML content from the editor"""
         return self.yaml_editor.toPlainText()
+    
+    def on_yaml_content_changed(self):
+        """Handle YAML content changes to enable/disable buttons"""
+        if not self.current_module or not self.current_module_yaml_data:
+            return
+            
+        current_content = self.yaml_editor.toPlainText().strip()
+        
+        try:
+            # Try to parse current content to check if it's valid YAML
+            current_yaml = yaml.safe_load(current_content) if current_content else {}
+            original_yaml = self.current_module_yaml_data
+            
+            # Check if content has changed
+            has_changed = current_yaml != original_yaml
+            
+            # Enable buttons if content changed and is valid YAML
+            self.save_button.setEnabled(has_changed)
+            self.apply_button.setEnabled(has_changed)
+            
+        except yaml.YAMLError:
+            # Invalid YAML - disable apply but allow save for fixing
+            self.save_button.setEnabled(True)
+            self.apply_button.setEnabled(False)
+    
+    def save_yaml_changes(self):
+        """Save YAML changes to file"""
+        if not self.current_module or not self.command_widget:
+            QMessageBox.warning(self, "Error", "No module selected or command widget not available")
+            return
+        
+        try:
+            # Validate YAML syntax
+            yaml_content = self.yaml_editor.toPlainText()
+            parsed_yaml = yaml.safe_load(yaml_content) if yaml_content.strip() else {}
+            
+            # Get schema service from command widget
+            schema_service = self.command_widget.schema_service
+            schema_file = self.command_widget._loaded_schema_file
+            
+            if not schema_file:
+                QMessageBox.warning(self, "Error", "No schema file loaded")
+                return
+            
+            # Update the specific module in the schema file
+            self._update_module_in_schema_file(schema_service, schema_file, 
+                                             self.current_category_name, 
+                                             self.current_module_name, 
+                                             parsed_yaml)
+            
+            # Update cache with the new module data (more efficient than full invalidation)
+            schema_path = schema_service.schemas_directory / schema_file
+            schema_service.cache.update_module_cache(schema_file, schema_path,
+                                                   self.current_category_name,
+                                                   self.current_module_name,
+                                                   parsed_yaml)
+            
+            # Update our stored reference
+            self.current_module_yaml_data = parsed_yaml.copy()
+            
+            # Reset button states
+            self.save_button.setEnabled(False)
+            self.apply_button.setEnabled(False)
+            
+        except yaml.YAMLError as e:
+            QMessageBox.warning(self, "YAML Error", f"Invalid YAML syntax: {e}")
+        except Exception as e:
+            QMessageBox.warning(self, "Error", f"Failed to save changes: {e}")
+    
+    def apply_yaml_changes(self):
+        """Apply YAML changes (save + reload schema)"""
+        try:
+            # First save the changes
+            self.save_yaml_changes()
+            
+            # Then invalidate cache and reload schema for the current beacon
+            if self.command_widget and self.command_widget.current_agent_id:
+                schema_service = self.command_widget.schema_service
+                schema_file = self.command_widget._loaded_schema_file
+                current_agent_id = self.command_widget.current_agent_id
+                
+                if schema_file:
+                    # Invalidate the specific schema in cache
+                    schema_service.cache.invalidate(schema_file)
+                    
+                    # Clear UI cache to force rebuild
+                    self.command_widget._ui_built_for_schema = None
+                    
+                    # Reload the schema with force_reload=True to bypass early exit conditions
+                    self.command_widget.set_agent(current_agent_id, force_reload=True)
+                    
+                    QMessageBox.information(self, "Success", 
+                                          "Module configuration applied successfully.\n"
+                                          "The interface has been updated with your changes.")
+                
+        except Exception as e:
+            QMessageBox.warning(self, "Error", f"Failed to apply changes: {e}")
+    
+    def _update_module_in_schema_file(self, schema_service, schema_file: str, 
+                                    category_name: str, module_name: str, 
+                                    new_module_data: dict):
+        """Update a specific module in the schema file"""
+        schema_path = schema_service.schemas_directory / schema_file
+        
+        # Read the current schema file
+        with open(schema_path, 'r', encoding='utf-8') as file:
+            schema_data = yaml.safe_load(file)
+        
+        # Navigate to the module and update it
+        if 'categories' not in schema_data:
+            schema_data['categories'] = {}
+        
+        if category_name not in schema_data['categories']:
+            schema_data['categories'][category_name] = {}
+        
+        if 'modules' not in schema_data['categories'][category_name]:
+            schema_data['categories'][category_name]['modules'] = {}
+        
+        # Update the specific module
+        schema_data['categories'][category_name]['modules'][module_name] = new_module_data
+        
+        # Write back to file
+        with open(schema_path, 'w', encoding='utf-8') as file:
+            yaml.dump(schema_data, file, default_flow_style=False, indent=2, sort_keys=False)
     
     def clear_content(self):
         """Clear both documentation and YAML content"""

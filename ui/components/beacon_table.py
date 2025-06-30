@@ -109,7 +109,7 @@ class BeaconTableWidget(QTableView):
         # Configure headers
         self.horizontalHeader().setStretchLastSection(True)
         self.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
-        self.horizontalHeader().setDefaultAlignment(Qt.AlignmentFlag.AlignLeft)
+        self.horizontalHeader().setDefaultAlignment(Qt.AlignmentFlag.AlignCenter)
         self.verticalHeader().setVisible(False)
         
         # Connect selection signal
@@ -156,6 +156,7 @@ class BeaconTableWidget(QTableView):
     def _resize_columns_to_contents(self):
         """Resize columns to fit content properly"""
         self.resizeColumnsToContents()
+        
         # Keep last column stretched but ensure others fit content
         header = self.horizontalHeader()
         for i in range(header.count() - 1):
