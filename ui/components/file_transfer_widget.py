@@ -4,14 +4,14 @@ from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QGroupBox,
                             QLineEdit, QPushButton, QTableWidget, QTableWidgetItem,
                             QHeaderView, QMessageBox, QFileDialog)
 from PyQt6.QtCore import Qt
-from database import AgentRepository
+from database import BeaconRepository
 from utils import FontManager
 
 class FileTransferWidget(QWidget):
     """Widget for handling file transfers"""
-    def __init__(self, agent_repository: AgentRepository):
+    def __init__(self, beacon_repository: BeaconRepository):
         super().__init__()
-        self.agent_repository = agent_repository
+        self.beacon_repository = beacon_repository
         self.current_agent_id = None
         
         # Try to use FontManager, but don't fail if it's not available
@@ -206,9 +206,9 @@ class FileTransferWidget(QWidget):
                 return
             
             # Schedule download command
-            agent = self.agent_repository.get_agent(self.current_agent_id)
+            agent = self.beacon_repository.get_beacon(self.current_agent_id)
             if agent:
-                self.agent_repository.update_agent_command(
+                self.beacon_repository.update_beacon_command(
                     self.current_agent_id,
                     f"download_file {filename}"
                 )
@@ -233,9 +233,9 @@ class FileTransferWidget(QWidget):
 
         try:
             # Schedule upload command
-            agent = self.agent_repository.get_agent(self.current_agent_id)
+            agent = self.beacon_repository.get_beacon(self.current_agent_id)
             if agent:
-                self.agent_repository.update_agent_command(
+                self.beacon_repository.update_beacon_command(
                     self.current_agent_id,
                     f"upload_file {file_path}"
                 )
@@ -251,3 +251,7 @@ class FileTransferWidget(QWidget):
 
     def set_agent(self, agent_id: str):
         self.current_agent_id = agent_id
+    
+    def set_beacon(self, beacon_id: str):
+        """Set the current beacon ID - delegates to set_agent for compatibility"""
+        self.set_agent(beacon_id)

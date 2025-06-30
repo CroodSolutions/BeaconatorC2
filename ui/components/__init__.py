@@ -1,10 +1,10 @@
-from .agent_table import AgentTableWidget
+from .beacon_table import BeaconTableWidget
 from .command_widget import CommandWidget
 from .navigation_menu import NavigationMenu
 from .file_transfer_widget import FileTransferWidget
 from .settings_page import SettingsPage
 from .documentation_panel import DocumentationPanel
-from .agent_settings_widget import AgentSettingsWidget
+from .beacon_settings_widget import BeaconSettingsWidget
 
-__all__ = ['AgentTableWidget', 'CommandWidget', 'DynamicCommandWidget', 'NavigationMenu', 
-           'FileTransferWidget', 'SettingsPage', 'DocumentationPanel', 'AgentSettingsWidget']
+__all__ = ['BeaconTableWidget', 'CommandWidget', 'DynamicCommandWidget', 'NavigationMenu', 
+           'FileTransferWidget', 'SettingsPage', 'DocumentationPanel', 'BeaconSettingsWidget']

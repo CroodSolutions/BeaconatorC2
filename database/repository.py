@@ -92,3 +92,34 @@ class AgentRepository:
             if agent := session.query(Agent).filter_by(agent_id=agent_id).first():
                 return agent.schema_file
             return None
+
+class BeaconRepository(AgentRepository):
+    """Repository pattern for Beacon database operations - extends AgentRepository for compatibility"""
+    
+    def get_beacon(self, beacon_id: str) -> Optional[Agent]:
+        """Get a beacon by ID"""
+        return self.get_agent(beacon_id)
+    
+    def update_beacon_status(self, beacon_id: str, status: str, computer_name: Optional[str] = None):
+        """Update beacon status"""
+        return self.update_agent_status(beacon_id, status, computer_name)
+    
+    def update_beacon_command(self, beacon_id: str, command: Optional[str]):
+        """Update beacon command"""
+        return self.update_agent_command(beacon_id, command)
+    
+    def update_beacon_response(self, beacon_id: str, response: str):
+        """Update beacon response"""
+        return self.update_agent_response(beacon_id, response)
+    
+    def get_all_beacons(self) -> List[Agent]:
+        """Get all beacons"""
+        return self.get_all_agents()
+    
+    def mark_timed_out_beacons(self, timeout_minutes: int):
+        """Mark timed out beacons"""
+        return self.mark_timed_out_agents(timeout_minutes)
+    
+    def delete_beacon(self, beacon_id: str) -> bool:
+        """Delete a beacon"""
+        return self.delete_agent(beacon_id)

@@ -12,7 +12,7 @@ class NavigationMenu(QWidget):
     def __init__(self):
         super().__init__()
         self.expanded = True
-        self.current_page = "agents"
+        self.current_page = "beacons"
         self.min_width = 35
         self.max_width = 165  # temporary initial value
         self.button_texts = {}
@@ -43,7 +43,7 @@ class NavigationMenu(QWidget):
         self.nav_buttons = {}
         nav_items = {
             "toggle": ("Hide", QStyle.StandardPixmap.SP_ArrowLeft),
-            "agents": ("Beacons", QStyle.StandardPixmap.SP_ComputerIcon),
+            "beacons": ("Beacons", QStyle.StandardPixmap.SP_ComputerIcon),
             "settings": ("Settings", QStyle.StandardPixmap.SP_FileDialogListView),
             "docs": ("Documentation", QStyle.StandardPixmap.SP_FileDialogDetailedView),  
         }
@@ -70,7 +70,7 @@ class NavigationMenu(QWidget):
         self.setLayout(layout)
         
         # Set initial state
-        self.nav_buttons["agents"].setChecked(True)
+        self.nav_buttons["beacons"].setChecked(True)
         self.set_style()
 
     def toggle_documentation(self):
@@ -96,7 +96,7 @@ class NavigationMenu(QWidget):
         """
         self.setStyleSheet(base_style + style)
         
-    def toggle_menu(self):
+    def toggle_menu(self, checked=None):
         self.expanded = not self.expanded
         new_width = self.max_width if self.expanded else self.min_width
         

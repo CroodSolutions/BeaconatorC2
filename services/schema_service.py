@@ -5,10 +5,105 @@ Handles parsing and validation of agent module schemas
 
 import yaml
 import re
+import os
 from pathlib import Path
 from typing import Dict, List, Any, Optional, Union
 from dataclasses import dataclass, field
 from enum import Enum
+
+@dataclass
+class SchemaCacheEntry:
+    """Cache entry for schema file data"""
+    raw_data: Dict[str, Any]
+    file_mtime: float
+    parsed_schema: Optional['AgentSchema'] = None
+
+class SchemaCache:
+    """Smart caching system for schema files with automatic invalidation"""
+    
+    def __init__(self):
+        self._cache: Dict[str, SchemaCacheEntry] = {}
+    
+    def get_raw_data(self, schema_file: str, schema_path: Path) -> Dict[str, Any]:
+        """Get raw YAML data for a schema file with caching and invalidation"""
+        # Get current file modification time
+        try:
+            current_mtime = os.path.getmtime(schema_path)
+        except OSError:
+            # File doesn't exist or can't be accessed
+            if schema_file in self._cache:
+                del self._cache[schema_file]
+            return {}
+        
+        # Check if we have cached data
+        if schema_file in self._cache:
+            cached_entry = self._cache[schema_file]
+            if cached_entry.file_mtime == current_mtime:
+                # Cache hit - file hasn't changed
+                return cached_entry.raw_data
+            else:
+                # File changed - invalidate cache
+                del self._cache[schema_file]
+        
+        # Cache miss or invalidated - read and parse file
+        try:
+            with open(schema_path, 'r', encoding='utf-8') as file:
+                raw_data = yaml.safe_load(file)
+            
+            # Store in cache
+            self._cache[schema_file] = SchemaCacheEntry(
+                raw_data=raw_data,
+                file_mtime=current_mtime
+            )
+            
+            return raw_data
+            
+        except Exception:
+            # If file read fails, return empty dict
+            return {}
+    
+    def get_module_data(self, schema_file: str, schema_path: Path, 
+                       category_name: str, module_name: str) -> Dict[str, Any]:
+        """Get specific module data from cached schema"""
+        raw_data = self.get_raw_data(schema_file, schema_path)
+        
+        # Navigate to the specific module data
+        categories_data = raw_data.get('categories', {})
+        category_data = categories_data.get(category_name, {})
+        modules_data = category_data.get('modules', {})
+        module_data = modules_data.get(module_name, {})
+        
+        return module_data
+    
+    def invalidate(self, schema_file: str = None):
+        """Invalidate cache for specific file or all files"""
+        if schema_file:
+            self._cache.pop(schema_file, None)
+        else:
+            self._cache.clear()
+    
+    def update_module_cache(self, schema_file: str, schema_path: Path, 
+                           category_name: str, module_name: str, new_module_data: dict):
+        """Update cached data for a specific module without full file reload"""
+        # Get current cached data
+        cached_data = self.get_raw_data(schema_file, schema_path)
+        
+        # Update the specific module in cached data
+        if 'categories' not in cached_data:
+            cached_data['categories'] = {}
+        
+        if category_name not in cached_data['categories']:
+            cached_data['categories'][category_name] = {}
+        
+        if 'modules' not in cached_data['categories'][category_name]:
+            cached_data['categories'][category_name]['modules'] = {}
+        
+        # Update the specific module
+        cached_data['categories'][category_name]['modules'][module_name] = new_module_data
+        
+        # Update the cache entry (the file modification time will be updated when file is written)
+        if schema_file in self._cache:
+            self._cache[schema_file].raw_data = cached_data
 
 class ParameterType(Enum):
     """Supported parameter types for module inputs"""
@@ -82,7 +177,6 @@ class ModuleExecution:
 @dataclass
 class ModuleUI:
     """Module UI customization"""
-    icon: str = "gear"
     color: str = "default"
     layout: str = "simple"  # simple, advanced, tabbed
     grouping: List[List[str]] = field(default_factory=list)
@@ -169,17 +263,18 @@ class SchemaService:
     def __init__(self, schemas_directory: str = "schemas"):
         self.schemas_directory = Path(schemas_directory)
         self.loaded_schemas: Dict[str, AgentSchema] = {}
+        self.cache = SchemaCache()
         
     def load_schema(self, schema_file: str) -> AgentSchema:
-        """Load an agent schema from a YAML file"""
+        """Load an agent schema from a YAML file with caching"""
         schema_path = self.schemas_directory / schema_file
         
         if not schema_path.exists():
             raise FileNotFoundError(f"Schema file not found: {schema_path}")
             
         try:
-            with open(schema_path, 'r', encoding='utf-8') as file:
-                data = yaml.safe_load(file)
+            # Use cached data instead of reading file directly
+            data = self.cache.get_raw_data(schema_file, schema_path)
             
             # Parse agent info
             agent_info_data = data.get('agent_info', {})
@@ -277,7 +372,6 @@ class SchemaService:
         # Parse UI settings
         ui_data = mod_data.get('ui', {})
         ui = ModuleUI(
-            icon=ui_data.get('icon', 'gear'),
             color=ui_data.get('color', 'default'),
             layout=ui_data.get('layout', 'simple'),
             grouping=ui_data.get('grouping', [])
@@ -312,6 +406,11 @@ class SchemaService:
             f.name for f in self.schemas_directory.glob("*.yaml") 
             if f.is_file() and not f.name.startswith("beacon_schema_format")
         ]
+    
+    def get_module_yaml_data(self, schema_file: str, category_name: str, module_name: str) -> Dict[str, Any]:
+        """Get raw YAML data for a specific module using efficient caching"""
+        schema_path = self.schemas_directory / schema_file
+        return self.cache.get_module_data(schema_file, schema_path, category_name, module_name)
     
     def validate_schema(self, schema_file: str) -> tuple[bool, List[str]]:
         """Validate a schema file and return any errors"""

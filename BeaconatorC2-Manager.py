@@ -32,10 +32,10 @@ def main():
     setup_taskbar_icon(config)
     
     # Set up database
-    SessionLocal, agent_repository = setup_database(config.DB_PATH)
+    SessionLocal, beacon_repository = setup_database(config.DB_PATH)
     
     # Create server manager
-    server_manager = ServerManager(config, agent_repository)
+    server_manager = ServerManager(config, beacon_repository)
     
     # Create Qt application
     app = QApplication(sys.argv)
