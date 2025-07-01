@@ -7,12 +7,12 @@ class Base(DeclarativeBase):
     """SQLAlchemy Base class for all models"""
     pass
 
-class Agent(Base):
-    """Agent database model"""
-    __tablename__ = 'agent'
+class Beacon(Base):
+    """Beacon database model"""
+    __tablename__ = 'beacon'
     
     id: Mapped[int] = mapped_column(primary_key=True)
-    agent_id: Mapped[str] = mapped_column(String(80), unique=True, nullable=False)
+    beacon_id: Mapped[str] = mapped_column(String(80), unique=True, nullable=False)
     computer_name: Mapped[str] = mapped_column(String(80), nullable=False)
     status: Mapped[str] = mapped_column(String(80), nullable=False, default='online')
     last_checkin: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
@@ -20,11 +20,12 @@ class Agent(Base):
     output_file: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
     last_response: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     schema_file: Mapped[Optional[str]] = mapped_column(String(256), nullable=True)  # Beacon schema file location
+    receiver_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)  # ID of receiver beacon connected through
 
     def to_dict(self) -> Dict[str, Any]:
-        """Convert agent to dictionary representation"""
+        """Convert beacon to dictionary representation"""
         return {
-            'agent_id': self.agent_id,
+            'beacon_id': self.beacon_id,
             'computer_name': self.computer_name,
             'status': self.status,
             'last_checkin': self.last_checkin.strftime("%Y-%m-%d %H:%M:%S %z")

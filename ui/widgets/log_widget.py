@@ -56,7 +56,7 @@ class LogHighlighter(QSyntaxHighlighter):
         self.colors = {
             'timestamp': '#8BE9FD',  # Light blue for timestamps
             'event_type': '#FFB86C',  # Pink for event types (Agent Registration, File Transfer, etc)
-            'agent_id': '#50FA7B',    # Green for agent IDs
+            'beacon_id': '#50FA7B',    # Green for agent IDs
             'status': {
                 'success': '#50FA7B',  # Green for success messages
                 'error': '#FF5555',    # Red for errors
@@ -92,7 +92,7 @@ class LogHighlighter(QSyntaxHighlighter):
 
         # command types
         command_format = QTextCharFormat()
-        command_format.setForeground(QColor(self.colors['agent_id']))  # Using the same green as agent IDs
+        command_format.setForeground(QColor(self.colors['beacon_id']))  # Using the same green as agent IDs
         self.highlighting_rules.append(
             (re.compile(r'(?<=: )(request_action|execute_command|download_file|upload_file|execute_module|command_output)(?=\|)'),
             command_format)
@@ -100,7 +100,7 @@ class LogHighlighter(QSyntaxHighlighter):
         
         # Agent IDs (8-character)
         agent_format = QTextCharFormat()
-        agent_format.setForeground(QColor(self.colors['agent_id']))
+        agent_format.setForeground(QColor(self.colors['beacon_id']))
         self.highlighting_rules.append(
             (re.compile(r'[a-f0-9]{8}'),
              agent_format)

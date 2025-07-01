@@ -9,7 +9,7 @@ class OutputDisplay(QWidget):
     def __init__(self, beacon_repository: BeaconRepository):
         super().__init__()
         self.beacon_repository = beacon_repository
-        self.current_agent_id = None
+        self.current_beacon_id = None
         self.output_monitor = None
         
         # Set size policy to prevent unwanted expansion
@@ -39,12 +39,12 @@ class OutputDisplay(QWidget):
         layout.addWidget(self.output_display)
         self.setLayout(layout)
 
-    def set_agent(self, agent_id: str):
+    def set_agent(self, beacon_id: str):
         """Switch to monitoring a different agent"""
-        if agent_id == self.current_agent_id:
+        if beacon_id == self.current_beacon_id:
             return
             
-        self.current_agent_id = agent_id
+        self.current_beacon_id = beacon_id
         self.output_display.clear()
         
         # Stop existing monitor if any
@@ -55,7 +55,7 @@ class OutputDisplay(QWidget):
         # Start new monitor
         from config import ServerConfig
         config = ServerConfig()
-        self.output_monitor = CommandOutputMonitor(agent_id, self.beacon_repository, config)
+        self.output_monitor = CommandOutputMonitor(beacon_id, self.beacon_repository, config)
         self.output_monitor.output_received.connect(self.update_output)
         self.output_monitor.start()
     

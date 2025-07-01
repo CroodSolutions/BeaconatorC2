@@ -9,7 +9,7 @@ class BeaconSettingsWidget(QWidget):
     """Widget for managing beacon settings and lifecycle"""
     
     # Signal emitted when a schema is applied to a beacon
-    schema_applied = pyqtSignal(str, str)  # agent_id, schema_file
+    schema_applied = pyqtSignal(str, str)  # beacon_id, schema_file
     
     def __init__(self, beacon_repository: BeaconRepository):
         super().__init__()
@@ -324,6 +324,6 @@ class BeaconSettingsWidget(QWidget):
                 self.schema_combo.setCurrentIndex(0)
     
     # Compatibility method for existing code
-    def set_agent(self, agent_id: str):
+    def set_agent(self, beacon_id: str):
         """Compatibility method - delegates to set_beacon"""
-        self.set_beacon(agent_id)
+        self.set_beacon(beacon_id)

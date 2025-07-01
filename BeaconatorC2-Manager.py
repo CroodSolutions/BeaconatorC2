@@ -13,7 +13,9 @@ from PyQt6.QtGui import QPalette, QColor
 # Import refactored modules
 from config import ServerConfig, ConfigManager
 from database import setup_database
-from services import ServerManager
+from services import CommandProcessor, FileTransferService
+from services.receivers import ReceiverManager
+from services.receivers.legacy_migration import ensure_legacy_receiver_exists
 from ui import MainWindow
 from utils import Logger, setup_taskbar_icon, ensure_directories
 import utils
@@ -34,8 +36,22 @@ def main():
     # Set up database
     SessionLocal, beacon_repository = setup_database(config.DB_PATH)
     
-    # Create server manager
-    server_manager = ServerManager(config, beacon_repository)
+    # Create core services directly
+    command_processor = CommandProcessor(beacon_repository)
+    file_transfer_service = FileTransferService()
+    
+    # Create receiver manager for new architecture
+    receiver_manager = ReceiverManager(
+        command_processor=command_processor,
+        file_transfer_service=file_transfer_service
+    )
+    
+    # Ensure legacy-compatible receiver exists
+    legacy_receiver_id = ensure_legacy_receiver_exists(config)
+    if legacy_receiver_id:
+        utils.logger.log_message(f"Legacy-compatible receiver created/updated: {legacy_receiver_id}")
+    else:
+        utils.logger.log_message("Warning: Failed to create legacy-compatible receiver")
     
     # Create Qt application
     app = QApplication(sys.argv)
@@ -52,12 +68,19 @@ def main():
     dark_palette.setColor(QPalette.ColorRole.PlaceholderText, QColor(127, 127, 127))
     app.setPalette(dark_palette)
 
-    # Create and show main window
-    window = MainWindow(server_manager)
+    # Create and show main window with services
+    window = MainWindow(
+        beacon_repository=beacon_repository,
+        command_processor=command_processor,
+        file_transfer_service=file_transfer_service,
+        receiver_manager=receiver_manager
+    )
     window.show()
     
-    # Start server
-    server_manager.start()
+    # Legacy server fully retired - using only ReceiverManager
+    
+    # Note: Receivers will auto-start through ReceiverManager
+    utils.logger.log_message("Application started")
     
     # Add shutdown handling to window close
     original_close_event = window.closeEvent
@@ -68,7 +91,7 @@ def main():
         import threading
         def shutdown_with_timeout():
             try:
-                server_manager.shutdown()
+                receiver_manager.shutdown()
             except:
                 pass  # Ignore shutdown errors
         
@@ -85,7 +108,7 @@ def main():
     except KeyboardInterrupt:
         utils.logger.log_message("Received shutdown signal")
     finally:
-        server_manager.shutdown()
+        receiver_manager.shutdown()
 
 if __name__ == '__main__':
     main()

@@ -5,6 +5,9 @@ from .file_transfer_widget import FileTransferWidget
 from .settings_page import SettingsPage
 from .documentation_panel import DocumentationPanel
 from .beacon_settings_widget import BeaconSettingsWidget
+from .receivers_widget import ReceiversWidget
+from .receiver_config_dialog import ReceiverConfigDialog
 
 __all__ = ['BeaconTableWidget', 'CommandWidget', 'DynamicCommandWidget', 'NavigationMenu', 
-           'FileTransferWidget', 'SettingsPage', 'DocumentationPanel', 'BeaconSettingsWidget']
+           'FileTransferWidget', 'SettingsPage', 'DocumentationPanel', 'BeaconSettingsWidget', 
+           'ReceiversWidget', 'ReceiverConfigDialog']

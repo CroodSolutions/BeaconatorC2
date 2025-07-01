@@ -166,15 +166,15 @@ class ModuleInterface(QWidget):
         self.beacon_repository = beacon_repository
         self.module_yaml_data = module_yaml_data or {}
         self.parameter_widgets: Dict[str, ParameterWidget] = {}
-        self.current_agent_id = None
+        self.current_beacon_id = None
         self.parent_widget = parent  # Store reference to parent CommandWidget
         self.category_name = category_name  # Store category name for documentation
         self.module_name = module_name      # Store module name for documentation
         self.setup_ui()
     
-    def set_agent(self, agent_id: str):
+    def set_agent(self, beacon_id: str):
         """Set the current agent ID for command execution"""
-        self.current_agent_id = agent_id
+        self.current_beacon_id = beacon_id
     
     def setup_ui(self):
         layout = QVBoxLayout()
@@ -315,7 +315,7 @@ class ModuleInterface(QWidget):
     def execute_module(self):
         """Execute the module with current parameter values"""
         # Check if an agent is selected
-        if not self.current_agent_id:
+        if not self.current_beacon_id:
             QMessageBox.warning(self, "Warning", "No agent selected!")
             return
         
@@ -333,15 +333,15 @@ class ModuleInterface(QWidget):
             command = self.module.format_command(parameter_values)
             
             # Send command to agent via repository
-            self.beacon_repository.update_beacon_command(self.current_agent_id, command)            
+            self.beacon_repository.update_beacon_command(self.current_beacon_id, command)            
             
             # Show success message with a tooltip-style notification
-            self.show_success_notification(f"Module '{self.module.display_name}' queued for agent {self.current_agent_id}")
+            self.show_success_notification(f"Module '{self.module.display_name}' queued for agent {self.current_beacon_id}")
             
         except Exception as e:
             # Log the error
             if utils.logger:
-                utils.logger.log_message(f"Failed to send command to {self.current_agent_id}: {e}")
+                utils.logger.log_message(f"Failed to send command to {self.current_beacon_id}: {e}")
             QMessageBox.warning(self, "Error", f"Failed to execute module: {str(e)}")
     
     def show_success_notification(self, message: str):
@@ -378,7 +378,7 @@ class CommandWidget(QWidget):
         super().__init__()
         self.beacon_repository = beacon_repository
         self.doc_panel = doc_panel
-        self.current_agent_id = None
+        self.current_beacon_id = None
         self.schema_service = SchemaService()
         self.current_schema: Optional[AgentSchema] = None
         self.documentation_visible = False  # Track if documentation panel is currently shown
@@ -493,9 +493,9 @@ class CommandWidget(QWidget):
         # Only cache hit if we have a real schema (not None) and it matches
         if schema_id and schema_id == self._ui_built_for_schema and hasattr(self, 'module_interfaces'):
             # UI already built for this actual schema, just update agent references
-            if self.current_agent_id and hasattr(self, 'module_interfaces'):
+            if self.current_beacon_id and hasattr(self, 'module_interfaces'):
                 for interface in self.module_interfaces.values():
-                    interface.set_agent(self.current_agent_id)
+                    interface.set_agent(self.current_beacon_id)
             return
         
         self.nav_tree.clear()
@@ -564,9 +564,9 @@ class CommandWidget(QWidget):
                 print(f"Debug: No schema file available for {category_name}/{module_name}")
                 return {}
             
-            # Use the schema service's efficient cached method
+            # Use the schema service's cached method
             yaml_data = self.schema_service.get_module_yaml_data(schema_file, category_name, module_name)
-            print(f"Debug: YAML data for {category_name}/{module_name}: {len(str(yaml_data))} chars, keys: {list(yaml_data.keys()) if yaml_data else 'None'}")
+            
             return yaml_data
             
         except Exception as e:
@@ -601,8 +601,8 @@ class CommandWidget(QWidget):
                     interface = ModuleInterface(module, self.beacon_repository, module_yaml_data, self, cat_name, mod_name)
                     
                     # Set current agent if one is already selected
-                    if self.current_agent_id:
-                        interface.set_agent(self.current_agent_id)
+                    if self.current_beacon_id:
+                        interface.set_agent(self.current_beacon_id)
                     
                     self.module_stack.addWidget(interface)
                     self.module_interfaces[(cat_name, mod_name)] = interface
@@ -618,24 +618,24 @@ class CommandWidget(QWidget):
                             _, module_yaml_data = self.module_metadata[(cat_name, mod_name)]
                             self.doc_panel.set_module_documentation(interface.module, module_yaml_data, cat_name, mod_name)
     
-    def set_agent(self, agent_id: str, force_reload: bool = False):
+    def set_agent(self, beacon_id: str, force_reload: bool = False):
         """Set the current beacon ID and load associated schema with caching"""
         # Early exit if same agent (unless force_reload is True)
-        if agent_id == self.current_agent_id and not force_reload:
+        if beacon_id == self.current_beacon_id and not force_reload:
             return
             
-        self.current_agent_id = agent_id
+        self.current_beacon_id = beacon_id
         
         # Update output display
         if self.output_display:
-            self.output_display.set_agent(agent_id)
+            self.output_display.set_agent(beacon_id)
         
-        if agent_id:
+        if beacon_id:
             # Check cache first to avoid database query
-            schema_file = self._schema_cache.get(agent_id)
+            schema_file = self._schema_cache.get(beacon_id)
             if schema_file is None:  # Not in cache
-                schema_file = self.beacon_repository.get_beacon_schema(agent_id)
-                self._schema_cache[agent_id] = schema_file
+                schema_file = self.beacon_repository.get_beacon_schema(beacon_id)
+                self._schema_cache[beacon_id] = schema_file
             
             if schema_file:
                 # Only load schema if different from currently loaded one (unless force_reload is True)
@@ -649,22 +649,22 @@ class CommandWidget(QWidget):
                     # Same schema already loaded, just update agent references
                     if hasattr(self, 'module_interfaces'):
                         for interface in self.module_interfaces.values():
-                            interface.set_agent(agent_id)
+                            interface.set_agent(beacon_id)
             else:
                 # No schema associated with this beacon - always clear and show message
                 self._loaded_schema_file = None
                 self._ui_built_for_schema = None
                 self.current_schema = None
-                self.show_no_schema_message(agent_id)
+                self.show_no_schema_message(beacon_id)
     
     def set_beacon(self, beacon_id: str, force_reload: bool = False):
         """Set the current beacon ID - delegates to set_agent for compatibility"""
         self.set_agent(beacon_id, force_reload)
 
-    def on_schema_applied(self, agent_id: str, schema_file: str):
+    def on_schema_applied(self, beacon_id: str, schema_file: str):
         """Handle schema being applied to a beacon"""
         # Only update if this is for the currently selected beacon
-        if agent_id == self.current_agent_id:
+        if beacon_id == self.current_beacon_id:
             if schema_file:
                 # Load the new schema
                 try:
@@ -673,7 +673,7 @@ class CommandWidget(QWidget):
                     self.show_schema_error(f"Failed to load applied schema: {schema_file}")
             else:
                 # Schema was removed
-                self.show_no_schema_message(agent_id)
+                self.show_no_schema_message(beacon_id)
 
     
     def show_no_schema_message(self, beacon_id: str):

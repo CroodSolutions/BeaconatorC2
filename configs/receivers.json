@@ -1,0 +1,46 @@
+{
+  "receivers": [
+    {
+      "receiver_id": "legacy-compat-5074",
+      "name": "Legacy Compatible Receiver",
+      "receiver_type": "tcp",
+      "enabled": true,
+      "auto_start": true,
+      "host": "0.0.0.0",
+      "port": 5074,
+      "buffer_size": 4096,
+      "timeout": 60,
+      "encoding_type": "plain",
+      "encoding_config": {},
+      "protocol_config": {},
+      "max_connections": 100,
+      "connection_timeout": 300,
+      "keep_alive": true,
+      "description": "Auto-generated receiver to replace legacy server functionality",
+      "tags": [],
+      "created_at": "2025-01-01T00:00:00",
+      "modified_at": "2025-07-01T16:31:26.170562"
+    },
+    {
+      "receiver_id": "b9524bbe-c761-43b1-888b-e12356a1895b",
+      "name": "test",
+      "receiver_type": "tcp",
+      "enabled": true,
+      "auto_start": true,
+      "host": "0.0.0.0",
+      "port": 5099,
+      "buffer_size": 1048576,
+      "timeout": 30,
+      "encoding_type": "plain",
+      "encoding_config": {},
+      "protocol_config": {},
+      "max_connections": 100,
+      "connection_timeout": 300,
+      "keep_alive": true,
+      "description": "test222222",
+      "tags": [],
+      "created_at": null,
+      "modified_at": null
+    }
+  ]
+}

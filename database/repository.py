@@ -1,10 +1,10 @@
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
 from typing import Optional, List
-from .models import Agent
+from .models import Beacon
 
-class AgentRepository:
-    """Repository pattern for Agent database operations with proper session management"""
+class BeaconRepository:
+    """Repository pattern for Beacon database operations with proper session management"""
     def __init__(self, session_factory):
         """Initialize with session factory instead of single session"""
         self.session_factory = session_factory
@@ -13,113 +13,136 @@ class AgentRepository:
         """Get a new session for each operation"""
         return self.session_factory()
 
-    def get_agent(self, agent_id: str) -> Optional[Agent]:
+    def get_beacon(self, beacon_id: str) -> Optional[Beacon]:
         with self._get_session() as session:
-            return session.query(Agent).filter_by(agent_id=agent_id).first()
+            return session.query(Beacon).filter_by(beacon_id=beacon_id).first()
 
-    def update_agent_status(self, agent_id: str, status: str, computer_name: Optional[str] = None):
+    def update_beacon_status(self, beacon_id: str, status: str, computer_name: Optional[str] = None, receiver_id: Optional[str] = None):
         with self._get_session() as session:
-            agent = session.query(Agent).filter_by(agent_id=agent_id).first()
-            if not agent:
-                agent = Agent(
-                    agent_id=agent_id,
+            beacon = session.query(Beacon).filter_by(beacon_id=beacon_id).first()
+            if not beacon:
+                beacon = Beacon(
+                    beacon_id=beacon_id,
                     computer_name=computer_name or "Unknown",
                     status=status,
-                    last_checkin=datetime.now()
+                    last_checkin=datetime.now(),
+                    receiver_id=receiver_id
                 )
-                session.add(agent)
+                session.add(beacon)
             else:
-                agent.status = status
-                agent.last_checkin = datetime.now()
+                beacon.status = status
+                beacon.last_checkin = datetime.now()
                 if computer_name:
-                    agent.computer_name = computer_name
+                    beacon.computer_name = computer_name
+                if receiver_id:
+                    beacon.receiver_id = receiver_id
             session.commit()
 
-    def update_agent_command(self, agent_id: str, command: Optional[str]):
+    def update_beacon_command(self, beacon_id: str, command: Optional[str]):
         import utils  # Import here to avoid circular imports
         with self._get_session() as session:
-            if agent := session.query(Agent).filter_by(agent_id=agent_id).first():
-                agent.pending_command = command
+            if beacon := session.query(Beacon).filter_by(beacon_id=beacon_id).first():
+                beacon.pending_command = command
                 session.commit()
                 if not command == None and utils.logger:
-                    utils.logger.log_message(f"Command Scheduled: {agent_id} - {command}")
+                    utils.logger.log_message(f"Command Scheduled: {beacon_id} - {command}")
 
-    def update_agent_response(self, agent_id: str, response: str):
+    def update_beacon_response(self, beacon_id: str, response: str):
         with self._get_session() as session:
-            if agent := session.query(Agent).filter_by(agent_id=agent_id).first():
-                agent.last_response = response
+            if beacon := session.query(Beacon).filter_by(beacon_id=beacon_id).first():
+                beacon.last_response = response
                 session.commit()
 
-    def get_all_agents(self) -> List[Agent]:
+    def get_all_beacons(self) -> List[Beacon]:
         with self._get_session() as session:
-            return session.query(Agent).all()
+            return session.query(Beacon).all()
+    
+    def get_online_beacons_count(self) -> int:
+        """Get count of beacons with online status"""
+        with self._get_session() as session:
+            return session.query(Beacon).filter_by(status='online').count()
 
-    def mark_timed_out_agents(self, timeout_minutes: int):
+    def mark_timed_out_beacons(self, timeout_minutes: int):
         with self._get_session() as session:
             timeout = datetime.now() - timedelta(minutes=timeout_minutes)
-            agents = session.query(Agent).filter(
-                Agent.status == 'online',
-                Agent.last_checkin < timeout
+            beacons = session.query(Beacon).filter(
+                Beacon.status == 'online',
+                Beacon.last_checkin < timeout
             ).all()
-            for agent in agents:
-                agent.status = 'offline'
+            for beacon in beacons:
+                beacon.status = 'offline'
             session.commit()
 
-    def delete_agent(self, agent_id: str) -> bool:
+    def delete_beacon(self, beacon_id: str) -> bool:
         """
-        Delete an agent from the database.
-        Returns True if agent was found and deleted, False if agent wasn't found.
+        Delete a beacon from the database.
+        Returns True if beacon was found and deleted, False if beacon wasn't found.
         """
         with self._get_session() as session:
-            if agent := session.query(Agent).filter_by(agent_id=agent_id).first():
-                session.delete(agent)
+            if beacon := session.query(Beacon).filter_by(beacon_id=beacon_id).first():
+                session.delete(beacon)
                 session.commit()
                 return True
             return False
     
-    def update_beacon_schema(self, agent_id: str, schema_file: Optional[str]) -> bool:
+    def update_beacon_schema(self, beacon_id: str, schema_file: Optional[str]) -> bool:
         """Update a beacon's associated schema file"""
         with self._get_session() as session:
-            if agent := session.query(Agent).filter_by(agent_id=agent_id).first():
-                agent.schema_file = schema_file
+            if beacon := session.query(Beacon).filter_by(beacon_id=beacon_id).first():
+                beacon.schema_file = schema_file
                 session.commit()
                 return True
             return False
     
-    def get_beacon_schema(self, agent_id: str) -> Optional[str]:
+    def get_beacon_schema(self, beacon_id: str) -> Optional[str]:
         """Get a beacon's associated schema file"""
         with self._get_session() as session:
-            if agent := session.query(Agent).filter_by(agent_id=agent_id).first():
-                return agent.schema_file
+            if beacon := session.query(Beacon).filter_by(beacon_id=beacon_id).first():
+                return beacon.schema_file
             return None
 
-class BeaconRepository(AgentRepository):
-    """Repository pattern for Beacon database operations - extends AgentRepository for compatibility"""
+    def get_online_beacons_count_by_receiver(self, receiver_id: str) -> int:
+        """Get count of online beacons for a specific receiver"""
+        with self._get_session() as session:
+            return session.query(Beacon).filter_by(status='online', receiver_id=receiver_id).count()
+
+    # Legacy compatibility methods (for gradual migration)
+    def get_agent(self, agent_id: str) -> Optional[Beacon]:
+        """Legacy method - maps to get_beacon"""
+        return self.get_beacon(agent_id)
     
-    def get_beacon(self, beacon_id: str) -> Optional[Agent]:
-        """Get a beacon by ID"""
-        return self.get_agent(beacon_id)
+    def update_agent_status(self, agent_id: str, status: str, computer_name: Optional[str] = None, receiver_id: Optional[str] = None):
+        """Legacy method - maps to update_beacon_status"""
+        return self.update_beacon_status(agent_id, status, computer_name, receiver_id)
     
-    def update_beacon_status(self, beacon_id: str, status: str, computer_name: Optional[str] = None):
-        """Update beacon status"""
-        return self.update_agent_status(beacon_id, status, computer_name)
+    def update_agent_command(self, agent_id: str, command: Optional[str]):
+        """Legacy method - maps to update_beacon_command"""
+        return self.update_beacon_command(agent_id, command)
     
-    def update_beacon_command(self, beacon_id: str, command: Optional[str]):
-        """Update beacon command"""
-        return self.update_agent_command(beacon_id, command)
+    def update_agent_response(self, agent_id: str, response: str):
+        """Legacy method - maps to update_beacon_response"""
+        return self.update_beacon_response(agent_id, response)
     
-    def update_beacon_response(self, beacon_id: str, response: str):
-        """Update beacon response"""
-        return self.update_agent_response(beacon_id, response)
+    def get_all_agents(self) -> List[Beacon]:
+        """Legacy method - maps to get_all_beacons"""
+        return self.get_all_beacons()
     
-    def get_all_beacons(self) -> List[Agent]:
-        """Get all beacons"""
-        return self.get_all_agents()
+    def get_online_agents_count(self) -> int:
+        """Legacy method - maps to get_online_beacons_count"""
+        return self.get_online_beacons_count()
     
-    def mark_timed_out_beacons(self, timeout_minutes: int):
-        """Mark timed out beacons"""
-        return self.mark_timed_out_agents(timeout_minutes)
+    def mark_timed_out_agents(self, timeout_minutes: int):
+        """Legacy method - maps to mark_timed_out_beacons"""
+        return self.mark_timed_out_beacons(timeout_minutes)
     
-    def delete_beacon(self, beacon_id: str) -> bool:
-        """Delete a beacon"""
-        return self.delete_agent(beacon_id)
+    def delete_agent(self, agent_id: str) -> bool:
+        """Legacy method - maps to delete_beacon"""
+        return self.delete_beacon(agent_id)
+    
+    def update_agent_schema(self, agent_id: str, schema_file: Optional[str]) -> bool:
+        """Legacy method - maps to update_beacon_schema"""
+        return self.update_beacon_schema(agent_id, schema_file)
+    
+    def get_agent_schema(self, agent_id: str) -> Optional[str]:
+        """Legacy method - maps to get_beacon_schema"""
+        return self.get_beacon_schema(agent_id)

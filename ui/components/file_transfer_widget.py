@@ -12,7 +12,7 @@ class FileTransferWidget(QWidget):
     def __init__(self, beacon_repository: BeaconRepository):
         super().__init__()
         self.beacon_repository = beacon_repository
-        self.current_agent_id = None
+        self.current_beacon_id = None
         
         # Try to use FontManager, but don't fail if it's not available
         try:
@@ -186,7 +186,7 @@ class FileTransferWidget(QWidget):
 
     def transfer_file(self):
         """Transfer selected file to agent"""
-        if not self.current_agent_id:
+        if not self.current_beacon_id:
             QMessageBox.warning(self, "Warning", "No agent selected!")
             return
 
@@ -206,23 +206,23 @@ class FileTransferWidget(QWidget):
                 return
             
             # Schedule download command
-            agent = self.beacon_repository.get_beacon(self.current_agent_id)
+            agent = self.beacon_repository.get_beacon(self.current_beacon_id)
             if agent:
                 self.beacon_repository.update_beacon_command(
-                    self.current_agent_id,
+                    self.current_beacon_id,
                     f"download_file {filename}"
                 )
                 QMessageBox.information(
                     self,
                     "Success", 
-                    f"File transfer scheduled for agent {self.current_agent_id}"
+                    f"File transfer scheduled for agent {self.current_beacon_id}"
                 )
         except Exception as e:
             QMessageBox.warning(self, "Error", f"Transfer error: {str(e)}")
 
     def request_file(self):
         """Request file from agent"""
-        if not self.current_agent_id:
+        if not self.current_beacon_id:
             QMessageBox.warning(self, "Warning", "No agent selected!")
             return
 
@@ -233,24 +233,24 @@ class FileTransferWidget(QWidget):
 
         try:
             # Schedule upload command
-            agent = self.beacon_repository.get_beacon(self.current_agent_id)
+            agent = self.beacon_repository.get_beacon(self.current_beacon_id)
             if agent:
                 self.beacon_repository.update_beacon_command(
-                    self.current_agent_id,
+                    self.current_beacon_id,
                     f"upload_file {file_path}"
                 )
                 QMessageBox.information(
                     self,
                     "Success", 
-                    f"File request scheduled for agent {self.current_agent_id}"
+                    f"File request scheduled for agent {self.current_beacon_id}"
                 )
                 # Clear the input field after successful request
                 self.file_path_input.clear()
         except Exception as e:
             QMessageBox.warning(self, "Error", f"Request error: {str(e)}")
 
-    def set_agent(self, agent_id: str):
-        self.current_agent_id = agent_id
+    def set_agent(self, beacon_id: str):
+        self.current_beacon_id = beacon_id
     
     def set_beacon(self, beacon_id: str):
         """Set the current beacon ID - delegates to set_agent for compatibility"""

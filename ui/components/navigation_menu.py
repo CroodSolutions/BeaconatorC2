@@ -44,13 +44,20 @@ class NavigationMenu(QWidget):
         nav_items = {
             "toggle": ("Hide", QStyle.StandardPixmap.SP_ArrowLeft),
             "beacons": ("Beacons", QStyle.StandardPixmap.SP_ComputerIcon),
+            "receivers": ("Receivers", QIcon("resources/server-bolt.svg")),  # Custom icon
             "settings": ("Settings", QStyle.StandardPixmap.SP_FileDialogListView),
             "docs": ("Documentation", QStyle.StandardPixmap.SP_FileDialogDetailedView),  
         }
         
         for nav_id, (text, icon) in nav_items.items():
             btn = QPushButton()
-            btn.setIcon(QIcon(self.style().standardIcon(icon)))
+            
+            # Handle both QIcon objects and QStyle.StandardPixmap enums
+            if isinstance(icon, QIcon):
+                btn.setIcon(icon)
+            else:
+                btn.setIcon(self.style().standardIcon(icon))
+            
             btn.setText(text)
             
             if nav_id == "toggle":

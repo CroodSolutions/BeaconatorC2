@@ -52,7 +52,7 @@ class BeaconTableModel(QAbstractTableModel):
         self._beacons = []
         for beacon in beacons:
             converted_beacon = {
-                'beacon_id': beacon.get('agent_id', beacon.get('beacon_id', '')),
+                'beacon_id': beacon.get('beacon_id', beacon.get('beacon_id', '')),
                 'computer_name': beacon.get('computer_name', ''),
                 'status': beacon.get('status', ''),
                 'last_checkin': beacon.get('last_checkin', '')
@@ -70,7 +70,7 @@ class BeaconTableWidget(QTableView):
     
     def __init__(self):
         super().__init__()
-        self.selected_beacon_id = None
+        self._selected_beacon_id = None
         self._column_widths_cached = False
         self._update_timer = QTimer()
         self._update_timer.setSingleShot(True)
@@ -188,11 +188,11 @@ class BeaconTableWidget(QTableView):
         self.update_beacons(agents)
     
     @property
-    def selected_agent_id(self):
-        """Compatibility property"""
-        return self.selected_beacon_id
+    def selected_beacon_id(self):
+        """Get the currently selected beacon ID"""
+        return self._selected_beacon_id
         
-    @selected_agent_id.setter
-    def selected_agent_id(self, value):
-        """Compatibility property"""
-        self.selected_beacon_id = value
+    @selected_beacon_id.setter
+    def selected_beacon_id(self, value):
+        """Set the currently selected beacon ID"""
+        self._selected_beacon_id = value

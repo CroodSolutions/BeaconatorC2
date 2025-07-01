@@ -1,17 +1,17 @@
 from pathlib import Path
 from PyQt6.QtCore import QThread, pyqtSignal
-from database import AgentRepository
+from database import BeaconRepository
 
 class KeyLoggerOutputMonitor(QThread):
     """Monitor KeyLogger output from a specific agent"""
     output_received = pyqtSignal(str)
     
-    def __init__(self, agent_id: str, agent_repository: AgentRepository, config):
+    def __init__(self, beacon_id: str, beacon_repository: BeaconRepository, config):
         super().__init__()
-        self.agent_id = agent_id
-        self.agent_repository = agent_repository
+        self.beacon_id = beacon_id
+        self.beacon_repository = beacon_repository
         self.running = True
-        self.output_file = Path(config.LOGS_FOLDER) / f"keylogger_output_{agent_id}.txt"
+        self.output_file = Path(config.LOGS_FOLDER) / f"keylogger_output_{beacon_id}.txt"
         self.last_content = None
 
     def run(self):

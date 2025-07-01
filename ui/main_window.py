@@ -6,23 +6,28 @@ from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QFont, QIcon, QFontDatabase
 
 from config import ConfigManager
-from services import ServerManager
+from services.receivers import ReceiverManager
+from services.command_processor import CommandProcessor
+from services.file_transfer import FileTransferService
+from database import BeaconRepository
 from utils import DocumentationManager
-from workers import BeaconUpdateWorker
+from workers import BeaconUpdateWorker, ReceiverUpdateWorker
 from .components import (BeaconTableWidget, CommandWidget, NavigationMenu, 
-                        FileTransferWidget, SettingsPage, DocumentationPanel, BeaconSettingsWidget)
+                        FileTransferWidget, SettingsPage, DocumentationPanel, BeaconSettingsWidget, ReceiversWidget)
 from .widgets import LogWidget, OutputDisplay, KeyLoggerDisplay
 import utils
 
 class MainWindow(QMainWindow):
-    def __init__(self, server_manager: ServerManager):
+    def __init__(self, beacon_repository: BeaconRepository, command_processor: CommandProcessor, 
+                 file_transfer_service: FileTransferService, receiver_manager: ReceiverManager = None):
         super().__init__()
-        self.server_manager = server_manager
-        self.beacon_repository = server_manager.beacon_repository
-        self.command_processor = server_manager.command_processor
-        self.file_transfer_service = server_manager.file_transfer_service
+        self.beacon_repository = beacon_repository
+        self.command_processor = command_processor
+        self.file_transfer_service = file_transfer_service
+        self.receiver_manager = receiver_manager
         self.config_manager = ConfigManager()
         self.beacon_update_worker = None
+        self.receiver_update_worker = None
         
         self.setup_ui()
         self.start_background_workers()
@@ -89,6 +94,7 @@ class MainWindow(QMainWindow):
 
         # Create content pages
         self.setup_beacons_page()
+        self.setup_receivers_page()
         self.setup_settings_page()
 
         main_widget.setLayout(main_layout)
@@ -122,9 +128,9 @@ class MainWindow(QMainWindow):
         # Create log widget
         self.log_widget = LogWidget()
         left_splitter.addWidget(self.log_widget)
-        left_splitter.setSizes([300, 300])  # Set initial sizes for vertical splitter
+        left_splitter.setSizes([290, 310])  # Set initial sizes for vertical splitter
         left_splitter.setStretchFactor(0, 1)  # Table gets more space
-        left_splitter.setStretchFactor(1, 1)  # Log gets less space
+        left_splitter.setStretchFactor(1, 0)  # Log gets less space
         
         left_layout.addWidget(left_splitter)
         left_widget.setLayout(left_layout)
@@ -171,9 +177,18 @@ class MainWindow(QMainWindow):
         beacons_widget.setLayout(main_layout)
         self.content_stack.addWidget(beacons_widget)
 
+    def setup_receivers_page(self):
+        """Create the receivers page"""
+        # Pass receiver_manager if available, otherwise ReceiversWidget will create its own
+        if self.receiver_manager:
+            self.receivers_page = ReceiversWidget(self.command_processor, self.file_transfer_service, self.receiver_manager)
+        else:
+            self.receivers_page = ReceiversWidget(self.command_processor, self.file_transfer_service)
+        self.content_stack.addWidget(self.receivers_page)
+
     def setup_settings_page(self):
         """Create the settings page"""
-        self.settings_page = SettingsPage(self.config_manager, self.server_manager)
+        self.settings_page = SettingsPage(self.config_manager)
         self.content_stack.addWidget(self.settings_page)
 
 
@@ -183,6 +198,13 @@ class MainWindow(QMainWindow):
         self.beacon_update_worker = BeaconUpdateWorker(self.beacon_repository)
         self.beacon_update_worker.beacon_updated.connect(self.beacon_table.update_beacons)
         self.beacon_update_worker.start()
+        
+        # Start receiver update worker if receiver manager is available
+        if self.receiver_manager:
+            self.receiver_update_worker = ReceiverUpdateWorker(self.receiver_manager)
+            self.receiver_update_worker.receiver_stats_updated.connect(self.receivers_page.refresh_receivers_table)
+            self.receiver_update_worker.receiver_stats_updated.connect(self.receivers_page.update_summary_stats)
+            self.receiver_update_worker.start()
         
         # Connect logger to log widget
         if utils.logger:
@@ -194,8 +216,10 @@ class MainWindow(QMainWindow):
         
         if page_id == "beacons":
             self.content_stack.setCurrentIndex(0)
-        elif page_id == "settings":
+        elif page_id == "receivers":
             self.content_stack.setCurrentIndex(1)
+        elif page_id == "settings":
+            self.content_stack.setCurrentIndex(2)
 
     def toggle_documentation(self, show: bool):
         """Toggle the documentation panel"""
@@ -236,6 +260,9 @@ class MainWindow(QMainWindow):
         # Stop background workers
         if self.beacon_update_worker:
             self.beacon_update_worker.stop()
+        
+        if self.receiver_update_worker:
+            self.receiver_update_worker.stop()
         
         # Cleanup widgets
         if hasattr(self, 'keylogger_display'):

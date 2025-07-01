@@ -552,10 +552,10 @@ class DocumentationPanel(QWidget):
             self.save_yaml_changes()
             
             # Then invalidate cache and reload schema for the current beacon
-            if self.command_widget and self.command_widget.current_agent_id:
+            if self.command_widget and self.command_widget.current_beacon_id:
                 schema_service = self.command_widget.schema_service
                 schema_file = self.command_widget._loaded_schema_file
-                current_agent_id = self.command_widget.current_agent_id
+                current_beacon_id = self.command_widget.current_beacon_id
                 
                 if schema_file:
                     # Invalidate the specific schema in cache
@@ -565,7 +565,7 @@ class DocumentationPanel(QWidget):
                     self.command_widget._ui_built_for_schema = None
                     
                     # Reload the schema with force_reload=True to bypass early exit conditions
-                    self.command_widget.set_agent(current_agent_id, force_reload=True)
+                    self.command_widget.set_agent(current_beacon_id, force_reload=True)
                     
                     QMessageBox.information(self, "Success", 
                                           "Module configuration applied successfully.\n"

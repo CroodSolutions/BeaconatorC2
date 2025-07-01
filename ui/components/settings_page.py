@@ -1,16 +1,14 @@
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QGroupBox, 
                             QSpinBox, QPushButton, QApplication, QMessageBox)
 from config import ConfigManager, ServerConfig
-from services import ServerManager
+from services.receivers.legacy_migration import migrate_port_setting
 from utils import FontManager
 
 class SettingsPage(QWidget):
     def __init__(self, config_manager: ConfigManager, 
-                 server_manager: ServerManager,
                  parent: QWidget = None):
         super().__init__(parent)
         self.config_manager = config_manager
-        self.server_manager = server_manager
         
         # Try to use FontManager, but don't fail if it's not available
         try:
@@ -44,7 +42,7 @@ class SettingsPage(QWidget):
         font_group.setLayout(font_layout)
         
         # Port Settings Group
-        port_group = QGroupBox("Server Listener Port")
+        port_group = QGroupBox("Default Receiver Port")
         base_style = port_group.styleSheet()
         style = """ 
             QGroupBox {
@@ -102,13 +100,18 @@ class SettingsPage(QWidget):
     def on_port_changed(self):
         port = self.port_input.value()
         
-        success = self.server_manager.change_port(port)
+        # Get current port from config for migration
+        config = ServerConfig()
+        old_port = config.COMBINED_PORT
+        
+        # Migrate port setting to receiver system
+        success = migrate_port_setting(old_port, port)
         
         if success:
             self.config_manager.save_settings(port, self.font_size_spinner.value())
-            QMessageBox.information(self, "Success", f"Server port changed to {port}")
+            QMessageBox.information(self, "Success", 
+                f"Receiver port changed to {port}. Restart application for changes to take effect.")
         else:
-            QMessageBox.critical(self, "Error", "Failed to change port")
+            QMessageBox.critical(self, "Error", "Failed to change receiver port")
             # Reset to current config port
-            config = ServerConfig()
-            self.port_input.setValue(config.COMBINED_PORT)
+            self.port_input.setValue(old_port)
