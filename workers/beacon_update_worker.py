@@ -12,8 +12,15 @@ class BeaconUpdateWorker(QThread):
 
     def run(self):
         import utils  # Import here to avoid circular imports
+        from config import ServerConfig  # Import ServerConfig
+        config = ServerConfig()  # Get timeout value
+        
         while self._running:  # Use running flag
             try:
+                # Mark timed out beacons BEFORE fetching all beacons
+                self.beacon_repository.mark_timed_out_beacons(config.BEACON_TIMEOUT_MINUTES)
+                
+                # Then get updated beacon list
                 beacons = self.beacon_repository.get_all_beacons()
                 self.beacon_updated.emit([beacon.to_dict() for beacon in beacons])
             except Exception as e:
