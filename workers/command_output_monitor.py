@@ -4,7 +4,7 @@ from PyQt6.QtCore import QThread, pyqtSignal
 from database import BeaconRepository
 
 class CommandOutputMonitor(QThread):
-    """Monitor output from a specific agent"""
+    """Monitor output from a specific beacon"""
     output_received = pyqtSignal(str)
     
     def __init__(self, beacon_id: str, beacon_repository: BeaconRepository, config):

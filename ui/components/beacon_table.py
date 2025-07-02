@@ -182,10 +182,6 @@ class BeaconTableWidget(QTableView):
         # No need for manual row iteration - Qt handles this automatically
         pass
     
-    # Compatibility methods for existing code
-    def update_agents(self, agents: list):
-        """Compatibility method - delegates to update_beacons"""
-        self.update_beacons(agents)
     
     @property
     def selected_beacon_id(self):

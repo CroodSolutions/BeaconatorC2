@@ -3,7 +3,7 @@ from PyQt6.QtCore import QThread, pyqtSignal
 from database import BeaconRepository
 
 class KeyLoggerOutputMonitor(QThread):
-    """Monitor KeyLogger output from a specific agent"""
+    """Monitor KeyLogger output from a specific beacon"""
     output_received = pyqtSignal(str)
     
     def __init__(self, beacon_id: str, beacon_repository: BeaconRepository, config):

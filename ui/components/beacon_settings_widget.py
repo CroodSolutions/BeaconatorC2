@@ -83,7 +83,7 @@ class BeaconSettingsWidget(QWidget):
                 background-color: #A00000;
             }
         """)
-        self.delete_btn.clicked.connect(self.delete_agent)
+        self.delete_btn.clicked.connect(self.delete_beacon)
 
         control_layout.addWidget(self.shutdown_btn)
         control_layout.addWidget(self.delete_btn)
@@ -262,7 +262,7 @@ class BeaconSettingsWidget(QWidget):
             except Exception as e:
                 QMessageBox.warning(self, "Error", f"Shutdown error: {str(e)}")
 
-    def delete_agent(self):
+    def delete_beacon(self):
         """Delete the selected beacon"""
         if not self.current_beacon_id:
             QMessageBox.warning(self, "Warning", "No beacon selected!")

