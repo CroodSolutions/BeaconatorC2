@@ -9,6 +9,6 @@ class ServerConfig:
     FILES_FOLDER: str = 'files'
     DB_PATH: str = 'instance/beaconator.db'
     COMBINED_PORT: int = 5074
-    AGENT_TIMEOUT_MINUTES: int = 1
+    BEACON_TIMEOUT_MINUTES: int = 1
     BUFFER_SIZE: int = 4096
     MAX_RETRIES: int = 5
