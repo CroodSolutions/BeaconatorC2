@@ -3,9 +3,13 @@ import threading
 import time
 from socketserver import ThreadingTCPServer, BaseRequestHandler
 from typing import Dict, Any, Optional
+from pathlib import Path
+from werkzeug.utils import secure_filename
 from .base_receiver import BaseReceiver, ReceiverStatus
 from .encoding_strategies import EncodingStrategy
 from .receiver_config import ReceiverConfig
+import utils
+from config import ServerConfig
 
 class EncodedConnectionHandler:
     """Handles connections with encoding/decoding support"""
@@ -21,7 +25,6 @@ class EncodedConnectionHandler:
         
     def handle_connection(self, sock: socket.socket, client_address: tuple, receiver_instance):
         """Handle a connection with encoding support"""
-        from utils import logger
         
         try:
             # Set a reasonable timeout to prevent hanging connections
@@ -37,7 +40,8 @@ class EncodedConnectionHandler:
                 initial_data_decoded = self.encoding_strategy.decode(initial_data_raw)
                 initial_data = initial_data_decoded.decode('utf-8').strip()
             except Exception as e:
-                logger.log_message(f"Decoding error from {client_address}: {e}")
+                if utils.logger:
+                    utils.logger.log_message(f"Decoding error from {client_address}: {e}")
                 return
                 
             parts = initial_data.split('|')
@@ -52,7 +56,8 @@ class EncodedConnectionHandler:
                 self._handle_command(sock, initial_data, client_address, receiver_instance)
                 
         except Exception as e:
-            logger.log_message(f"Connection Error: {client_address[0]}:{client_address[1]} - {str(e)}")
+            if utils.logger:
+                utils.logger.log_message(f"Connection Error: {client_address[0]}:{client_address[1]} - {str(e)}")
         finally:
             try:
                 sock.close()
@@ -61,8 +66,6 @@ class EncodedConnectionHandler:
                 
     def _handle_file_transfer(self, sock: socket.socket, command: str, parts: list, client_address: tuple, receiver_instance):
         """Handle file transfer with encoding"""
-        from utils import logger
-        from config import ServerConfig
         
         if len(parts) < 2:
             response = self.encoding_strategy.encode(b"ERROR|Invalid file transfer command")
@@ -74,18 +77,16 @@ class EncodedConnectionHandler:
         
         if command == "to_agent":
             # Send file (encoded)
-            success = self._send_file_encoded(sock, filename, config, logger, receiver_instance)
+            success = self._send_file(sock, filename, config, receiver_instance)
         else:  # from_agent
             # Receive file (encoded)
             ready_response = self.encoding_strategy.encode(b"READY")
             sock.send(ready_response)
-            success = self._receive_file_encoded(sock, filename, config, logger, receiver_instance)
+            success = self._receive_file(sock, filename, config, receiver_instance)
             
-    def _send_file_encoded(self, sock: socket.socket, filename: str, config, logger, receiver_instance) -> bool:
+    def _send_file(self, sock: socket.socket, filename: str, config, receiver_instance) -> bool:
         """Send file with encoding"""
         try:
-            from pathlib import Path
-            from werkzeug.utils import secure_filename
             
             filepath = Path(config.FILES_FOLDER) / secure_filename(filename)
             if not filepath.exists():
@@ -109,18 +110,18 @@ class EncodedConnectionHandler:
                     bytes_sent += sock.send(encoded_chunk)
                     receiver_instance.update_bytes_sent(len(encoded_chunk))
                     
-            logger.log_message(f"Encoded file transfer complete: {filename} ({bytes_sent} bytes)")
+            if utils.logger:
+                utils.logger.log_message(f"File transfer complete: {filename} ({bytes_sent} bytes)")
             return True
             
         except Exception as e:
-            logger.log_message(f"Error in encoded file send: {e}")
+            if utils.logger:
+                utils.logger.log_message(f"Error in file send: {e}")
             return False
             
-    def _receive_file_encoded(self, sock: socket.socket, filename: str, config, logger, receiver_instance) -> bool:
+    def _receive_file(self, sock: socket.socket, filename: str, config, receiver_instance) -> bool:
         """Receive file with decoding"""
         try:
-            from pathlib import Path
-            from werkzeug.utils import secure_filename
             
             filepath = Path(config.FILES_FOLDER) / secure_filename(filename)
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 1048576)
@@ -149,7 +150,8 @@ class EncodedConnectionHandler:
                 success_response = self.encoding_strategy.encode(b'SUCCESS')
                 sock.send(success_response)
                 receiver_instance.update_bytes_sent(len(success_response))
-                logger.log_message(f"Encoded file received: {filename} ({total_received} bytes)")
+                if utils.logger:
+                    utils.logger.log_message(f"File received: {filename} ({total_received} bytes)")
                 return True
             else:
                 error_response = self.encoding_strategy.encode(b'ERROR|No data received')
@@ -157,15 +159,15 @@ class EncodedConnectionHandler:
                 return False
                 
         except Exception as e:
-            logger.log_message(f"Error in encoded file receive: {e}")
+            if utils.logger:
+                utils.logger.log_message(f"Error in file receive: {e}")
             return False
             
     def _handle_command(self, sock: socket.socket, initial_data: str, client_address: tuple, receiver_instance):
         """Handle command processing with encoding"""
-        from utils import logger
         
         try:
-            keep_alive = self._process_command_encoded(sock, initial_data, receiver_instance)
+            keep_alive = self._process_command(sock, initial_data, receiver_instance)
             if not keep_alive:
                 return
                 
@@ -179,22 +181,23 @@ class EncodedConnectionHandler:
                     data = data_decoded.decode('utf-8').strip()
                     receiver_instance.update_bytes_received(len(data_raw))
                     
-                    keep_alive = self._process_command_encoded(sock, data, receiver_instance)
+                    keep_alive = self._process_command(sock, data, receiver_instance)
                     if not keep_alive:
                         break
                         
                 except socket.timeout:
                     continue
                 except Exception as e:
-                    logger.log_message(f"Error processing command from {client_address}: {e}")
+                    if utils.logger:
+                        utils.logger.log_message(f"Error processing command from {client_address}: {e}")
                     break
                     
         except Exception as e:
-            logger.log_message(f"Error in command handler for {client_address}: {e}")
+            if utils.logger:
+                utils.logger.log_message(f"Error in command handler for {client_address}: {e}")
             
-    def _process_command_encoded(self, sock: socket.socket, data: str, receiver_instance) -> bool:
+    def _process_command(self, sock: socket.socket, data: str, receiver_instance) -> bool:
         """Process individual commands with encoding"""
-        from utils import logger
         
         parts = data.split('|')
         if not parts:
@@ -246,7 +249,8 @@ class EncodedConnectionHandler:
             return command not in self.single_transaction_commands
             
         except Exception as e:
-            logger.log_message(f"Error processing command {command}: {e}")
+            if utils.logger:
+                utils.logger.log_message(f"Error processing command {command}: {e}")
             return False
 
 class TCPReceiver(BaseReceiver):
@@ -339,7 +343,6 @@ class TCPReceiver(BaseReceiver):
         if self.server:
             try:
                 # First, try graceful shutdown with timeout
-                import threading
                 shutdown_thread = threading.Thread(target=self.server.shutdown)
                 shutdown_thread.daemon = True
                 shutdown_thread.start()
