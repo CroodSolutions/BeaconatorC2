@@ -69,7 +69,7 @@ class EncodedConnectionHandler:
         
         if len(parts) < 2:
             response = self.encoding_strategy.encode(b"ERROR|Invalid file transfer command")
-            sock.send(response)
+            self._send_all(sock, response)
             return
             
         filename = parts[1]
@@ -81,8 +81,18 @@ class EncodedConnectionHandler:
         else:  # from_agent
             # Receive file (encoded)
             ready_response = self.encoding_strategy.encode(b"READY")
-            sock.send(ready_response)
+            self._send_all(sock, ready_response)
             success = self._receive_file(sock, filename, config, receiver_instance)
+    
+    def _send_all(self, sock: socket.socket, data: bytes) -> int:
+        """Ensure all data is sent via socket"""
+        total_sent = 0
+        while total_sent < len(data):
+            sent = sock.send(data[total_sent:])
+            if sent == 0:
+                raise RuntimeError("Socket connection broken")
+            total_sent += sent
+        return total_sent
             
     def _send_file(self, sock: socket.socket, filename: str, config, receiver_instance) -> bool:
         """Send file with encoding"""
@@ -91,7 +101,7 @@ class EncodedConnectionHandler:
             filepath = Path(config.FILES_FOLDER) / secure_filename(filename)
             if not filepath.exists():
                 error_response = self.encoding_strategy.encode(b'ERROR|File not found')
-                sock.send(error_response)
+                self._send_all(sock, error_response)
                 return False
                 
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 1048576)
@@ -107,7 +117,7 @@ class EncodedConnectionHandler:
                         
                     # Encode the chunk
                     encoded_chunk = self.encoding_strategy.encode(chunk)
-                    bytes_sent += sock.send(encoded_chunk)
+                    bytes_sent += self._send_all(sock, encoded_chunk)
                     receiver_instance.update_bytes_sent(len(encoded_chunk))
                     
             if utils.logger:
@@ -148,14 +158,14 @@ class EncodedConnectionHandler:
                         
             if total_received > 0:
                 success_response = self.encoding_strategy.encode(b'SUCCESS')
-                sock.send(success_response)
+                self._send_all(sock, success_response)
                 receiver_instance.update_bytes_sent(len(success_response))
                 if utils.logger:
                     utils.logger.log_message(f"File received: {filename} ({total_received} bytes)")
                 return True
             else:
                 error_response = self.encoding_strategy.encode(b'ERROR|No data received')
-                sock.send(error_response)
+                self._send_all(sock, error_response)
                 return False
                 
         except Exception as e:
@@ -202,7 +212,7 @@ class EncodedConnectionHandler:
         parts = data.split('|')
         if not parts:
             error_response = self.encoding_strategy.encode(b"Invalid command format")
-            sock.send(error_response)
+            self._send_all(sock, error_response)
             receiver_instance.update_bytes_sent(len(error_response))
             return False
             
@@ -243,7 +253,7 @@ class EncodedConnectionHandler:
                 
             # Encode and send response
             encoded_response = self.encoding_strategy.encode(response.encode('utf-8'))
-            sock.send(encoded_response)
+            self._send_all(sock, encoded_response)
             receiver_instance.update_bytes_sent(len(encoded_response))
             
             return command not in self.single_transaction_commands
