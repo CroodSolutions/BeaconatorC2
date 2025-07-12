@@ -10,6 +10,8 @@ class ReceiverType(Enum):
     TCP = "tcp"
     UDP = "udp"
     DNS = "dns"
+    SMB = "smb"
+    METASPLOIT = "metasploit"
     CLOUD = "cloud"
 
 @dataclass

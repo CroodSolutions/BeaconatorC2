@@ -5,6 +5,9 @@ import time
 
 from .base_receiver import BaseReceiver, ReceiverStatus
 from .tcp_receiver import TCPReceiver
+from .udp_receiver import UDPReceiver
+from .smb_receiver import SMBReceiver
+from .metasploit_receiver import MetasploitReceiver
 from .receiver_config import ReceiverConfig, ReceiverConfigManager, ReceiverType
 from .encoding_strategies import create_encoding_strategy
 
@@ -103,15 +106,27 @@ class ReceiverManager(QObject):
             
     def _create_receiver_instance(self, config: ReceiverConfig, encoding_strategy) -> Optional[BaseReceiver]:
         """Factory method to create receiver instances based on type"""
-        if config.receiver_type == ReceiverType.TCP:
-            return TCPReceiver(config, encoding_strategy)
-        # Future receiver types can be added here
-        # elif config.receiver_type == ReceiverType.UDP:
-        #     return UDPReceiver(config, encoding_strategy)
-        # elif config.receiver_type == ReceiverType.DNS:
-        #     return DNSReceiver(config, encoding_strategy)
-        else:
-            self.error_occurred.emit("", f"Unsupported receiver type: {config.receiver_type}")
+        try:
+            if config.receiver_type == ReceiverType.TCP:
+                return TCPReceiver(config, encoding_strategy)
+            elif config.receiver_type == ReceiverType.UDP:
+                return UDPReceiver(config, encoding_strategy)
+            elif config.receiver_type == ReceiverType.SMB:
+                return SMBReceiver(config, encoding_strategy)
+            elif config.receiver_type == ReceiverType.METASPLOIT:
+                return MetasploitReceiver(config, encoding_strategy)
+            # DNS and CLOUD types can be added in the future
+            elif config.receiver_type == ReceiverType.DNS:
+                self.error_occurred.emit("", f"DNS receiver type not yet implemented")
+                return None
+            elif config.receiver_type == ReceiverType.CLOUD:
+                self.error_occurred.emit("", f"Cloud receiver type not yet implemented")
+                return None
+            else:
+                self.error_occurred.emit("", f"Unsupported receiver type: {config.receiver_type}")
+                return None
+        except Exception as e:
+            self.error_occurred.emit("", f"Error creating {config.receiver_type} receiver: {str(e)}")
             return None
             
     def start_receiver(self, receiver_id: str) -> bool:
