@@ -228,12 +228,8 @@ class ReceiverConfigDialog(QDialog):
         startup_layout = QFormLayout()
         startup_layout.setSpacing(10)
         
-        self.enabled_check = QCheckBox("Enable this receiver")
-        self.enabled_check.setChecked(True)
-        startup_layout.addRow("", self.enabled_check)
-        
         self.auto_start_check = QCheckBox("Start automatically when application launches")
-        startup_layout.addRow("", self.auto_start_check)
+        startup_layout.addRow("Auto-start:", self.auto_start_check)
         
         startup_group.setLayout(startup_layout)
         startup_content_layout.addWidget(startup_group)
@@ -295,7 +291,6 @@ class ReceiverConfigDialog(QDialog):
         # Basic settings
         self.name_edit.setText(self.config.name)
         self.description_edit.setPlainText(self.config.description)
-        self.enabled_check.setChecked(self.config.enabled)
         self.auto_start_check.setChecked(self.config.auto_start)
         
         # Set receiver type (handle both string and enum safely)
@@ -348,7 +343,7 @@ class ReceiverConfigDialog(QDialog):
         # Basic settings
         config.name = self.name_edit.text().strip()
         config.description = self.description_edit.toPlainText().strip()
-        config.enabled = self.enabled_check.isChecked()
+        config.enabled = True  # All receivers are enabled by default
         config.auto_start = self.auto_start_check.isChecked()
         
         # Handle receiver type conversion safely
