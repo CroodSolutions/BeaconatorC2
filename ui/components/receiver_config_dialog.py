@@ -89,13 +89,11 @@ class ReceiverConfigDialog(QDialog):
         
         self.type_combo = QComboBox()
         self.type_combo.addItem("TCP", ReceiverType.TCP.value)
-        self.type_combo.addItem("UDP (Coming Soon)", ReceiverType.UDP.value)
-        self.type_combo.addItem("DNS (Coming Soon)", ReceiverType.DNS.value)
-        self.type_combo.addItem("Cloud (Coming Soon)", ReceiverType.CLOUD.value)
+        self.type_combo.addItem("UDP", ReceiverType.UDP.value)
+        self.type_combo.addItem("DNS", ReceiverType.DNS.value)
+        self.type_combo.addItem("SMB", ReceiverType.SMB.value)
+        self.type_combo.addItem("Cloud", ReceiverType.CLOUD.value)
         
-        # Disable non-TCP options for now
-        for i in range(1, self.type_combo.count()):
-            self.type_combo.model().item(i).setEnabled(False)
         basic_layout.addRow("Type:", self.type_combo)
         
         self.description_edit = QTextEdit()

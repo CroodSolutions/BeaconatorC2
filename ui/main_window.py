@@ -9,22 +9,25 @@ from config import ConfigManager
 from services.receivers import ReceiverManager
 from services.command_processor import CommandProcessor
 from services.file_transfer import FileTransferService
+from services import MetasploitManager
 from database import BeaconRepository
 from utils import DocumentationManager
 from workers import BeaconUpdateWorker, ReceiverUpdateWorker
 from .components import (BeaconTableWidget, CommandWidget, NavigationMenu, 
-                        FileTransferWidget, SettingsPage, DocumentationPanel, BeaconSettingsWidget, ReceiversWidget)
+                        FileTransferWidget, SettingsPage, DocumentationPanel, BeaconSettingsWidget, ReceiversWidget, MetasploitWidget)
 from .widgets import LogWidget, OutputDisplay, KeyLoggerDisplay
 import utils
 
 class MainWindow(QMainWindow):
     def __init__(self, beacon_repository: BeaconRepository, command_processor: CommandProcessor, 
-                 file_transfer_service: FileTransferService, receiver_manager: ReceiverManager = None):
+                 file_transfer_service: FileTransferService, receiver_manager: ReceiverManager = None,
+                 metasploit_manager: MetasploitManager = None):
         super().__init__()
         self.beacon_repository = beacon_repository
         self.command_processor = command_processor
         self.file_transfer_service = file_transfer_service
         self.receiver_manager = receiver_manager
+        self.metasploit_manager = metasploit_manager
         self.config_manager = ConfigManager()
         self.beacon_update_worker = None
         self.receiver_update_worker = None
@@ -154,6 +157,11 @@ class MainWindow(QMainWindow):
         self.beacon_settings_widget = BeaconSettingsWidget(self.beacon_repository)
         self.beacon_settings_widget.schema_applied.connect(self.command_widget.on_schema_applied)
         right_panel.addTab(self.beacon_settings_widget, "Beacon Settings")
+        
+        # Add Metasploit widget if manager is available
+        if self.metasploit_manager:
+            self.metasploit_widget = MetasploitWidget(self.metasploit_manager, self.beacon_repository)
+            right_panel.addTab(self.metasploit_widget, "Metasploit")
         
         # Add widgets to main splitter
         main_splitter.addWidget(left_widget)

@@ -7,7 +7,8 @@ from .documentation_panel import DocumentationPanel
 from .beacon_settings_widget import BeaconSettingsWidget
 from .receivers_widget import ReceiversWidget
 from .receiver_config_dialog import ReceiverConfigDialog
+from .metasploit_widget import MetasploitWidget
 
 __all__ = ['BeaconTableWidget', 'CommandWidget', 'DynamicCommandWidget', 'NavigationMenu', 
            'FileTransferWidget', 'SettingsPage', 'DocumentationPanel', 'BeaconSettingsWidget', 
-           'ReceiversWidget', 'ReceiverConfigDialog']
+           'ReceiversWidget', 'ReceiverConfigDialog', 'MetasploitWidget']
