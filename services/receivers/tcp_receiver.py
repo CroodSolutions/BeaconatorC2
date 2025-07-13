@@ -44,7 +44,7 @@ class TCPConnectionHandler:
             # Update stats using thread-safe method
             self.receiver_instance.update_bytes_received(len(initial_data_raw))
             
-            if command in ("to_agent", "from_agent"):
+            if command in ("to_beacon", "from_beacon"):
                 self.receiver_instance.handle_file_transfer(sock, command, parts, client_address)
             else:
                 self.receiver_instance.handle_command_processing(sock, initial_data, client_address)

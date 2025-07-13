@@ -39,7 +39,7 @@ class SMBNamedPipeHandler:
             # Update stats using thread-safe method
             self.receiver_instance.update_bytes_received(len(initial_data_raw))
             
-            if command in ("to_agent", "from_agent"):
+            if command in ("to_beacon", "from_beacon"):
                 self.receiver_instance.handle_file_transfer_smb(pipe_handle, command, parts, client_info)
             else:
                 self.receiver_instance.handle_command_processing_smb(pipe_handle, initial_data, client_info)
@@ -275,10 +275,10 @@ class SMBReceiver(BaseReceiver):
             
         filename = parts[1]
         
-        if command == "to_agent":
+        if command == "to_beacon":
             # Send file through pipe
             self._send_file_smb(pipe_handle, filename)
-        else:  # from_agent
+        else:  # from_beacon
             # Receive file through pipe
             ready_response = self.encoding_strategy.encode(b"READY")
             self.connection_handler._write_to_pipe(pipe_handle, ready_response)
