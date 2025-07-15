@@ -13,7 +13,7 @@ from PyQt6.QtGui import QPalette, QColor
 # Import refactored modules
 from config import ServerConfig, ConfigManager
 from database import setup_database
-from services import CommandProcessor, FileTransferService
+from services import CommandProcessor, FileTransferService, MetasploitManager
 from services.receivers import ReceiverManager
 from services.receivers.legacy_migration import ensure_legacy_receiver_exists
 from ui import MainWindow
@@ -39,6 +39,14 @@ def main():
     # Create core services directly
     command_processor = CommandProcessor(beacon_repository)
     file_transfer_service = FileTransferService()
+    
+    # Initialize Metasploit integration
+    metasploit_manager = MetasploitManager(config)
+    success, message = metasploit_manager.initialize()
+    if success:
+        utils.logger.log_message(f"Metasploit integration: {message}")
+    else:
+        utils.logger.log_message(f"Metasploit integration failed: {message}")
     
     # Create receiver manager for new architecture
     receiver_manager = ReceiverManager(
@@ -73,7 +81,8 @@ def main():
         beacon_repository=beacon_repository,
         command_processor=command_processor,
         file_transfer_service=file_transfer_service,
-        receiver_manager=receiver_manager
+        receiver_manager=receiver_manager,
+        metasploit_manager=metasploit_manager
     )
     window.show()
     
@@ -91,13 +100,18 @@ def main():
         import threading
         def shutdown_with_timeout():
             try:
+                # Shutdown Metasploit manager first
+                metasploit_manager.shutdown()
+            except:
+                pass  # Ignore shutdown errors
+            try:
                 receiver_manager.shutdown()
             except:
                 pass  # Ignore shutdown errors
         
         shutdown_thread = threading.Thread(target=shutdown_with_timeout, daemon=True)
         shutdown_thread.start()
-        shutdown_thread.join(timeout=3.0)  # Wait max 3 seconds
+        shutdown_thread.join(timeout=5.0)  # Wait max 5 seconds for both shutdowns
         
 
         
@@ -108,6 +122,10 @@ def main():
     except KeyboardInterrupt:
         utils.logger.log_message("Received shutdown signal")
     finally:
+        try:
+            metasploit_manager.shutdown()
+        except:
+            pass
         receiver_manager.shutdown()
 
 if __name__ == '__main__':
