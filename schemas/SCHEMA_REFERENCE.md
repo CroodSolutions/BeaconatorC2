@@ -1,15 +1,16 @@
 # BeaconatorC2 Schema Reference Card
 
-## Quick Start Guide for Creating Agent Schemas
+## Quick Start Guide for Creating Beacon Schemas
 
 ### Basic Schema Structure
 ```yaml
 schema_version: "1.1"
-agent_info:
-  agent_type: "your_agent_type"
+beacon_info:
+  beacon_type: "your_beacon_type"
   version: "1.0.0"
-  description: "Agent description"
+  description: "Beacon description"
   supported_platforms: ["windows", "linux", "macos"]
+  encoding_strategy: "plaintext"
 
 categories:
   category_name:
@@ -31,6 +32,37 @@ categories:
           icon: "icon_name"
           layout: "simple"
 ```
+
+## Encoding Strategy Options
+
+The `encoding_strategy` field in `beacon_info` specifies the preferred encoding method for beacon communication:
+
+| Strategy | Description | Use Case |
+|----------|-------------|----------|
+| `plaintext` | No encoding (default) | Standard communication, debugging |
+| `base64` | Base64 encoding | Text-safe transmission, basic obfuscation |
+| `xor` | XOR encryption | Simple encryption with configurable key |
+
+### Encoding Strategy Examples
+
+```yaml
+# Plaintext encoding (default)
+beacon_info:
+  beacon_type: "my_beacon"
+  encoding_strategy: "plaintext"
+
+# Base64 encoding
+beacon_info:
+  beacon_type: "my_beacon"
+  encoding_strategy: "base64"
+
+# XOR encoding
+beacon_info:
+  beacon_type: "my_beacon"
+  encoding_strategy: "xor"
+```
+
+**Note**: The encoding strategy in the schema represents the beacon's preferred encoding method. The actual encoding used depends on the receiver configuration and beacon implementation.
 
 ## Parameter Types Reference
 
@@ -144,27 +176,6 @@ ui:
     - ["execution_params"]        # Tab 2: Execution
 ```
 
-## Common Icons Reference
-
-| Icon | Use Case | Icon | Use Case |
-|------|----------|------|----------|
-| `terminal` | Command execution | `network` | Network operations |
-| `search` | Discovery/recon | `firewall` | Traffic control |
-| `shield` | Security/protection | `key` | Privilege escalation |
-| `server` | Infrastructure | `user` | User operations |
-| `lock` | Encryption | `unlock` | Decryption |
-| `clock` | Scheduled tasks | `package` | Software installation |
-
-## Color Themes
-
-| Color | Use Case | Example |
-|-------|----------|---------|
-| `default` | Standard operations | Most modules |
-| `red` | High-impact/destructive | File encryption |
-| `green` | Recovery/restoration | File decryption |
-| `yellow` | Warning/caution | Privilege escalation |
-| `blue` | Information gathering | Discovery modules |
-
 ## Validation Regex Patterns
 
 ```yaml
@@ -190,7 +201,7 @@ pattern: "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
 | Network operations | 600-1800 | Port scanning, RDP connections |
 | File operations | 1800+ | Encryption, large transfers |
 
-## Category Organization (MITRE ATT&CK Based)
+## Category Organization
 
 | Category | Purpose | Example Modules |
 |----------|---------|-----------------|
@@ -204,30 +215,19 @@ pattern: "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
 
 ## Best Practices
 
-### ✅ Do
+### Do
 - Use snake_case for internal identifiers
 - Provide meaningful descriptions
 - Set appropriate timeouts
 - Use validation for user inputs
 - Group related parameters
-- Follow MITRE ATT&CK categories
 
-### ❌ Don't
+### Don't
 - Use spaces in internal names
 - Skip parameter validation
-- Set unrealistic timeouts
 - Mix unrelated parameters in groups
 - Forget to set admin requirements
 
-## Testing Your Schema
-
-```bash
-# Validate schema
-python test_schema_simple.py
-
-# Test in GUI
-python test_dynamic_widget.py
-```
 
 ## Example: Complete Module
 ```yaml

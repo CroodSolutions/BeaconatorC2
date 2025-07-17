@@ -1,6 +1,6 @@
 """
 Command Widget - Schema-driven module interface
-Generates UI dynamically based on agent module schemas
+Generates UI dynamically based on beacon module schemas
 """
 
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLineEdit, QPushButton, 
@@ -14,7 +14,7 @@ from PyQt6.QtWidgets import QStyle
 from typing import Dict, Any, Optional, List, Tuple
 
 from database import BeaconRepository
-from services import SchemaService, AgentSchema, Module, Category, ParameterType
+from services import SchemaService, BeaconSchema, Module, Category, ParameterType
 from utils import FontManager
 import utils
 from ..widgets import OutputDisplay
@@ -380,7 +380,7 @@ class CommandWidget(QWidget):
         self.doc_panel = doc_panel
         self.current_beacon_id = None
         self.schema_service = SchemaService()
-        self.current_schema: Optional[AgentSchema] = None
+        self.current_schema: Optional[BeaconSchema] = None
         self.documentation_visible = False  # Track if documentation panel is currently shown
         
         # Schema caching to avoid duplicate database queries

