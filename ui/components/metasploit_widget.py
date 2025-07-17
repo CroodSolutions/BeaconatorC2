@@ -327,7 +327,7 @@ class StatusTab(QWidget):
 class PayloadGeneratorTab(QWidget):
     """Tab for payload generation and delivery"""
     
-    payload_generated = pyqtSignal(str, bytes)  # filename, data
+    payload_generated = pyqtSignal(str, object)  # filename, data (can be str or bytes)
     delivery_requested = pyqtSignal(str, dict)  # beacon_id, config
     
     def __init__(self, metasploit_manager: MetasploitManager, beacon_repository: BeaconRepository):
@@ -791,7 +791,10 @@ class PayloadGeneratorTab(QWidget):
             success, payload_data, error = self.metasploit_service.generate_payload(config)
             
             if success:
-                filename = f"{config.payload_type.replace('/', '_')}.{config.format}"
+                # Import helper to get proper file extension
+                from utils.helpers import get_file_extension_for_format
+                extension = get_file_extension_for_format(config.format)
+                filename = f"{config.payload_type.replace('/', '_')}{extension}"
                 
                 # Handle payload storage
                 storage_message = ""
@@ -821,8 +824,13 @@ class PayloadGeneratorTab(QWidget):
                 # Emit signal for any other handlers
                 self.payload_generated.emit(filename, payload_data)
                 
-                # Show success message
-                message = f"Payload generated: {len(payload_data)} bytes{storage_message}"
+                # Show success message with appropriate size information
+                if isinstance(payload_data, str):
+                    size_info = f"{len(payload_data)} characters"
+                else:
+                    size_info = f"{len(payload_data)} bytes"
+                    
+                message = f"Payload generated: {size_info}{storage_message}"
                 QMessageBox.information(self, "Success", message)
             else:
                 # Parse error message for better user feedback
