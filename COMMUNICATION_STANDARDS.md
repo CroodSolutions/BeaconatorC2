@@ -281,7 +281,7 @@ command_template: 'execute_module|EncryptDirectory|{directory_path},{file_extens
 All receivers support pluggable encoding for data obfuscation:
 
 ### Available Strategies
-- **PlainText**: No encoding (passthrough)
+- **PlainText**: No encoding (UTF-8)
 - **Base64**: Standard base64 encoding
 - **XOR**: XOR encryption with configurable key
 
@@ -349,20 +349,4 @@ ERROR|{error_description}
 - [ ] Encoding/decoding functions properly
 - [ ] Logs are generated correctly
 
-## 12. Future Considerations
 
-### Potential Extensions
-- **Binary Command Support**: Commands beyond text-based execution
-- **Streaming Protocols**: Real-time data streaming (video, audio)
-- **Compression**: Data compression for large transfers
-- **Authentication**: Beacon authentication beyond ID-based identification
-- **Encryption**: Built-in encryption beyond encoding strategies
-
-### Backward Compatibility
-- **Schema Versioning**: Maintain schema version compatibility
-- **Protocol Evolution**: New features should not break existing beacons
-- **Graceful Degradation**: Older beacons should continue functioning
-
----
-
-**Note**: This document should be updated whenever communication protocol changes are made. All new receiver implementations must conform to these standards to ensure compatibility with existing beacons and schemas.
