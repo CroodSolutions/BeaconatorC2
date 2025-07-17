@@ -210,7 +210,7 @@ class MainWindow(QMainWindow):
         
         # Add Metasploit tab if available
         if 'metasploit' in self.tab_widgets:
-            self.right_panel.addTab(self.tab_widgets['metasploit'], "Metasploit")
+            self.right_panel.addTab(self.tab_widgets['metasploit'], "Metasploit RPC")
     
     def add_conditional_tabs(self):
         """Add conditional tabs (initially all shown for backward compatibility)"""

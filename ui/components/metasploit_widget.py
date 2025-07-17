@@ -113,7 +113,13 @@ class DynamicParameterWidget(QWidget):
             if default_value:
                 self.input_widget.setText(str(default_value))
             if description:
-                self.input_widget.setPlaceholderText(description)
+                # Set shorter placeholder text but full description in tooltip
+                short_desc = description[:50] + "..." if len(description) > 50 else description
+                self.input_widget.setPlaceholderText(short_desc)
+        
+        # Set tooltip with full description for all widget types
+        if description and hasattr(self.input_widget, 'setToolTip'):
+            self.input_widget.setToolTip(description)
         
         # Style required fields
         if required:
@@ -357,6 +363,45 @@ class PayloadGeneratorTab(QWidget):
         
         # Start initial payload discovery
         self.refresh_payloads()
+    
+    def get_formats_for_payload(self, payload_name: str) -> list:
+        """Get appropriate formats based on payload platform/type"""
+        if not payload_name:
+            return ["exe", "raw", "hex"]
+        
+        payload_lower = payload_name.lower()
+        
+        # Windows payloads
+        if any(platform in payload_lower for platform in ['windows', 'win']):
+            return ["exe", "dll", "msi", "raw", "hex", "powershell"]
+        
+        # Linux payloads
+        elif any(platform in payload_lower for platform in ['linux', 'unix']):
+            return ["elf", "raw", "hex"]
+        
+        # Python payloads
+        elif 'python' in payload_lower:
+            return ["py", "raw"]
+        
+        # PHP payloads
+        elif 'php' in payload_lower:
+            return ["raw"]
+        
+        # Java payloads
+        elif 'java' in payload_lower:
+            return ["jar", "war", "raw"]
+        
+        # Android payloads
+        elif 'android' in payload_lower:
+            return ["apk", "raw"]
+        
+        # macOS payloads
+        elif any(platform in payload_lower for platform in ['osx', 'macos']):
+            return ["macho", "raw", "hex"]
+        
+        # Generic/multi-platform payloads
+        else:
+            return ["raw", "hex", "exe"]
         
         
     def create_module_selection_panel(self):
@@ -428,6 +473,19 @@ class PayloadGeneratorTab(QWidget):
         self.params_group.setLayout(self.params_group_layout)
         layout.addWidget(self.params_group)
         
+        # Output options
+        output_options_group = QGroupBox("Output Options")
+        output_options_layout = QFormLayout()
+        
+        # Format selection
+        self.format_combo = QComboBox()
+        self.format_combo.addItems(["exe", "raw", "hex"])  # Default formats
+        self.format_combo.setToolTip("Select the output format for the generated payload")
+        output_options_layout.addRow("Format:", self.format_combo)
+        
+        output_options_group.setLayout(output_options_layout)
+        layout.addWidget(output_options_group)
+        
         # Save options
         save_options_group = QGroupBox("Save Options")
         save_options_layout = QVBoxLayout()
@@ -448,7 +506,7 @@ class PayloadGeneratorTab(QWidget):
         self.generate_btn.setEnabled(False)
         actions_layout.addWidget(self.generate_btn)
         
-        self.deliver_btn = QPushButton("Generate & Deliver")
+        self.deliver_btn = QPushButton("Deliver Payload")
         self.deliver_btn.clicked.connect(self.generate_and_deliver)
         self.deliver_btn.setEnabled(False)
         actions_layout.addWidget(self.deliver_btn)
@@ -577,6 +635,9 @@ class PayloadGeneratorTab(QWidget):
         self.module_name_label.setText(payload_name)
         self.module_desc_label.setText("Loading options...")
         
+        # Update format options based on payload platform
+        self.update_format_options(payload_name)
+        
         # Clear current parameters
         self.clear_parameters()
         
@@ -589,6 +650,25 @@ class PayloadGeneratorTab(QWidget):
         self.options_worker.options_discovered.connect(self.on_options_discovered)
         self.options_worker.error_occurred.connect(self.on_options_error)
         self.options_worker.start()
+    
+    def update_format_options(self, payload_name: str):
+        """Update format dropdown based on selected payload"""
+        # Store current selection
+        current_format = self.format_combo.currentText()
+        
+        # Get new format options
+        new_formats = self.get_formats_for_payload(payload_name)
+        
+        # Update combo box
+        self.format_combo.clear()
+        self.format_combo.addItems(new_formats)
+        
+        # Try to restore previous selection if still available
+        if current_format in new_formats:
+            self.format_combo.setCurrentText(current_format)
+        # Otherwise select the first (most appropriate) option
+        elif new_formats:
+            self.format_combo.setCurrentIndex(0)
         
     def on_options_discovered(self, module_info: dict):
         """Handle discovered module options"""
@@ -654,6 +734,10 @@ class PayloadGeneratorTab(QWidget):
         self.generate_btn.setEnabled(False)
         self.deliver_btn.setEnabled(False)
         
+        # Reset format dropdown to default options
+        self.format_combo.clear()
+        self.format_combo.addItems(["exe", "raw", "hex"])
+        
     def clear_parameters(self):
         """Clear parameter widgets"""
         for widget in self.parameter_widgets.values():
@@ -670,16 +754,32 @@ class PayloadGeneratorTab(QWidget):
         """Build payload configuration from UI"""
         payload_type = self.module_name_label.text()
         
-        # Get parameter values
+        # Get parameter values from UI widgets (only for parameters that exist in the module)
         params = {}
         for option_name, widget in self.parameter_widgets.items():
-            params[option_name] = widget.get_value()
-            
+            value = widget.get_value()
+            # Only include non-empty values or explicitly set parameters
+            if value or option_name in ['LHOST', 'LPORT', 'Format']:
+                params[option_name] = value
+        
+        # Only use LHOST/LPORT if they actually exist in the module parameters
+        lhost = params.get('LHOST') if 'LHOST' in self.parameter_widgets else '127.0.0.1'
+        lport_value = params.get('LPORT', 4444) if 'LPORT' in self.parameter_widgets else 4444
+        try:
+            lport = int(lport_value) if lport_value else 4444
+        except (ValueError, TypeError):
+            lport = 4444
+        
+        # Get selected format from UI, with fallback to module Format parameter or 'exe'
+        selected_format = self.format_combo.currentText()
+        module_format = params.get('Format')
+        final_format = selected_format or module_format or 'exe'
+        
         return PayloadConfig(
             payload_type=payload_type,
-            lhost=params.get('LHOST', '127.0.0.1'),
-            lport=int(params.get('LPORT', 4444)),
-            format=params.get('Format', 'exe'),
+            lhost=lhost,
+            lport=lport,
+            format=final_format,
             encoder=params.get('Encoder') if params.get('Encoder') != 'none' else None,
             iterations=int(params.get('Iterations', 1)) if params.get('Iterations') else 1
         )
