@@ -1,6 +1,7 @@
 from pathlib import Path
 import yaml
 import os
+import base64
 from datetime import datetime
 from typing import Tuple
 
@@ -9,6 +10,68 @@ class literal(str):
 
 def literal_presenter(dumper, data):
     return dumper.represent_scalar('tag:yaml.org,2002:str', data, style='|')
+
+def get_file_extension_for_format(format: str) -> str:
+    """
+    Get the correct file extension for a given payload format
+    
+    Args:
+        format: Metasploit payload format
+        
+    Returns:
+        Appropriate file extension (with dot)
+    """
+    format_extension_map = {
+        # Binary formats
+        'exe': '.exe',
+        'dll': '.dll',
+        'msi': '.msi',
+        'elf': '.elf',
+        'macho': '.macho',
+        'apk': '.apk',
+        'jar': '.jar',
+        'war': '.war',
+        'raw': '.bin',
+        
+        # Text-based formats
+        'powershell': '.ps1',
+        'python': '.py',
+        'py': '.py',
+        'php': '.php',
+        'perl': '.pl',
+        'ruby': '.rb',
+        
+        # Data formats
+        'hex': '.hex',
+        'base64': '.b64',
+        'c': '.c',
+        'csharp': '.cs',
+        'java': '.java',
+        
+        # Web formats
+        'asp': '.asp',
+        'aspx': '.aspx',
+        'jsp': '.jsp',
+    }
+    
+    return format_extension_map.get(format.lower(), f'.{format}')
+
+def is_text_format(format: str) -> bool:
+    """
+    Determine if a payload format produces text output rather than binary
+    
+    Args:
+        format: Metasploit payload format
+        
+    Returns:
+        True if format produces text output, False for binary
+    """
+    text_formats = {
+        'powershell', 'python', 'py', 'php', 'perl', 'ruby',
+        'hex', 'base64', 'c', 'csharp', 'java', 'asp', 'aspx', 'jsp'
+    }
+    
+    return format.lower() in text_formats
 
 def ensure_directories(config):
     """Ensure required directories exist"""
@@ -51,11 +114,14 @@ def get_payload_storage_path(config, payload_type: str, format: str, include_tim
     # Clean payload type for filename (replace slashes with underscores)
     clean_payload_type = payload_type.replace('/', '_').replace('\\', '_')
     
+    # Get proper file extension for the format
+    extension = get_file_extension_for_format(format)
+    
     if include_timestamp and config.PAYLOAD_INCLUDE_TIMESTAMP:
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        filename = f"{timestamp}_{clean_payload_type}.{format}"
+        filename = f"{timestamp}_{clean_payload_type}{extension}"
     else:
-        filename = f"{clean_payload_type}.{format}"
+        filename = f"{clean_payload_type}{extension}"
     
     full_path = storage_dir / filename
     
@@ -71,16 +137,16 @@ def get_payload_storage_path(config, payload_type: str, format: str, include_tim
     return full_path, full_path.name
 
 
-def save_payload_to_disk(config, payload_type: str, format: str, payload_data: bytes, 
+def save_payload_to_disk(config, payload_type: str, format: str, payload_data, 
                         metadata: dict = None) -> Tuple[bool, str, str]:
     """
-    Save payload binary data to disk with metadata
+    Save payload data to disk with metadata, handling both binary and text formats
     
     Args:
         config: Server configuration object
         payload_type: Metasploit payload type
         format: Payload format
-        payload_data: Binary payload data
+        payload_data: Payload data (bytes for binary, str for text)
         metadata: Optional metadata dictionary
         
     Returns:
@@ -93,9 +159,35 @@ def save_payload_to_disk(config, payload_type: str, format: str, payload_data: b
         # Get storage path and filename
         full_path, filename = get_payload_storage_path(config, payload_type, format)
         
-        # Write payload binary data
-        with open(full_path, 'wb') as f:
-            f.write(payload_data)
+        # Determine if this is a text or binary format
+        if is_text_format(format):
+            # Handle text-based formats
+            if isinstance(payload_data, bytes):
+                try:
+                    # Try to decode as UTF-8 text
+                    text_data = payload_data.decode('utf-8')
+                except UnicodeDecodeError:
+                    # If decoding fails, fall back to binary mode
+                    with open(full_path, 'wb') as f:
+                        f.write(payload_data)
+                else:
+                    # Write as text
+                    with open(full_path, 'w', encoding='utf-8') as f:
+                        f.write(text_data)
+            elif isinstance(payload_data, str):
+                # Write string directly as text
+                with open(full_path, 'w', encoding='utf-8') as f:
+                    f.write(payload_data)
+            else:
+                return False, "", f"Unexpected data type for text format: {type(payload_data)}"
+        else:
+            # Handle binary formats
+            if isinstance(payload_data, str):
+                # Convert string to bytes for binary formats
+                payload_data = payload_data.encode('utf-8')
+            
+            with open(full_path, 'wb') as f:
+                f.write(payload_data)
         
         # Write metadata file if provided
         if metadata:
@@ -138,7 +230,15 @@ def list_saved_payloads(config) -> list:
         for payload_file in base_dir.rglob('*'):
             if payload_file.is_file() and not payload_file.suffix == '.meta':
                 # Check if it's a recognized payload format
-                if payload_file.suffix.lower() in ['.exe', '.elf', '.raw', '.bin', '.dll', '.so']:
+                recognized_extensions = {
+                    # Binary formats
+                    '.exe', '.dll', '.msi', '.elf', '.macho', '.apk', '.jar', '.war', '.bin', '.so',
+                    # Text formats  
+                    '.ps1', '.py', '.php', '.pl', '.rb', '.hex', '.b64', '.c', '.cs', '.java',
+                    # Web formats
+                    '.asp', '.aspx', '.jsp'
+                }
+                if payload_file.suffix.lower() in recognized_extensions:
                     payload_info = {
                         'filename': payload_file.name,
                         'path': str(payload_file),

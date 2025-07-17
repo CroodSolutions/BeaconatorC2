@@ -801,7 +801,7 @@ class PayloadGenerator:
             raise RpcMethodError(f"Failed to get payload info for '{payload_name}': {str(e)}")
     
     def generate_payload(self, payload_name: str, options: Dict[str, Any], 
-                        format: str = 'raw') -> Tuple[bool, bytes, str]:
+                        format: str = 'raw') -> Tuple[bool, Any, str]:
         """
         Generate a payload with specified options
         
@@ -814,6 +814,9 @@ class PayloadGenerator:
             Tuple of (success, payload_data, error_message)
         """
         try:
+            # Import helper functions to determine format type
+            from utils.helpers import is_text_format
+            
             # Prepare payload options
             payload_options = dict(options)
             if format != 'raw':
@@ -823,20 +826,37 @@ class PayloadGenerator:
             result = self.handlers.module.execute('payload', payload_name, payload_options)
             
             if result and 'payload' in result:
-                # Payload data is usually base64 encoded
                 payload_data = result['payload']
-                if isinstance(payload_data, str):
-                    try:
-                        # Try to decode base64
-                        decoded_data = base64.b64decode(payload_data)
-                        return True, decoded_data, ""
-                    except:
-                        # If not base64, return as bytes
-                        return True, payload_data.encode(), ""
-                elif isinstance(payload_data, bytes):
-                    return True, payload_data, ""
+                
+                # Handle different payload formats appropriately
+                if is_text_format(format):
+                    # Text-based formats (PowerShell, Python, etc.) should be returned as strings
+                    if isinstance(payload_data, str):
+                        return True, payload_data, ""
+                    elif isinstance(payload_data, bytes):
+                        try:
+                            # Try to decode as UTF-8
+                            text_data = payload_data.decode('utf-8')
+                            return True, text_data, ""
+                        except UnicodeDecodeError:
+                            # If decoding fails, return as bytes
+                            return True, payload_data, ""
+                    else:
+                        return False, "", f"Unexpected payload data type for text format: {type(payload_data)}"
                 else:
-                    return False, b'', f"Unexpected payload data type: {type(payload_data)}"
+                    # Binary formats should be returned as bytes
+                    if isinstance(payload_data, str):
+                        try:
+                            # Try to decode base64 for binary payloads
+                            decoded_data = base64.b64decode(payload_data)
+                            return True, decoded_data, ""
+                        except:
+                            # If not base64, encode as bytes
+                            return True, payload_data.encode('utf-8'), ""
+                    elif isinstance(payload_data, bytes):
+                        return True, payload_data, ""
+                    else:
+                        return False, b'', f"Unexpected payload data type for binary format: {type(payload_data)}"
             else:
                 error_msg = result.get('error', 'Unknown error during payload generation')
                 return False, b'', error_msg

@@ -190,9 +190,7 @@ class SimplePythonBeacon:
             # Check for standard "no command" responses from server
             no_command_responses = [
                 "", 
-                "No commands queued", 
-                "no_pending_commands",
-                "No pending commands"
+                "no_pending_commands"
             ]
             
             if not command_data or command_data in no_command_responses:

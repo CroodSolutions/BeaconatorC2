@@ -235,6 +235,8 @@ class BeaconInfo:
     description: str
     supported_platforms: List[str] = field(default_factory=list)
     encoding_strategy: str = "plaintext"
+    file_transfer_supported: bool = True
+    keylogger_supported: bool = True
 
 @dataclass
 class BeaconSchema:
@@ -284,7 +286,9 @@ class SchemaService:
                 version=beacon_info_data.get('version', '1.0.0'),
                 description=beacon_info_data.get('description', ''),
                 supported_platforms=beacon_info_data.get('supported_platforms', []),
-                encoding_strategy=beacon_info_data.get('encoding_strategy', 'plaintext')
+                encoding_strategy=beacon_info_data.get('encoding_strategy', 'plaintext'),
+                file_transfer_supported=beacon_info_data.get('file_transfer_supported', True),
+                keylogger_supported=beacon_info_data.get('keylogger_supported', True)
             )
             
             # Parse categories and modules
