@@ -285,10 +285,10 @@ class BaseReceiver(QObject):
         filename = parts[1]
         config = ServerConfig()
         
-        if command == "to_agent":
+        if command == "to_beacon":
             # Send file (encoded)
             self._send_file(sock, filename, config)
-        else:  # from_agent
+        else:  # from_beacon
             # Receive file (encoded)
             ready_response = self.encoding_strategy.encode(b"READY")
             self._send_data(sock, ready_response)

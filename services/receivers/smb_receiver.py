@@ -39,7 +39,7 @@ class SMBNamedPipeHandler:
             # Update stats using thread-safe method
             self.receiver_instance.update_bytes_received(len(initial_data_raw))
             
-            if command in ("to_agent", "from_agent"):
+            if command in ("to_beacon", "from_beacon"):
                 self.receiver_instance.handle_file_transfer_smb(pipe_handle, command, parts, client_info)
             else:
                 self.receiver_instance.handle_command_processing_smb(pipe_handle, initial_data, client_info)
@@ -117,15 +117,27 @@ class SMBReceiver(BaseReceiver):
             # Create SMB connection handler
             self.connection_handler = SMBNamedPipeHandler(self)
             
+            if utils.logger:
+                utils.logger.log_message(f"SMB: Setting up receiver on {os.name} platform")
+            
             if os.name == 'nt':  # Windows
+                if utils.logger:
+                    utils.logger.log_message(f"SMB: Using Windows named pipes")
                 self._setup_windows_pipe()
             else:  # Unix-like systems
+                if utils.logger:
+                    utils.logger.log_message(f"SMB: Using Unix FIFOs")
                 self._setup_unix_fifo()
             
+            if utils.logger:
+                utils.logger.log_message(f"SMB: Receiver setup completed successfully")
             return True
             
         except Exception as e:
-            self.error_occurred.emit(self.receiver_id, f"SMB setup failed: {str(e)}")
+            error_msg = f"SMB setup failed: {str(e)}"
+            if utils.logger:
+                utils.logger.log_message(f"SMB: {error_msg}")
+            self.error_occurred.emit(self.receiver_id, error_msg)
             return False
     
     def _setup_windows_pipe(self):
@@ -133,8 +145,12 @@ class SMBReceiver(BaseReceiver):
         try:
             import win32pipe
             import win32file
+            import win32api
             
             self.pipe_path = f"\\\\.\\pipe\\{self.pipe_name}"
+            
+            if utils.logger:
+                utils.logger.log_message(f"SMB: Creating Windows named pipe: {self.pipe_path}")
             
             self.pipe_handle = win32pipe.CreateNamedPipe(
                 self.pipe_path,
@@ -148,10 +164,56 @@ class SMBReceiver(BaseReceiver):
             )
             
             if self.pipe_handle == win32file.INVALID_HANDLE_VALUE:
-                raise Exception("Failed to create named pipe")
+                error_code = win32api.GetLastError()
+                error_msg = f"Failed to create named pipe. Error code: {error_code}"
+                if utils.logger:
+                    utils.logger.log_message(f"SMB: {error_msg}")
+                raise Exception(error_msg)
+            else:
+                if utils.logger:
+                    utils.logger.log_message(f"SMB: Successfully created Windows named pipe: {self.pipe_path}")
+                    utils.logger.log_message(f"SMB: Pipe handle value: {self.pipe_handle}")
+                    # Check if pipe handle is valid by trying to get info about it
+                    try:
+                        import win32pipe
+                        pipe_state = win32pipe.GetNamedPipeHandleState(self.pipe_handle)
+                        utils.logger.log_message(f"SMB: Pipe state info retrieved successfully")
+                    except Exception as state_error:
+                        utils.logger.log_message(f"SMB: Could not get pipe state: {state_error}")
                 
-        except ImportError:
-            raise Exception("pywin32 package required for Windows SMB support")
+                # Verify pipe is accessible (WaitNamedPipe returns False for server pipes, which is normal)
+                try:
+                    if utils.logger:
+                        utils.logger.log_message(f"SMB: Verifying pipe accessibility...")
+                    result = win32pipe.WaitNamedPipe(self.pipe_path, 100)  # Short timeout
+                    error_code = win32api.GetLastError()
+                    
+                    if not result and error_code == 0:
+                        # This is normal - server pipe in listening mode
+                        if utils.logger:
+                            utils.logger.log_message(f"SMB: Named pipe server is ready to accept client connections")
+                    elif not result and error_code != 0:
+                        # Actual error
+                        if utils.logger:
+                            utils.logger.log_message(f"SMB: Warning - pipe verification failed with error code: {error_code}")
+                    else:
+                        # Unexpected success
+                        if utils.logger:
+                            utils.logger.log_message(f"SMB: Pipe verification returned unexpected success")
+                except Exception as verify_error:
+                    if utils.logger:
+                        utils.logger.log_message(f"SMB: Pipe verification error: {verify_error}")
+                
+        except ImportError as e:
+            error_msg = f"pywin32 package required for Windows SMB support: {e}"
+            if utils.logger:
+                utils.logger.log_message(f"SMB: {error_msg}")
+            raise Exception(error_msg)
+        except Exception as e:
+            error_msg = f"Windows named pipe setup failed: {e}"
+            if utils.logger:
+                utils.logger.log_message(f"SMB: {error_msg}")
+            raise
     
     def _setup_unix_fifo(self):
         """Setup Unix FIFO (named pipe simulation)"""
@@ -192,10 +254,17 @@ class SMBReceiver(BaseReceiver):
         import win32file
         import pywintypes
         
+        current_pipe = self.pipe_handle
+        
         while not self._shutdown_event.is_set():
             try:
-                # Wait for client connection with timeout
-                win32pipe.ConnectNamedPipe(self.pipe_handle, None)
+                # Wait for client connection
+                if utils.logger:
+                    utils.logger.log_message(f"SMB: Waiting for client connection on pipe...")
+                win32pipe.ConnectNamedPipe(current_pipe, None)
+                
+                if utils.logger:
+                    utils.logger.log_message(f"SMB: Client connected to named pipe")
                 
                 # Update connection stats
                 self.increment_active_connections()
@@ -203,18 +272,71 @@ class SMBReceiver(BaseReceiver):
                 try:
                     # Handle the connection
                     client_info = {"type": "named_pipe", "path": self.pipe_path}
-                    self.connection_handler.handle_pipe_connection(self.pipe_handle, client_info)
+                    self.connection_handler.handle_pipe_connection(current_pipe, client_info)
                 finally:
                     self.decrement_active_connections()
-                    # Disconnect and prepare for next connection
-                    win32pipe.DisconnectNamedPipe(self.pipe_handle)
+                    
+                    # Disconnect current client
+                    try:
+                        win32pipe.DisconnectNamedPipe(current_pipe)
+                        if utils.logger:
+                            utils.logger.log_message(f"SMB: Disconnected client from pipe")
+                    except pywintypes.error as disconnect_error:
+                        if utils.logger:
+                            utils.logger.log_message(f"SMB: Disconnect error: {disconnect_error}")
+                    
+                    # For named pipes, we need to create a new instance for the next connection
+                    try:
+                        if utils.logger:
+                            utils.logger.log_message(f"SMB: Creating new pipe instance for next connection")
+                        
+                        new_pipe = win32pipe.CreateNamedPipe(
+                            self.pipe_path,
+                            win32pipe.PIPE_ACCESS_DUPLEX,
+                            win32pipe.PIPE_TYPE_MESSAGE | win32pipe.PIPE_WAIT,
+                            win32pipe.PIPE_UNLIMITED_INSTANCES,
+                            self.config.buffer_size,
+                            self.config.buffer_size,
+                            300,  # Default timeout
+                            None
+                        )
+                        
+                        if new_pipe == win32file.INVALID_HANDLE_VALUE:
+                            if utils.logger:
+                                utils.logger.log_message(f"SMB: Failed to create new pipe instance")
+                            break
+                        else:
+                            # Close the old pipe and use the new one
+                            try:
+                                win32file.CloseHandle(current_pipe)
+                            except:
+                                pass
+                            current_pipe = new_pipe
+                            if utils.logger:
+                                utils.logger.log_message(f"SMB: New pipe instance ready")
+                    
+                    except Exception as create_error:
+                        if utils.logger:
+                            utils.logger.log_message(f"SMB: Error creating new pipe instance: {create_error}")
+                        break
                     
             except pywintypes.error as e:
                 if self._shutdown_event.is_set():
                     break
                 if utils.logger:
-                    utils.logger.log_message(f"Windows pipe error: {e}")
+                    utils.logger.log_message(f"SMB: Windows pipe error: {e}")
                 time.sleep(0.1)
+            except Exception as e:
+                if utils.logger:
+                    utils.logger.log_message(f"SMB: Unexpected error: {e}")
+                time.sleep(1)
+        
+        # Cleanup final pipe handle
+        if current_pipe and current_pipe != self.pipe_handle:
+            try:
+                win32file.CloseHandle(current_pipe)
+            except:
+                pass
     
     def _listen_unix_fifo(self):
         """Listen for Unix FIFO connections"""
@@ -275,10 +397,10 @@ class SMBReceiver(BaseReceiver):
             
         filename = parts[1]
         
-        if command == "to_agent":
+        if command == "to_beacon":
             # Send file through pipe
             self._send_file_smb(pipe_handle, filename)
-        else:  # from_agent
+        else:  # from_beacon
             # Receive file through pipe
             ready_response = self.encoding_strategy.encode(b"READY")
             self.connection_handler._write_to_pipe(pipe_handle, ready_response)

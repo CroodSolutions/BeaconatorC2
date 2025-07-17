@@ -32,7 +32,7 @@ class UDPConnectionHandler:
             self.receiver_instance.update_bytes_received(len(data))
             
             # For UDP, we only handle simple command processing (no file transfers)
-            if command in ("to_agent", "from_agent"):
+            if command in ("to_beacon", "from_beacon"):
                 # UDP doesn't support file transfers - send error response
                 error_response = self.receiver_instance.encoding_strategy.encode(
                     b"ERROR|File transfer not supported over UDP"

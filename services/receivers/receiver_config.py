@@ -20,7 +20,7 @@ class ReceiverConfig:
     receiver_id: str = field(default_factory=lambda: str(uuid.uuid4()))
     name: str = ""
     receiver_type: ReceiverType = ReceiverType.TCP
-    enabled: bool = False
+    enabled: bool = True
     auto_start: bool = False
     
     # Connection settings
@@ -87,7 +87,7 @@ class ReceiverConfig:
             receiver_id=data.get("receiver_id", str(uuid.uuid4())),
             name=data.get("name", ""),
             receiver_type=receiver_type,
-            enabled=data.get("enabled", False),
+            enabled=data.get("enabled", True),
             auto_start=data.get("auto_start", False),
             host=data.get("host", "0.0.0.0"),
             port=data.get("port", 5074),

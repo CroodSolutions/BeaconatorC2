@@ -34,16 +34,15 @@ class ReceiverManager(QObject):
         self._load_existing_receivers()
         
     def _load_existing_receivers(self):
-        """Load existing receiver configurations and create instances for all enabled receivers"""
+        """Load existing receiver configurations and create instances for all receivers"""
         configs = self.config_manager.get_all_configs()
         
         for config in configs.values():
-            if config.enabled:
-                # Create the receiver instance (but don't auto-start unless configured)
-                receiver_id = self.create_receiver(config)
-                # Only auto-start if specifically configured to do so
-                if receiver_id and config.auto_start:
-                    self.start_receiver(receiver_id)
+            # Create receiver instance for all configurations (regardless of enabled status)
+            receiver_id = self.create_receiver(config)
+            # Only auto-start if specifically configured to do so
+            if receiver_id and config.auto_start:
+                self.start_receiver(receiver_id)
                 
     def create_receiver(self, config: ReceiverConfig) -> Optional[str]:
         """Create a new receiver instance"""

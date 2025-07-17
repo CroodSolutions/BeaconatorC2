@@ -1,6 +1,6 @@
 """
-Schema Service for dynamic agent module loading
-Handles parsing and validation of agent module schemas
+Schema Service for dynamic beacon module loading
+Handles parsing and validation of beacon module schemas
 """
 
 import yaml
@@ -16,7 +16,7 @@ class SchemaCacheEntry:
     """Cache entry for schema file data"""
     raw_data: Dict[str, Any]
     file_mtime: float
-    parsed_schema: Optional['AgentSchema'] = None
+    parsed_schema: Optional['BeaconSchema'] = None
 
 class SchemaCache:
     """Smart caching system for schema files with automatic invalidation"""
@@ -228,18 +228,19 @@ class Category:
     modules: Dict[str, Module] = field(default_factory=dict)
 
 @dataclass
-class AgentInfo:
-    """Agent information"""
-    agent_type: str
+class BeaconInfo:
+    """Beacon information"""
+    beacon_type: str
     version: str
     description: str
     supported_platforms: List[str] = field(default_factory=list)
+    encoding_strategy: str = "plaintext"
 
 @dataclass
-class AgentSchema:
-    """Complete agent schema"""
+class BeaconSchema:
+    """Complete beacon schema"""
     schema_version: str
-    agent_info: AgentInfo
+    beacon_info: BeaconInfo
     categories: Dict[str, Category] = field(default_factory=dict)
     
     def get_module(self, category_name: str, module_name: str) -> Optional[Module]:
@@ -258,15 +259,15 @@ class AgentSchema:
         return modules
 
 class SchemaService:
-    """Service for loading and managing agent schemas"""
+    """Service for loading and managing beacon schemas"""
     
     def __init__(self, schemas_directory: str = "schemas"):
         self.schemas_directory = Path(schemas_directory)
-        self.loaded_schemas: Dict[str, AgentSchema] = {}
+        self.loaded_schemas: Dict[str, BeaconSchema] = {}
         self.cache = SchemaCache()
         
-    def load_schema(self, schema_file: str) -> AgentSchema:
-        """Load an agent schema from a YAML file with caching"""
+    def load_schema(self, schema_file: str) -> BeaconSchema:
+        """Load a beacon schema from a YAML file with caching"""
         schema_path = self.schemas_directory / schema_file
         
         if not schema_path.exists():
@@ -276,13 +277,14 @@ class SchemaService:
             # Use cached data instead of reading file directly
             data = self.cache.get_raw_data(schema_file, schema_path)
             
-            # Parse agent info
-            agent_info_data = data.get('agent_info', {})
-            agent_info = AgentInfo(
-                agent_type=agent_info_data.get('agent_type', 'unknown'),
-                version=agent_info_data.get('version', '1.0.0'),
-                description=agent_info_data.get('description', ''),
-                supported_platforms=agent_info_data.get('supported_platforms', [])
+            # Parse beacon info (support both beacon_info and agent_info keys for backward compatibility)
+            beacon_info_data = data.get('beacon_info', data.get('agent_info', {}))
+            beacon_info = BeaconInfo(
+                beacon_type=beacon_info_data.get('beacon_type', beacon_info_data.get('agent_type', 'unknown')),
+                version=beacon_info_data.get('version', '1.0.0'),
+                description=beacon_info_data.get('description', ''),
+                supported_platforms=beacon_info_data.get('supported_platforms', []),
+                encoding_strategy=beacon_info_data.get('encoding_strategy', 'plaintext')
             )
             
             # Parse categories and modules
@@ -304,9 +306,9 @@ class SchemaService:
                 
                 categories[cat_name] = category
             
-            schema = AgentSchema(
+            schema = BeaconSchema(
                 schema_version=data.get('schema_version', '1.0'),
-                agent_info=agent_info,
+                beacon_info=beacon_info,
                 categories=categories
             )
             
@@ -388,7 +390,7 @@ class SchemaService:
             ui=ui
         )
     
-    def get_schema(self, schema_file: str) -> Optional[AgentSchema]:
+    def get_schema(self, schema_file: str) -> Optional[BeaconSchema]:
         """Get a loaded schema or load it if not already loaded"""
         if schema_file not in self.loaded_schemas:
             try:
@@ -404,7 +406,7 @@ class SchemaService:
         
         return [
             f.name for f in self.schemas_directory.glob("*.yaml") 
-            if f.is_file() and not f.name.startswith("beacon_schema_format")
+            if f.is_file() and not f.name.startswith("SCHEMA_REFERENCE")
         ]
     
     def get_module_yaml_data(self, schema_file: str, category_name: str, module_name: str) -> Dict[str, Any]:
@@ -420,8 +422,8 @@ class SchemaService:
             schema = self.load_schema(schema_file)
             
             # Basic validation checks
-            if not schema.agent_info.agent_type:
-                errors.append("Missing agent_type in agent_info")
+            if not schema.beacon_info.beacon_type:
+                errors.append("Missing beacon_type in beacon_info")
             
             if not schema.categories:
                 errors.append("No categories defined")

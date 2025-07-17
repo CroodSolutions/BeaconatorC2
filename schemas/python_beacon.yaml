@@ -1,0 +1,71 @@
+schema_version: '1.1'
+beacon_info:
+  beacon_type: python_beacon
+  version: 1.0.0
+  description: Multi-protocol Python beacon for testing UDP and SMB receivers
+  supported_platforms:
+  - windows
+  - linux
+  - macos
+categories:
+  basic_commands:
+    display_name: Basic Commands
+    description: Fundamental command execution capabilities
+    modules:
+      command_execution:
+        display_name: Command Execution
+        description: Execute arbitrary system commands
+        command_template: '{command}'
+        parameters:
+          command:
+            type: textarea
+            display_name: Command
+            description: Enter command to execute on the target system
+            required: true
+            default: ''
+            validation:
+              min_length: 1
+              max_length: 8192
+        documentation:
+          content: Execute system commands directly on the target machine. Commands are executed using subprocess with a 300-second timeout. Works across all protocols (TCP, UDP, SMB).
+          examples:
+          - whoami
+          - ls -la (Linux/macOS)
+          - dir (Windows)
+          - systeminfo (Windows)
+          - uname -a (Linux/macOS)
+        execution:
+          timeout: 300
+          requires_admin: false
+        ui:
+          layout: simple
+  discovery:
+    display_name: Discovery
+    description: Basic system information gathering
+    modules:
+      system_info:
+        display_name: System Information
+        description: Gather basic system information
+        command_template: 'systeminfo && uname -a'
+        parameters: {}
+        documentation:
+          content: Collects basic system information including OS details, hostname, and platform information. Uses platform-appropriate commands.
+          examples: []
+        execution:
+          timeout: 60
+          requires_admin: false
+        ui:
+          layout: simple
+      network_info:
+        display_name: Network Information
+        description: Gather network configuration information
+        command_template: 'ipconfig /all && ifconfig && ip addr show'
+        parameters: {}
+        documentation:
+          content: Collects network interface configuration and IP address information. Attempts multiple commands for cross-platform compatibility.
+          examples: []
+        execution:
+          timeout: 60
+          requires_admin: false
+        ui:
+          layout: simple
