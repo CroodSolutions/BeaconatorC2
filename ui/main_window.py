@@ -16,6 +16,7 @@ from workers import BeaconUpdateWorker, ReceiverUpdateWorker
 from .components import (BeaconTableWidget, CommandWidget, NavigationMenu, 
                         FileTransferWidget, SettingsPage, DocumentationPanel, BeaconSettingsWidget, ReceiversWidget, MetasploitWidget)
 from .widgets import LogWidget, OutputDisplay, KeyLoggerDisplay
+from services import SchemaService
 import utils
 
 class MainWindow(QMainWindow):
@@ -31,6 +32,11 @@ class MainWindow(QMainWindow):
         self.config_manager = ConfigManager()
         self.beacon_update_worker = None
         self.receiver_update_worker = None
+        self.schema_service = SchemaService()
+        
+        # Store tab widget references for dynamic management
+        self.tab_widgets = {}
+        self.right_panel = None
         
         self.setup_ui()
         self.start_background_workers()
@@ -139,33 +145,21 @@ class MainWindow(QMainWindow):
         left_widget.setLayout(left_layout)
         
         # Create right panel with tabs
-        right_panel = QTabWidget()
-        right_panel.setMinimumWidth(600)  # Ensure minimum width for command column
+        self.right_panel = QTabWidget()
+        self.right_panel.setMinimumWidth(600)  # Ensure minimum width for command column
         
-        # Create and add tab widgets
-        self.command_widget = CommandWidget(self.beacon_repository, self.doc_panel)
-        # Establish bidirectional reference between doc panel and command widget
-        self.doc_panel.command_widget = self.command_widget
-        right_panel.addTab(self.command_widget, "Modules")
+        # Create all tab widgets and store references
+        self.create_tab_widgets()
         
-        self.file_transfer_widget = FileTransferWidget(self.beacon_repository)
-        right_panel.addTab(self.file_transfer_widget, "File Transfer")
-
-        self.keylogger_display = KeyLoggerDisplay(self.beacon_repository)
-        right_panel.addTab(self.keylogger_display, "KeyLogger")
-
-        self.beacon_settings_widget = BeaconSettingsWidget(self.beacon_repository)
-        self.beacon_settings_widget.schema_applied.connect(self.command_widget.on_schema_applied)
-        right_panel.addTab(self.beacon_settings_widget, "Beacon Settings")
+        # Add always-visible tabs
+        self.add_always_visible_tabs()
         
-        # Add Metasploit widget if manager is available
-        if self.metasploit_manager:
-            self.metasploit_widget = MetasploitWidget(self.metasploit_manager, self.beacon_repository)
-            right_panel.addTab(self.metasploit_widget, "Metasploit")
+        # Add conditional tabs (initially hidden)
+        self.add_conditional_tabs()
         
         # Add widgets to main splitter
         main_splitter.addWidget(left_widget)
-        main_splitter.addWidget(right_panel)
+        main_splitter.addWidget(self.right_panel)
         
         # Set initial sizes for main splitter (left:right ratio)
         main_splitter.setSizes([600, 600])  # Initial sizes
@@ -184,6 +178,137 @@ class MainWindow(QMainWindow):
         
         beacons_widget.setLayout(main_layout)
         self.content_stack.addWidget(beacons_widget)
+    
+    def create_tab_widgets(self):
+        """Create all tab widgets and store references"""
+        # Always visible tabs
+        self.command_widget = CommandWidget(self.beacon_repository, self.doc_panel)
+        # Establish bidirectional reference between doc panel and command widget
+        self.doc_panel.command_widget = self.command_widget
+        self.tab_widgets['modules'] = self.command_widget
+        
+        self.beacon_settings_widget = BeaconSettingsWidget(self.beacon_repository)
+        self.beacon_settings_widget.schema_applied.connect(self.command_widget.on_schema_applied)
+        self.tab_widgets['beacon_settings'] = self.beacon_settings_widget
+        
+        # Conditional tabs
+        self.file_transfer_widget = FileTransferWidget(self.beacon_repository)
+        self.tab_widgets['file_transfer'] = self.file_transfer_widget
+        
+        self.keylogger_display = KeyLoggerDisplay(self.beacon_repository)
+        self.tab_widgets['keylogger'] = self.keylogger_display
+        
+        # Add Metasploit widget if manager is available
+        if self.metasploit_manager:
+            self.metasploit_widget = MetasploitWidget(self.metasploit_manager, self.beacon_repository)
+            self.tab_widgets['metasploit'] = self.metasploit_widget
+    
+    def add_always_visible_tabs(self):
+        """Add tabs that are always visible"""
+        self.right_panel.addTab(self.tab_widgets['modules'], "Modules")
+        self.right_panel.addTab(self.tab_widgets['beacon_settings'], "Beacon Settings")
+        
+        # Add Metasploit tab if available
+        if 'metasploit' in self.tab_widgets:
+            self.right_panel.addTab(self.tab_widgets['metasploit'], "Metasploit")
+    
+    def add_conditional_tabs(self):
+        """Add conditional tabs (initially all shown for backward compatibility)"""
+        # Show all conditional tabs initially for backward compatibility
+        self.right_panel.addTab(self.tab_widgets['file_transfer'], "File Transfer")
+        self.right_panel.addTab(self.tab_widgets['keylogger'], "KeyLogger")
+    
+    def get_beacon_schema(self, beacon_id: str):
+        """Get schema for a beacon"""
+        try:
+            beacon = self.beacon_repository.get_beacon(beacon_id)
+            if beacon and beacon.schema_file:
+                return self.schema_service.get_schema(beacon.schema_file)
+        except Exception as e:
+            if utils.logger:
+                utils.logger.log_message(f"Error getting beacon schema: {e}")
+        return None
+    
+    def update_beacon_tabs(self, beacon_id: str):
+        """Update tab visibility based on beacon capabilities"""
+        if not beacon_id:
+            # No beacon selected - reset to default state
+            self.reset_tabs_to_default()
+            return
+            
+        schema = self.get_beacon_schema(beacon_id)
+        
+        if schema and schema.beacon_info:
+            # Update file transfer tab
+            self.toggle_tab_visibility('file_transfer', schema.beacon_info.file_transfer_supported)
+            
+            # Update keylogger tab
+            self.toggle_tab_visibility('keylogger', schema.beacon_info.keylogger_supported)
+        else:
+            # No schema or schema info - show all tabs for backward compatibility
+            self.toggle_tab_visibility('file_transfer', True)
+            self.toggle_tab_visibility('keylogger', True)
+    
+    def reset_tabs_to_default(self):
+        """Reset tabs to default state when no beacon is selected"""
+        # Enable all conditional tabs by default
+        self.toggle_tab_visibility('file_transfer', True)
+        self.toggle_tab_visibility('keylogger', True)
+    
+    def toggle_tab_visibility(self, tab_key: str, show: bool):
+        """Show or hide a tab based on beacon capabilities"""
+        if tab_key not in self.tab_widgets:
+            return
+        
+        widget = self.tab_widgets[tab_key]
+        tab_title = {
+            'file_transfer': 'File Transfer',
+            'keylogger': 'KeyLogger'
+        }.get(tab_key, tab_key.title())
+        
+        # Find current index of the tab
+        current_index = -1
+        for i in range(self.right_panel.count()):
+            if self.right_panel.widget(i) == widget:
+                current_index = i
+                break
+        
+        if show and current_index == -1:
+            # Add tab if it should be shown but isn't present
+            insert_index = self._get_tab_insert_position(tab_key)
+            self.right_panel.insertTab(insert_index, widget, tab_title)
+            
+        elif not show and current_index != -1:
+            # Remove tab completely for cleaner UI
+            self.right_panel.removeTab(current_index)
+    
+    def _get_tab_insert_position(self, tab_key: str) -> int:
+        """Get the correct position to insert a tab to maintain proper ordering"""
+        # Desired tab order: Modules, File Transfer, KeyLogger, Metasploit, Beacon Settings
+        tab_order = ['modules', 'file_transfer', 'keylogger', 'metasploit', 'beacon_settings']
+        
+        try:
+            target_position = tab_order.index(tab_key)
+        except ValueError:
+            # Unknown tab, add at end
+            return self.right_panel.count()
+        
+        # Find the position by checking existing tabs
+        for i in range(self.right_panel.count()):
+            current_widget = self.right_panel.widget(i)
+            # Find which tab this widget represents
+            for existing_key, existing_widget in self.tab_widgets.items():
+                if current_widget == existing_widget:
+                    try:
+                        existing_position = tab_order.index(existing_key)
+                        if existing_position > target_position:
+                            return i
+                    except ValueError:
+                        continue
+                    break
+        
+        # If we didn't find a position, add at the end
+        return self.right_panel.count()
 
     def setup_receivers_page(self):
         """Create the receivers page"""
@@ -238,6 +363,9 @@ class MainWindow(QMainWindow):
 
     def on_beacon_selected(self, beacon_id: str):
         """Handle beacon selection with optimized async updates"""
+        # Update tab visibility based on beacon capabilities
+        self.update_beacon_tabs(beacon_id)
+        
         # Fast operations first (minimal delay)
         self.file_transfer_widget.set_beacon(beacon_id)
         

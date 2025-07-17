@@ -11,6 +11,8 @@ beacon_info:
   description: "Beacon description"
   supported_platforms: ["windows", "linux", "macos"]
   encoding_strategy: "plaintext"
+  file_transfer_supported: true
+  keylogger_supported: true
 
 categories:
   category_name:
@@ -63,6 +65,39 @@ beacon_info:
 ```
 
 **Note**: The encoding strategy in the schema represents the beacon's preferred encoding method. The actual encoding used depends on the receiver configuration and beacon implementation.
+
+## Beacon Feature Flags
+
+Control which UI features are available for each beacon type:
+
+| Flag | Description | Default | Effect |
+|------|-------------|---------|--------|
+| `file_transfer_supported` | Enable file transfer functionality | `true` | Shows/hides File Transfer tab |
+| `keylogger_supported` | Enable keylogger functionality | `true` | Shows/hides KeyLogger tab |
+
+### Feature Flag Examples
+
+```yaml
+# Full-featured beacon
+beacon_info:
+  beacon_type: "full_beacon"
+  file_transfer_supported: true
+  keylogger_supported: true
+
+# Command-only beacon
+beacon_info:
+  beacon_type: "simple_beacon"
+  file_transfer_supported: false
+  keylogger_supported: false
+
+# Mixed capabilities
+beacon_info:
+  beacon_type: "network_beacon"
+  file_transfer_supported: true
+  keylogger_supported: false
+```
+
+**Note**: Feature flags default to `true` for backward compatibility. Explicitly set to `false` to disable features.
 
 ## Parameter Types Reference
 

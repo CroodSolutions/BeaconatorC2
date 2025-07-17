@@ -554,8 +554,8 @@ command|parameter1|parameter2|parameter3|...
 - `command_output|beacon_id|output_data` - Beacon submits command execution results
 - `keylogger_output|beacon_id|keylog_data` - Beacon submits keylogger capture data
 - `checkin|beacon_id` - Periodic beacon heartbeat for status monitoring
-- `to_agent|filename` - Server initiates file download to beacon
-- `from_agent|filename` - Beacon initiates file upload to server
+- `to_beacon|filename` - Server initiates file download to beacon
+- `from_beacon|filename` - Beacon initiates file upload to server
 
 #### **Connection Handling Architecture**
 
@@ -607,7 +607,7 @@ Beacon Connection → TCP Receiver → Protocol Detection
 
 **File Upload Process (from beacon):**
 ```
-1. Beacon sends: "from_agent|filename"
+1. Beacon sends: "from_beacon|filename"
 2. Server responds: "READY"
 3. Beacon transmits file in 1MB chunks
 4. Server writes chunks to secure filename
@@ -616,7 +616,7 @@ Beacon Connection → TCP Receiver → Protocol Detection
 
 **File Download Process (to beacon):**
 ```
-1. Beacon sends: "to_agent|filename"
+1. Beacon sends: "to_beacon|filename"
 2. Server validates file existence
 3. Server transmits file in 1MB chunks
 4. Progress logged every 1MB transferred

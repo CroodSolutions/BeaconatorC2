@@ -5,6 +5,8 @@ beacon_info:
   description: "Simple Python beacon for encoding strategy testing (TCP-only)"
   supported_platforms: ["windows", "linux", "macos"]
   encoding_strategy: "base64"
+  file_transfer_supported: false
+  keylogger_supported: false
 
 categories:
   basic_commands:

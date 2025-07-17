@@ -7,6 +7,8 @@ beacon_info:
   - windows
   - linux
   - macos
+  file_transfer_supported: true
+  keylogger_supported: true
 categories:
   basic_commands:
     display_name: Basic Commands
