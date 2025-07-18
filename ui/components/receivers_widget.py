@@ -5,7 +5,7 @@ from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QGroupBox,
 from PyQt6.QtCore import Qt, QTimer, QThread, pyqtSignal
 from PyQt6.QtGui import QFont, QColor
 from utils import FontManager
-from services.receivers import ReceiverManager, ReceiverConfig, ReceiverType
+from services.receivers import ReceiverManager, ReceiverConfig, ReceiverType, get_receiver_registry
 from .receiver_config_dialog import ReceiverConfigDialog
 import threading
 import time
@@ -66,6 +66,12 @@ class ReceiversWidget(QWidget):
                 file_transfer_service=file_transfer_service
             )
         
+        # Get receiver registry for metadata
+        try:
+            self.receiver_registry = get_receiver_registry()
+        except Exception:
+            self.receiver_registry = None
+        
         # Connect receiver manager signals
         self.receiver_manager.receiver_added.connect(self.refresh_receivers_table)
         self.receiver_manager.receiver_removed.connect(self.refresh_receivers_table)
@@ -82,6 +88,7 @@ class ReceiversWidget(QWidget):
             
         self.setup_ui()
         self.refresh_receivers_table()
+        self.update_summary_stats()
         
     def setup_ui(self):
         """Setup the user interface"""
@@ -164,6 +171,9 @@ class ReceiversWidget(QWidget):
         self.data_transferred_label = QLabel("Data Transferred:")
         self.data_transferred_value = QLabel("0 MB")
         
+        self.supported_types_label = QLabel("Supported Types:")
+        self.supported_types_value = QLabel("Loading...")
+        
         layout.addWidget(self.total_receivers_label, 0, 0)
         layout.addWidget(self.total_receivers_value, 0, 1)
         layout.addWidget(self.running_receivers_label, 0, 2)
@@ -172,6 +182,8 @@ class ReceiversWidget(QWidget):
         layout.addWidget(self.total_beacons_value, 1, 1)
         layout.addWidget(self.data_transferred_label, 1, 2)
         layout.addWidget(self.data_transferred_value, 1, 3)
+        layout.addWidget(self.supported_types_label, 2, 0)
+        layout.addWidget(self.supported_types_value, 2, 1, 1, 3)  # Span 3 columns
         
         group.setLayout(layout)
         return group
@@ -189,12 +201,28 @@ class ReceiversWidget(QWidget):
             # Name
             self.receivers_table.setItem(row, 0, QTableWidgetItem(config.name or "Unnamed"))
             
-            # Type (handle both string and enum safely)
+            # Type (handle both string and enum safely with registry description)
             if isinstance(config.receiver_type, str):
+                receiver_type_value = config.receiver_type
                 type_display = config.receiver_type.upper()
             else:
+                receiver_type_value = config.receiver_type.value
                 type_display = config.receiver_type.value.upper()
-            self.receivers_table.setItem(row, 1, QTableWidgetItem(type_display))
+            
+            # Try to get enhanced description from registry
+            type_item = QTableWidgetItem(type_display)
+            if self.receiver_registry:
+                try:
+                    # Convert string back to enum for registry lookup
+                    receiver_type_enum = ReceiverType(receiver_type_value)
+                    description = self.receiver_registry.get_receiver_description(receiver_type_enum)
+                    if description:
+                        type_item.setToolTip(description)
+                except (ValueError, Exception):
+                    # Fallback if conversion fails
+                    pass
+            
+            self.receivers_table.setItem(row, 1, type_item)
             
             # Status
             if receiver:
@@ -385,6 +413,22 @@ class ReceiversWidget(QWidget):
             data_str = f"{total_bytes} bytes"
         self.data_transferred_value.setText(data_str)
         
+        # Update supported types from registry
+        if self.receiver_registry:
+            try:
+                supported_types = self.receiver_registry.get_supported_types()
+                types_display = ", ".join([rt.value.upper() for rt in supported_types])
+                self.supported_types_value.setText(types_display)
+                
+                # Add registry status as tooltip
+                status = self.receiver_registry.get_registry_status()
+                tooltip = f"Registry Status:\nRegistered: {status['total_registered']}\nLoaded: {status['total_loaded']}"
+                self.supported_types_value.setToolTip(tooltip)
+            except Exception:
+                self.supported_types_value.setText("Registry Unavailable")
+        else:
+            self.supported_types_value.setText("Registry Not Available")
+        
             
     def add_receiver(self):
         """Add a new receiver"""
@@ -461,10 +505,12 @@ class ReceiversWidget(QWidget):
     def on_receiver_status_changed(self, receiver_id: str, status: str):
         """Handle receiver status change"""
         self.refresh_receivers_table()
+        self.update_summary_stats()
         
     def on_receiver_stats_updated(self, receiver_id: str):
         """Handle receiver stats update"""
         self.refresh_receivers_table()
+        self.update_summary_stats()
         
     def on_receiver_error(self, receiver_id: str, error: str):
         """Handle receiver error"""

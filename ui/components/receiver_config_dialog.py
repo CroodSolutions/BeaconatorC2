@@ -3,7 +3,7 @@ from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QFormLayout, QGr
                              QLabel, QWidget, QMessageBox, QDialogButtonBox, QScrollArea, QFrame)
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QFont
-from services.receivers import ReceiverConfig, ReceiverType
+from services.receivers import ReceiverConfig, ReceiverType, get_receiver_manager
 from services.receivers.encoding_strategies import get_available_encodings
 import uuid
 
@@ -88,11 +88,7 @@ class ReceiverConfigDialog(QDialog):
         basic_layout.addRow("Name:", self.name_edit)
         
         self.type_combo = QComboBox()
-        self.type_combo.addItem("TCP", ReceiverType.TCP.value)
-        self.type_combo.addItem("UDP", ReceiverType.UDP.value)
-        self.type_combo.addItem("DNS", ReceiverType.DNS.value)
-        self.type_combo.addItem("SMB", ReceiverType.SMB.value)
-        self.type_combo.addItem("Cloud", ReceiverType.CLOUD.value)
+        self.populate_receiver_types()
         
         basic_layout.addRow("Type:", self.type_combo)
         
@@ -239,7 +235,57 @@ class ReceiverConfigDialog(QDialog):
         form_widget.setLayout(form_layout)
         scroll_area.setWidget(form_widget)
         main_layout.addWidget(scroll_area)
+    
+    def populate_receiver_types(self):
+        """Populate receiver types from registry"""
+        try:
+            # Get receiver manager and supported types from registry
+            manager = get_receiver_manager()
+            supported_types = manager.get_supported_receiver_types()
+            
+            # Clear existing items
+            self.type_combo.clear()
+            
+            # Add supported receiver types with descriptions
+            for receiver_type in supported_types:
+                info = manager.get_receiver_type_info(receiver_type)
+                description = info.get('description', '') if info else ''
+                
+                # Create display name
+                display_name = receiver_type.value.upper()
+                
+                # Add item to combo box
+                self.type_combo.addItem(display_name, receiver_type.value)
+                
+                # Add description as tooltip if available
+                if description:
+                    index = self.type_combo.count() - 1
+                    self.type_combo.setItemData(index, description, Qt.ItemDataRole.ToolTipRole)
+                    
+        except Exception as e:
+            # Fallback to hardcoded types if registry fails
+            print(f"Warning: Failed to load receiver types from registry: {e}")
+            self.populate_fallback_types()
+    
+    def populate_fallback_types(self):
+        """Fallback method to populate receiver types if registry fails"""
+        fallback_types = [
+            (ReceiverType.TCP, "TCP socket receiver"),
+            (ReceiverType.UDP, "UDP datagram receiver"), 
+            (ReceiverType.SMB, "SMB named pipe receiver"),
+            (ReceiverType.HTTP, "HTTP REST receiver"),
+            (ReceiverType.METASPLOIT, "Metasploit framework receiver")
+        ]
         
+        self.type_combo.clear()
+        
+        for receiver_type, description in fallback_types:
+            display_name = receiver_type.value.upper()
+            self.type_combo.addItem(display_name, receiver_type.value)
+            
+            # Add description as tooltip
+            index = self.type_combo.count() - 1
+            self.type_combo.setItemData(index, description, Qt.ItemDataRole.ToolTipRole)
         
     def on_encoding_changed(self):
         """Handle encoding type change"""

