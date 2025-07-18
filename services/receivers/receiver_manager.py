@@ -4,12 +4,9 @@ import threading
 import time
 
 from .base_receiver import BaseReceiver, ReceiverStatus
-from .tcp_receiver import TCPReceiver
-from .udp_receiver import UDPReceiver
-from .smb_receiver import SMBReceiver
-from .metasploit_receiver import MetasploitReceiver
 from .receiver_config import ReceiverConfig, ReceiverConfigManager, ReceiverType
 from .encoding_strategies import create_encoding_strategy
+from .receiver_registry import get_receiver_registry
 
 class ReceiverManager(QObject):
     """Manages all receiver instances"""
@@ -26,6 +23,9 @@ class ReceiverManager(QObject):
         self.command_processor = command_processor
         self.file_transfer_service = file_transfer_service
         self.config_manager = ReceiverConfigManager()
+        
+        # Initialize receiver registry
+        self.receiver_registry = get_receiver_registry()
         
         # Active receiver instances
         self._receivers: Dict[str, BaseReceiver] = {}
@@ -104,28 +104,19 @@ class ReceiverManager(QObject):
             return None
             
     def _create_receiver_instance(self, config: ReceiverConfig, encoding_strategy) -> Optional[BaseReceiver]:
-        """Factory method to create receiver instances based on type"""
+        """Factory method to create receiver instances using registry"""
         try:
-            if config.receiver_type == ReceiverType.TCP:
-                return TCPReceiver(config, encoding_strategy)
-            elif config.receiver_type == ReceiverType.UDP:
-                return UDPReceiver(config, encoding_strategy)
-            elif config.receiver_type == ReceiverType.SMB:
-                return SMBReceiver(config, encoding_strategy)
-            elif config.receiver_type == ReceiverType.METASPLOIT:
-                return MetasploitReceiver(config, encoding_strategy)
-            # DNS and CLOUD types can be added in the future
-            elif config.receiver_type == ReceiverType.DNS:
-                self.error_occurred.emit("", f"DNS receiver type not yet implemented")
+            # Check if receiver type is supported
+            if not self.receiver_registry.is_supported(config.receiver_type):
+                error_msg = f"Receiver type {config.receiver_type.value} not supported. Available types: {[rt.value for rt in self.receiver_registry.get_supported_types()]}"
+                self.error_occurred.emit("", error_msg)
                 return None
-            elif config.receiver_type == ReceiverType.CLOUD:
-                self.error_occurred.emit("", f"Cloud receiver type not yet implemented")
-                return None
-            else:
-                self.error_occurred.emit("", f"Unsupported receiver type: {config.receiver_type}")
-                return None
+            
+            # Create instance using registry
+            return self.receiver_registry.create_instance(config.receiver_type, config, encoding_strategy)
+            
         except Exception as e:
-            self.error_occurred.emit("", f"Error creating {config.receiver_type} receiver: {str(e)}")
+            self.error_occurred.emit("", f"Error creating {config.receiver_type.value} receiver: {str(e)}")
             return None
             
     def start_receiver(self, receiver_id: str) -> bool:
@@ -286,6 +277,18 @@ class ReceiverManager(QObject):
         time.sleep(1)
         
         self._receivers.clear()
+    
+    def get_supported_receiver_types(self) -> list[ReceiverType]:
+        """Get list of all supported receiver types from registry"""
+        return self.receiver_registry.get_supported_types()
+    
+    def get_receiver_type_info(self, receiver_type: ReceiverType) -> Optional[Dict[str, Any]]:
+        """Get information about a specific receiver type"""
+        return self.receiver_registry.get_receiver_info(receiver_type)
+    
+    def get_registry_status(self) -> Dict[str, Any]:
+        """Get status information about the receiver registry"""
+        return self.receiver_registry.get_registry_status()
 
 # Global receiver manager instance (singleton pattern)
 _receiver_manager_instance: Optional[ReceiverManager] = None

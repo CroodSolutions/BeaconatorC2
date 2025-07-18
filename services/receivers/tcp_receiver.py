@@ -24,30 +24,31 @@ class TCPConnectionHandler:
             # Set a reasonable timeout to prevent hanging connections
             sock.settimeout(10.0)
             
-            # Receive and decode initial data
+            # Receive initial data
             initial_data_raw = self.receiver_instance._receive_data(sock, self.receiver_instance.config.buffer_size)
             if not initial_data_raw:
                 return
-                
-            # Decode the data
-            try:
+            
+            # Use unified data processing
+            client_info = {"address": client_address, "transport": "tcp"}
+            response_bytes, keep_alive = self.receiver_instance.process_received_data(initial_data_raw, client_info)
+            
+            # Handle special file transfer case
+            if response_bytes == b"FILE_TRANSFER_REQUIRED":
                 initial_data_decoded = self.receiver_instance.encoding_strategy.decode(initial_data_raw)
                 initial_data = initial_data_decoded.decode('utf-8').strip()
-            except Exception as e:
-                if utils.logger:
-                    utils.logger.log_message(f"Decoding error from {client_address}: {e}")
-                return
-                
-            parts = initial_data.split('|')
-            command = parts[0] if parts else ""
-            
-            # Update stats using thread-safe method
-            self.receiver_instance.update_bytes_received(len(initial_data_raw))
-            
-            if command in ("to_beacon", "from_beacon"):
+                parts = initial_data.split('|')
+                command = parts[0] if parts else ""
                 self.receiver_instance.handle_file_transfer(sock, command, parts, client_address)
-            else:
-                self.receiver_instance.handle_command_processing(sock, initial_data, client_address)
+                return
+            
+            # Send response
+            self.receiver_instance._send_data(sock, response_bytes)
+            self.receiver_instance.update_bytes_sent(len(response_bytes))
+            
+            # Handle persistent connections
+            if keep_alive:
+                self._handle_persistent_connection(sock, client_info)
                 
         except Exception as e:
             if utils.logger:
@@ -57,6 +58,39 @@ class TCPConnectionHandler:
                 sock.close()
             except:
                 pass
+    
+    def _handle_persistent_connection(self, sock: socket.socket, client_info: dict):
+        """Handle persistent TCP connection for multiple messages"""
+        while True:
+            try:
+                data_raw = self.receiver_instance._receive_data(sock, self.receiver_instance.config.buffer_size)
+                if not data_raw:
+                    break
+                
+                response_bytes, keep_alive = self.receiver_instance.process_received_data(data_raw, client_info)
+                
+                # Handle file transfer requests
+                if response_bytes == b"FILE_TRANSFER_REQUIRED":
+                    initial_data_decoded = self.receiver_instance.encoding_strategy.decode(data_raw)
+                    initial_data = initial_data_decoded.decode('utf-8').strip()
+                    parts = initial_data.split('|')
+                    command = parts[0] if parts else ""
+                    self.receiver_instance.handle_file_transfer(sock, command, parts, client_info["address"])
+                    continue
+                
+                # Send response
+                self.receiver_instance._send_data(sock, response_bytes)
+                self.receiver_instance.update_bytes_sent(len(response_bytes))
+                
+                if not keep_alive:
+                    break
+                    
+            except socket.timeout:
+                continue
+            except Exception as e:
+                if utils.logger:
+                    utils.logger.log_message(f"Error in persistent connection from {client_info}: {e}")
+                break
 
 class TCPReceiver(BaseReceiver):
     """TCP receiver implementation with encoding support"""

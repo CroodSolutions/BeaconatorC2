@@ -1,14 +1,19 @@
 schema_version: '1.1'
 beacon_info:
   beacon_type: python_beacon
-  version: 1.0.0
-  description: Multi-protocol Python beacon for testing UDP and SMB receivers
+  version: 1.1.0
+  description: Multi-protocol Python beacon for testing TCP, UDP, SMB, and HTTP receivers
   supported_platforms:
   - windows
   - linux
   - macos
   file_transfer_supported: true
   keylogger_supported: true
+  supported_protocols:
+  - tcp
+  - udp
+  - smb
+  - http
 categories:
   basic_commands:
     display_name: Basic Commands
@@ -29,7 +34,7 @@ categories:
               min_length: 1
               max_length: 8192
         documentation:
-          content: Execute system commands directly on the target machine. Commands are executed using subprocess with a 300-second timeout. Works across all protocols (TCP, UDP, SMB).
+          content: Execute system commands directly on the target machine. Commands are executed using subprocess with a 300-second timeout. Works across all protocols (TCP, UDP, SMB, HTTP).
           examples:
           - whoami
           - ls -la (Linux/macOS)

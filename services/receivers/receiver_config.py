@@ -11,6 +11,7 @@ class ReceiverType(Enum):
     UDP = "udp"
     DNS = "dns"
     SMB = "smb"
+    HTTP = "http"
     METASPLOIT = "metasploit"
     CLOUD = "cloud"
 
@@ -242,3 +243,44 @@ class ReceiverConfigManager:
             rid: config for rid, config in self._configs.items() 
             if config.auto_start
         }
+
+
+# Receiver Registry Mappings - Configuration for dynamic receiver loading
+RECEIVER_MAPPINGS = {
+    ReceiverType.TCP: {
+        "module": "services.receivers.tcp_receiver",
+        "class": "TCPReceiver",
+        "description": "TCP socket receiver for direct network communication"
+    },
+    ReceiverType.UDP: {
+        "module": "services.receivers.udp_receiver", 
+        "class": "UDPReceiver",
+        "description": "UDP datagram receiver for stateless communication"
+    },
+    ReceiverType.SMB: {
+        "module": "services.receivers.smb_receiver",
+        "class": "SMBReceiver", 
+        "description": "SMB named pipe receiver for inter-process communication"
+    },
+    ReceiverType.HTTP: {
+        "module": "services.receivers.http_receiver",
+        "class": "HTTPReceiver",
+        "description": "HTTP REST receiver for web-based communication"
+    },
+    ReceiverType.METASPLOIT: {
+        "module": "services.receivers.metasploit_receiver",
+        "class": "MetasploitReceiver",
+        "description": "Metasploit framework integration receiver"
+    }
+    # DNS and CLOUD receivers can be added when implemented:
+    # ReceiverType.DNS: {
+    #     "module": "services.receivers.dns_receiver",
+    #     "class": "DNSReceiver",
+    #     "description": "DNS-based covert channel receiver"
+    # },
+    # ReceiverType.CLOUD: {
+    #     "module": "services.receivers.cloud_receiver", 
+    #     "class": "CloudReceiver",
+    #     "description": "Cloud service-based receiver"
+    # }
+}

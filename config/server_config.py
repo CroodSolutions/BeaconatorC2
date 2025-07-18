@@ -3,7 +3,7 @@ from dataclasses import dataclass
 @dataclass
 class ServerConfig:
     """Server configuration with default values"""
-    APP_ID: str = u'Beaconator.AgentManager'
+    APP_ID: str = u'Beaconator.Manager'
     LOGS_FOLDER: str = 'logs'
     RESOURCES_FOLDER: str = 'resources'
     FILES_FOLDER: str = 'files'

