@@ -17,7 +17,7 @@ All commands follow the basic format:
 
 - **Delimiter**: Pipe character (`|`)
 - **Encoding**: UTF-8 text (with optional encoding strategies)
-- **Transport**: TCP, UDP, SMB, or Metasploit sessions
+- **Transport**: TCP, UDP, SMB, HTTP, or Metasploit sessions
 
 ## 1. Core Commands Quick Reference
 \* Required commands
@@ -184,7 +184,7 @@ to_beacon|{filename}
 3. Beacon receives and reassembles file
 4. Optional: Beacon reports completion status
 
-**Supported Transports**: TCP, SMB  
+**Supported Transports**: TCP, SMB, HTTP  
 **Not Supported**: UDP (returns ERROR)
 
 ### Upload Request (Beacon to Server)
@@ -203,7 +203,7 @@ from_beacon|{filename}
 3. Beacon sends file data in chunks
 4. Server responds `"SUCCESS"` or `"ERROR|details"`
 
-**Supported Transports**: TCP, SMB  
+**Supported Transports**: TCP, SMB, HTTP  
 **Not Supported**: UDP (returns ERROR)
 
 ### File Transfer Status
@@ -269,6 +269,17 @@ command_template: 'execute_module|EncryptDirectory|{directory_path},{file_extens
   - Windows: Native named pipes (`\\.\pipe\{name}`)
   - Unix: FIFO simulation (`/tmp/beaconator_c2_pipes/{name}`)
 - **Encoding**: All encoding strategies supported
+
+### HTTP Receiver
+- **Full Protocol Support**: All commands supported
+- **Connection Type**: HTTP REST API server (GET/POST requests)
+- **File Transfers**: HTTP POST/multipart upload and chunked download
+- **Endpoint**: Root path ("/") for clean URL structure
+- **Threading**: Multi-threaded HTTP request handling
+- **Encoding**: All encoding strategies supported
+- **Request Methods**: 
+  - GET: Command requests and file downloads
+  - POST: Command output submission and file uploads
 
 ### Metasploit Receiver
 - **Special Integration**: Monitors Metasploit sessions as beacons
