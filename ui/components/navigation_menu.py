@@ -42,11 +42,12 @@ class NavigationMenu(QWidget):
         # Navigation buttons including toggle
         self.nav_buttons = {}
         nav_items = {
-            "toggle": ("Hide", QStyle.StandardPixmap.SP_ArrowLeft),
-            "beacons": ("Beacons", QStyle.StandardPixmap.SP_ComputerIcon),
-            "receivers": ("Receivers", QIcon("resources/server-bolt.svg")),  # Custom icon
+            "toggle": ("Hide", QIcon("resources/arrow-big-left.svg")), 
+            "beacons": ("Beacons", QIcon("resources/building-broadcast-tower.svg")),  
+            "receivers": ("Receivers", QIcon("resources/server-bolt.svg")), 
+            "workflows": ("Workflows", QIcon("resources/sitemap.svg")),
             "settings": ("Settings", QStyle.StandardPixmap.SP_FileDialogListView),
-            "docs": ("Documentation", QStyle.StandardPixmap.SP_FileDialogDetailedView),  
+            "docs": ("Documentation", QIcon("resources/info-hexagon.svg")),   
         }
         
         for nav_id, (text, icon) in nav_items.items():

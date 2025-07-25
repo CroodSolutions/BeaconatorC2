@@ -45,25 +45,6 @@ The `encoding_strategy` field in `beacon_info` specifies the preferred encoding 
 | `base64` | Base64 encoding | Text-safe transmission, basic obfuscation |
 | `xor` | XOR encryption | Simple encryption with configurable key |
 
-### Encoding Strategy Examples
-
-```yaml
-# Plaintext encoding (default)
-beacon_info:
-  beacon_type: "my_beacon"
-  encoding_strategy: "plaintext"
-
-# Base64 encoding
-beacon_info:
-  beacon_type: "my_beacon"
-  encoding_strategy: "base64"
-
-# XOR encoding
-beacon_info:
-  beacon_type: "my_beacon"
-  encoding_strategy: "xor"
-```
-
 **Note**: The encoding strategy in the schema represents the beacon's preferred encoding method. The actual encoding used depends on the receiver configuration and beacon implementation.
 
 ## Beacon Feature Flags
@@ -74,28 +55,6 @@ Control which UI features are available for each beacon type:
 |------|-------------|---------|--------|
 | `file_transfer_supported` | Enable file transfer functionality | `true` | Shows/hides File Transfer tab |
 | `keylogger_supported` | Enable keylogger functionality | `true` | Shows/hides KeyLogger tab |
-
-### Feature Flag Examples
-
-```yaml
-# Full-featured beacon
-beacon_info:
-  beacon_type: "full_beacon"
-  file_transfer_supported: true
-  keylogger_supported: true
-
-# Command-only beacon
-beacon_info:
-  beacon_type: "simple_beacon"
-  file_transfer_supported: false
-  keylogger_supported: false
-
-# Mixed capabilities
-beacon_info:
-  beacon_type: "network_beacon"
-  file_transfer_supported: true
-  keylogger_supported: false
-```
 
 **Note**: Feature flags default to `true` for backward compatibility. Explicitly set to `false` to disable features.
 

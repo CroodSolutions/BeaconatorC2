@@ -1,0 +1,255 @@
+# Workflow Node Compatibility Rules
+# Defines which nodes can connect to which other nodes
+
+compatibility_rules:
+  # Control Flow Nodes
+  start:
+    output:
+      - command_execution
+      - file_upload
+      - file_download
+      - system_info
+      - condition
+      - delay
+      - persistence_registry
+      - notification
+
+  condition:
+    true_output:
+      - command_execution
+      - file_upload
+      - file_download
+      - system_info
+      - persistence_registry
+      - condition
+      - notification
+      - end
+    false_output:
+      - command_execution
+      - notification
+      - condition
+      - end
+
+  delay:
+    output:
+      - command_execution
+      - file_upload
+      - file_download
+      - system_info
+      - condition
+      - persistence_registry
+      - notification
+      - end
+
+  # Basic Operation Nodes
+  command_execution:
+    output:
+      - command_execution
+      - file_upload
+      - file_download
+      - condition
+      - persistence_registry
+      - notification
+      - end
+    error:
+      - error_handler
+      - notification
+      - command_execution
+      - end
+
+  # File Operation Nodes
+  file_upload:
+    output:
+      - command_execution
+      - file_download
+      - condition
+      - notification
+      - end
+    error:
+      - error_handler
+      - notification
+      - file_upload
+      - end
+
+  file_download:
+    output:
+      - command_execution
+      - file_upload
+      - condition
+      - notification
+      - end
+    error:
+      - error_handler
+      - notification
+      - file_download
+      - end
+
+  # Information Gathering Nodes
+  system_info:
+    output:
+      - command_execution
+      - file_upload
+      - condition
+      - persistence_registry
+      - notification
+      - end
+    error:
+      - error_handler
+      - notification
+      - system_info
+      - end
+
+  # Persistence Nodes
+  persistence_registry:
+    output:
+      - command_execution
+      - condition
+      - notification
+      - end
+    error:
+      - error_handler
+      - notification
+      - persistence_registry
+      - end
+
+  # Error Handling Nodes
+  error_handler:
+    output:
+      - command_execution
+      - notification
+      - end
+
+  # Communication Nodes
+  notification:
+    output:
+      - end
+
+  # Terminal Node
+  end: {}
+
+# Node Capabilities
+node_capabilities:
+  start:
+    data_types: ["workflow_start"]
+    requires_input: false
+    provides_output: true
+    supports_conditions: false
+    supports_error_handling: false
+
+  command_execution:
+    data_types: ["command_output", "system_data"]
+    requires_input: true
+    provides_output: true
+    supports_conditions: false
+    supports_error_handling: true
+
+  file_upload:
+    data_types: ["file_data", "file_metadata"]
+    requires_input: true
+    provides_output: true
+    supports_conditions: false
+    supports_error_handling: true
+
+  file_download:
+    data_types: ["file_data", "file_content"]
+    requires_input: true
+    provides_output: true
+    supports_conditions: false
+    supports_error_handling: true
+
+  system_info:
+    data_types: ["system_data", "recon_data"]
+    requires_input: true
+    provides_output: true
+    supports_conditions: false
+    supports_error_handling: true
+
+  condition:
+    data_types: ["boolean_result", "condition_data"]
+    requires_input: true
+    provides_output: true
+    supports_conditions: true
+    supports_error_handling: false
+
+  delay:
+    data_types: ["timing_data"]
+    requires_input: true
+    provides_output: true
+    supports_conditions: false
+    supports_error_handling: false
+
+  persistence_registry:
+    data_types: ["persistence_data", "registry_data"]
+    requires_input: true
+    provides_output: true
+    supports_conditions: false
+    supports_error_handling: true
+
+  error_handler:
+    data_types: ["error_data", "recovery_data"]
+    requires_input: true
+    provides_output: true
+    supports_conditions: false
+    supports_error_handling: false
+
+  notification:
+    data_types: ["notification_data"]
+    requires_input: true
+    provides_output: true
+    supports_conditions: false
+    supports_error_handling: false
+
+  end:
+    data_types: ["workflow_end"]
+    requires_input: true
+    provides_output: false
+    supports_conditions: false
+    supports_error_handling: false
+
+# Category Definitions
+categories:
+  "Control Flow":
+    description: "Nodes that control workflow execution flow"
+    nodes: ["start", "end", "condition", "delay"]
+    
+  "Basic Operations":
+    description: "Core command execution and system operations"
+    nodes: ["command_execution"]
+    
+  "File Operations":
+    description: "File upload, download, and manipulation"
+    nodes: ["file_upload", "file_download"]
+    
+  "Information Gathering":
+    description: "Reconnaissance and system information collection"
+    nodes: ["system_info"]
+    
+  "Persistence":
+    description: "Maintaining access and persistence mechanisms"
+    nodes: ["persistence_registry"]
+    
+  "Error Handling":
+    description: "Error recovery and exception handling"
+    nodes: ["error_handler"]
+    
+  "Communication":
+    description: "Notifications and external communication"
+    nodes: ["notification"]
+
+# Advanced Connection Rules (for future use)
+connection_constraints:
+  max_connections_per_output:
+    default: 10
+    condition_true: 5
+    condition_false: 5
+    error: 3
+    
+  required_connections:
+    start: ["output"]
+    condition: ["true_output", "false_output"]
+    
+  exclusive_connections:
+    # If one of these exists, others cannot
+    end_workflow:
+      - end
+      - notification

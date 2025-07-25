@@ -104,6 +104,7 @@ class MainWindow(QMainWindow):
         # Create content pages
         self.setup_beacons_page()
         self.setup_receivers_page()
+        self.setup_workflows_page()
         self.setup_settings_page()
 
         main_widget.setLayout(main_layout)
@@ -319,6 +320,17 @@ class MainWindow(QMainWindow):
             self.receivers_page = ReceiversWidget(self.command_processor, self.file_transfer_service)
         self.content_stack.addWidget(self.receivers_page)
 
+    def setup_workflows_page(self):
+        """Create the workflows page"""
+        from .workflows import WorkflowEditor
+        
+        self.workflows_page = WorkflowEditor(
+            schema_service=self.schema_service,
+            beacon_repository=self.beacon_repository,
+            command_processor=self.command_processor
+        )
+        self.content_stack.addWidget(self.workflows_page)
+
     def setup_settings_page(self):
         """Create the settings page"""
         self.settings_page = SettingsPage(self.config_manager)
@@ -351,8 +363,10 @@ class MainWindow(QMainWindow):
             self.content_stack.setCurrentIndex(0)
         elif page_id == "receivers":
             self.content_stack.setCurrentIndex(1)
-        elif page_id == "settings":
+        elif page_id == "workflows":
             self.content_stack.setCurrentIndex(2)
+        elif page_id == "settings":
+            self.content_stack.setCurrentIndex(3)
 
     def toggle_documentation(self, show: bool):
         """Toggle the documentation panel"""
