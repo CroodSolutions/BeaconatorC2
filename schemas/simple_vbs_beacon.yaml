@@ -1,0 +1,41 @@
+schema_version: "1.1"
+beacon_info:
+  beacon_type: "simple_vbs_beacon"
+  version: "1.0.1"
+  description: "Simple vbs beacon for initial testing (TCP-only)"
+  supported_platforms: "windows"
+  encoding_strategy: "base64"
+  file_transfer_supported: false
+  keylogger_supported: false
+
+categories:
+  basic_commands:
+    display_name: "Basic Commands"
+    description: "Essential command execution capabilities for encoding testing via VBS invoking PS"
+    modules:
+      command_execution:
+        display_name: "Command Execution"
+        description: "Execute arbitrary system commands with configurable encoding"
+        command_template: "{command}"
+        parameters:
+          command:
+            type: "textarea"
+            display_name: "Command"
+            description: "Enter command to execute on the target system"
+            required: true
+            default: ""
+            validation:
+              min_length: 1
+              max_length: 4096
+        documentation:
+          content: "Execute system commands directly on the target machine. This beacon supports plaintext and base64 encoding strategies for testing receiver implementations. Commands are executed using subprocess with a 300-second timeout."
+          examples:
+            - "whoami"
+            - "dir (Windows)"
+            - "systeminfo (Windows)"
+        execution:
+          timeout: 300
+          requires_admin: false
+        ui:
+          layout: "simple"
+          
