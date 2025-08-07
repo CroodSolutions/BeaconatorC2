@@ -2,7 +2,7 @@
 
 ## --- Introduction ---
 
-
+BeaconatorC2 was spawned out of several other research initiatives surrounding EDR evasion, LOLBINs, Escape to host flaws, and particularly scripting languages with portable interpreters like AutoIt and AutoHotkey. What we needed was a quick and easy process to setup beacons in restrictive or poorly documented languages and environments, such as WWB-COM, or AIX mainframes. We made BeaconatorC2 to fill that gap, providing a simple and modular communication standard and management application to support any type of beacon. This way, once we find new paths for execution, we can quickly build supported beacons for additional exploitation.
 
 ## --- Ethical Standards / Code of Conduct ---
 
@@ -28,15 +28,15 @@ Management interface for Beaconator created by [shammahwoods](https://github.com
 
 Key contributors, both directly and because we are using building blocks from prior work:
 
-- [BiniamGebrehiwot1](https://github.com/BiniamGebrehiwot1)
-- Jordan Mastel
-- lolrmm.io
+- 0xcc00 (for ntds_dump ideas)
 - [christian-taillon](https://github.com/christian-taillon)
 - [Duncan4264](https://github.com/Duncan4264)
 - [flawdC0de](https://github.com/flawdC0de)
 - [Kitsune-Sec](https://github.com/Kitsune-Sec)
 - [AnuraTheAmphibian](https://github.com/AnuraTheAmphibian)
-- Tomer Saban
-- Matt Clark
-- Brandon Stevens
-- Daniel Addington
+- Tomer Saban (inspiration for initial project)
+- Matt Clark (MacOS research)
+- Brandon Stevens (MacOS research)
+- Daniel Addington (MacOS research)
+- Jordan Mastel (RMM contributions, for interoperability)
+- [BiniamGebrehiwot1](https://github.com/BiniamGebrehiwot1)
