@@ -12,6 +12,14 @@ This project has been started to help better test products, configurations, dete
 
 TBD
 
+## --- Demo of Code Execution on MacOS ---
+
+
+
+https://github.com/user-attachments/assets/5b11c1ad-e887-41de-a08e-7070f7835856
+
+
+
 ## --- How to Contribute ---
 
 We welcome and encourage contributions, participation, and feedback - as long as all participation is legal and ethical in nature. Please develop new scripts, contribute ideas, improve the scripts that we have created. The goal of this project is to come up with a robust testing framework that is available to red/blue/purple teams for assessment purposes, with the hope that one day we can archive this project because improvements to detection logic make this attack vector irrelevant.
