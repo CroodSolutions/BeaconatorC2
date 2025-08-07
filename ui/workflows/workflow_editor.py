@@ -12,7 +12,13 @@ from services.workflows.workflow_engine import WorkflowEngine
 from services.workflows.workflow_validator import WorkflowValidator
 from database import BeaconRepository
 from services.command_processor import CommandProcessor
-from .workflow_canvas import WorkflowCanvas
+from .custom_canvas import CustomWorkflowCanvas
+from .side_panel import SidePanel, SidePanelMode
+from .node_editing_content import NodeEditingContent
+from .conditional_editing_content import ConditionalEditingContent
+from .set_variable_content import SetVariableEditingContent
+from .file_transfer_content import FileTransferEditingContent
+from .variables_content import VariablesContent
 
 
 class WorkflowEditor(QWidget):
@@ -49,23 +55,99 @@ class WorkflowEditor(QWidget):
         self.create_toolbar()
         layout.addWidget(self.toolbar)
         
-        # Create main content area with splitters
-        main_splitter = QSplitter(Qt.Orientation.Horizontal)
+        # Create main content area with canvas and sliding panel
+        main_container = QHBoxLayout()
+        main_container.setContentsMargins(0, 0, 0, 0)
+        main_container.setSpacing(0)
         
-        # Center panel: Workflow canvas (now takes up more space)
+        # Canvas panel (takes up most space)
         self.create_canvas_panel()
-        main_splitter.addWidget(self.canvas_panel)
+        main_container.addWidget(self.canvas_panel)
         
-        # Right panel: Properties and execution
-        self.create_properties_panel()
-        main_splitter.addWidget(self.properties_panel)
+        # Create unified side panel
+        self.side_panel = SidePanel()
+        self.side_panel.panel_closed.connect(self.on_side_panel_closed)
+        self.side_panel.mode_changed.connect(self.on_side_panel_mode_changed)
         
-        # Set splitter proportions (80% : 20% )
-        main_splitter.setSizes([800, 200])
-        main_splitter.setChildrenCollapsible(False)
+        # Forward content-specific signals
+        self.side_panel.node_updated.connect(self.on_node_parameters_updated)
+        self.side_panel.node_deleted.connect(self.on_node_deleted)
+        self.side_panel.node_execution_requested.connect(self.execute_single_node)
+        self.side_panel.variables_updated.connect(self.on_variables_updated)
         
-        layout.addWidget(main_splitter)
+        main_container.addWidget(self.side_panel)
+        
+        # Create content widgets
+        self.node_editing_content = NodeEditingContent(self.schema_service)
+        self.conditional_editing_content = ConditionalEditingContent()
+        self.set_variable_editing_content = SetVariableEditingContent()
+        self.file_transfer_editing_content = FileTransferEditingContent()
+        self.variables_content = VariablesContent()
+        
+        # Connect content widget signals to side panel
+        self.node_editing_content.node_updated.connect(self.side_panel.node_updated.emit)
+        self.node_editing_content.node_deleted.connect(self.side_panel.node_deleted.emit)
+        self.node_editing_content.node_execution_requested.connect(self.side_panel.node_execution_requested.emit)
+        self.node_editing_content.close_requested.connect(self.side_panel.close_panel)
+        
+        self.conditional_editing_content.node_updated.connect(self.side_panel.node_updated.emit)
+        self.conditional_editing_content.node_deleted.connect(self.side_panel.node_deleted.emit)
+        self.conditional_editing_content.node_execution_requested.connect(self.side_panel.node_execution_requested.emit)
+        self.conditional_editing_content.close_requested.connect(self.side_panel.close_panel)
+        
+        self.set_variable_editing_content.node_updated.connect(self.side_panel.node_updated.emit)
+        self.set_variable_editing_content.node_deleted.connect(self.side_panel.node_deleted.emit)
+        self.set_variable_editing_content.node_execution_requested.connect(self.side_panel.node_execution_requested.emit)
+        self.set_variable_editing_content.close_requested.connect(self.side_panel.close_panel)
+        
+        self.file_transfer_editing_content.node_updated.connect(self.side_panel.node_updated.emit)
+        self.file_transfer_editing_content.node_deleted.connect(self.side_panel.node_deleted.emit)
+        self.file_transfer_editing_content.node_execution_requested.connect(self.side_panel.node_execution_requested.emit)
+        self.file_transfer_editing_content.close_requested.connect(self.side_panel.close_panel)
+        
+        self.variables_content.variables_updated.connect(self.side_panel.variables_updated.emit)
+        self.variables_content.close_requested.connect(self.side_panel.close_panel)
+        
+        # Register content widgets with side panel
+        self.side_panel.register_content_widget(
+            SidePanelMode.NODE_EDITING, 
+            self.node_editing_content, 
+            "Node Editor",
+            "Configure node parameters and settings"
+        )
+        self.side_panel.register_content_widget(
+            SidePanelMode.CONDITIONAL_EDITING, 
+            self.conditional_editing_content, 
+            "Condition Editor",
+            "Configure conditional logic and parameters"
+        )
+        self.side_panel.register_content_widget(
+            SidePanelMode.SET_VARIABLE_EDITING, 
+            self.set_variable_editing_content, 
+            "Variable Editor",
+            "Configure variable name and value with template support"
+        )
+        self.side_panel.register_content_widget(
+            SidePanelMode.FILE_TRANSFER_EDITING, 
+            self.file_transfer_editing_content, 
+            "File Transfer Editor",
+            "Configure file upload/download operations with template support"
+        )
+        self.side_panel.register_content_widget(
+            SidePanelMode.VARIABLES, 
+            self.variables_content, 
+            "Variables",
+            "Manage workflow variables"
+        )
+        
+        # Create widget to contain the layout
+        main_widget = QWidget()
+        main_widget.setLayout(main_container)
+        layout.addWidget(main_widget)
         self.setLayout(layout)
+        
+        # Set up canvas integrations after all panels are created
+        self.setup_canvas_integrations()
         
     def perform_validation(self):
         """Perform workflow validation"""
@@ -82,8 +164,8 @@ class WorkflowEditor(QWidget):
                 if getattr(node, 'node_id', str(id(node))) == issue.node_id:
                     # Select and center the node
                     self.canvas.selected_node = node
-                    self.canvas.scene.clearSelection()
-                    node.setSelected(True)
+                    self.canvas.clear_selection()
+                    self.canvas.select_node(node)
                     self.canvas.centerOn(node)
                     break
                     
@@ -106,22 +188,22 @@ class WorkflowEditor(QWidget):
         
         # File operations
         new_action = QAction("New Workflow", self)
-        new_action.setIcon(self.style().standardIcon(self.style().StandardPixmap.SP_FileIcon))
+        new_action.setIcon(QIcon("resources/file.svg"))
         new_action.triggered.connect(self.new_workflow)
         self.toolbar.addAction(new_action)
         
         open_action = QAction("Open Workflow", self)
-        open_action.setIcon(self.style().standardIcon(self.style().StandardPixmap.SP_DirOpenIcon))
+        open_action.setIcon(QIcon("resources/folder.svg"))
         open_action.triggered.connect(self.open_workflow)
         self.toolbar.addAction(open_action)
         
         save_action = QAction("Save Workflow", self)
-        save_action.setIcon(self.style().standardIcon(self.style().StandardPixmap.SP_DialogSaveButton))
+        save_action.setIcon(QIcon("resources/device-floppy.svg"))
         save_action.triggered.connect(self.save_workflow)
         self.toolbar.addAction(save_action)
         
         save_as_action = QAction("Save As...", self)
-        save_as_action.setIcon(self.style().standardIcon(self.style().StandardPixmap.SP_DialogSaveButton))
+        save_as_action.setIcon(QIcon("resources/folders.svg"))
         save_as_action.triggered.connect(self.save_workflow_as)
         self.toolbar.addAction(save_as_action)
         
@@ -129,30 +211,37 @@ class WorkflowEditor(QWidget):
         
         # Execution operations
         execute_action = QAction("Execute Workflow", self)
-        execute_action.setIcon(self.style().standardIcon(self.style().StandardPixmap.SP_MediaPlay))
+        execute_action.setIcon(QIcon("resources/player-play.svg"))
         execute_action.triggered.connect(self.execute_workflow)
         self.toolbar.addAction(execute_action)
         
         stop_action = QAction("Stop Execution", self)
-        stop_action.setIcon(self.style().standardIcon(self.style().StandardPixmap.SP_MediaStop))
+        stop_action.setIcon(QIcon("resources/cancel.svg"))
         stop_action.triggered.connect(self.stop_execution)
         stop_action.setEnabled(False)
         self.toolbar.addAction(stop_action)
+
+        self.toolbar.addSeparator()
+        
+        # Variables panel toggle
+        self.variables_action = QAction("Variables (0)", self)
+        self.variables_action.setIcon(QIcon("resources/cube-plus.svg"))
+        self.variables_action.setCheckable(True)
+        self.variables_action.triggered.connect(self.toggle_variables_panel)
+        self.toolbar.addAction(self.variables_action)
         
         self.toolbar.addSeparator()
         
-        # View operations
-        zoom_in_action = QAction("Zoom In", self)
-        zoom_in_action.setIcon(self.style().standardIcon(self.style().StandardPixmap.SP_FileDialogDetailedView))
-        zoom_in_action.triggered.connect(self.zoom_in)
-        self.toolbar.addAction(zoom_in_action)
-        
-        zoom_out_action = QAction("Zoom Out", self)
-        zoom_out_action.setIcon(self.style().standardIcon(self.style().StandardPixmap.SP_FileDialogListView))
-        zoom_out_action.triggered.connect(self.zoom_out)
-        self.toolbar.addAction(zoom_out_action)
-        
-        self.toolbar.addSeparator()
+        # Add execution status to toolbar
+        self.execution_status_label = QLabel("No workflow execution in progress")
+        self.execution_status_label.setStyleSheet("""
+            color: #cccccc; 
+            font-size: 11px; 
+            padding: 5px 10px;
+            background-color: rgba(35, 35, 35, 100);
+            border-radius: 3px;
+        """)
+        self.toolbar.addWidget(self.execution_status_label)
         
         
     def create_canvas_panel(self):
@@ -179,9 +268,19 @@ class WorkflowEditor(QWidget):
         canvas_splitter = QSplitter(Qt.Orientation.Vertical)
         
         # Create the actual workflow canvas
-        self.canvas = WorkflowCanvas(self.schema_service)
+        self.canvas = CustomWorkflowCanvas(self, self.schema_service)
+        
+        # Set workflow service references for integration
+        self.canvas.set_workflow_services(self.workflow_service, self.workflow_engine)
+        
+        # Connect canvas signals
         self.canvas.node_selected.connect(self.on_node_selected)
-        self.canvas.node_parameters_updated.connect(self.on_node_parameters_updated)
+        # Don't connect to node_parameters_updated to avoid circular updates
+        # The node editing panel already emits node_updated which we handle
+        self.canvas.node_deselected.connect(self.on_node_deselected)
+        self.canvas.connection_created.connect(self.on_connection_created)
+        self.canvas.node_deletion_requested.connect(self.on_node_deleted)
+        self.canvas.node_moved.connect(self.on_node_moved)
         
         canvas_splitter.addWidget(self.canvas)
         
@@ -193,77 +292,6 @@ class WorkflowEditor(QWidget):
         
         self.canvas_panel.setLayout(layout)
         
-    def create_properties_panel(self):
-        """Create the right properties panel for node configuration"""
-        self.properties_panel = QFrame()
-        self.properties_panel.setFrameStyle(QFrame.Shape.StyledPanel)
-        self.properties_panel.setMinimumWidth(180)
-        self.properties_panel.setMaximumWidth(300)
-        
-        layout = QVBoxLayout()
-        
-        # Properties header
-        header = QLabel("Properties")
-        header.setStyleSheet("""
-            font-weight: bold; 
-            padding: 8px; 
-            background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #424242, stop:1 #303030);
-            color: white;
-            border-radius: 4px;
-        """)
-        layout.addWidget(header)
-        
-        # Placeholder for properties
-        self.properties_placeholder = QLabel("Node properties will appear here when a node is selected.")
-        self.properties_placeholder.setStyleSheet("padding: 10px; color: #cccccc; background-color: #232323;")
-        self.properties_placeholder.setWordWrap(True)
-        layout.addWidget(self.properties_placeholder)
-        
-        # Execution panel
-        exec_header = QLabel("Execution")
-        exec_header.setStyleSheet("""
-            font-weight: bold; 
-            padding: 8px; 
-            background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #424242, stop:1 #303030);
-            color: white;
-            border-radius: 4px;
-            margin-top: 10px;
-        """)
-        layout.addWidget(exec_header)
-        
-        self.execution_status_label = QLabel("No workflow execution in progress")
-        self.execution_status_label.setStyleSheet("padding: 10px; color: #cccccc; background-color: #232323;")
-        self.execution_status_label.setWordWrap(True)
-        layout.addWidget(self.execution_status_label)
-        
-        # Single node execution button
-        self.execute_node_btn = QPushButton("Execute Selected Node")
-        self.execute_node_btn.setEnabled(False)
-        self.execute_node_btn.clicked.connect(self.execute_selected_node)
-        self.execute_node_btn.setMinimumWidth(170)
-        self.execute_node_btn.setMinimumHeight(35)
-        self.execute_node_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #2196F3;
-                color: white;
-                border: none;
-                border-radius: 4px;
-                padding: 10px 20px;
-                font-weight: bold;
-                font-size: 12px;
-            }
-            QPushButton:hover {
-                background-color: #1976D2;
-            }
-            QPushButton:disabled {
-                background-color: #666666;
-                color: #999999;
-            }
-        """)
-        layout.addWidget(self.execute_node_btn)
-        
-        layout.addStretch()
-        self.properties_panel.setLayout(layout)
         
     def create_default_workflow(self):
         """Create a default workflow for immediate use"""
@@ -281,6 +309,9 @@ class WorkflowEditor(QWidget):
         
         # Update window title to show current workflow
         self.update_window_title()
+        
+        # Add start node to new default workflow
+        self.add_start_node()
         
     def new_workflow(self):
         """Create a new workflow"""
@@ -309,8 +340,13 @@ class WorkflowEditor(QWidget):
         # Create new workflow
         self.current_workflow = self.workflow_service.create_workflow(name.strip(), description.strip())
         
-        # Clear canvas
+        # Clear canvas and load new workflow
         self.canvas.clear_canvas()
+        if self.current_workflow:
+            self.load_workflow_to_canvas(self.current_workflow)
+            
+        # Add start node to new workflow
+        self.add_start_node()
         
         print(f"Created new workflow: {self.current_workflow.name}")
         self.update_window_title()
@@ -479,8 +515,11 @@ class WorkflowEditor(QWidget):
     def _start_workflow_execution(self, beacon_id: str):
         """Start executing the workflow on the selected beacon"""
         try:
-            # Start execution
-            execution_id = self.workflow_engine.start_execution(self.current_workflow, beacon_id)
+            # Get canvas variables for execution
+            canvas_variables = self.canvas.get_all_variables() if hasattr(self.canvas, 'get_all_variables') else {}
+            
+            # Start execution with canvas variables
+            execution_id = self.workflow_engine.start_execution(self.current_workflow, beacon_id, canvas_variables)
             
             if execution_id:
                 self.current_execution_id = execution_id
@@ -576,48 +615,90 @@ class WorkflowEditor(QWidget):
         """Handle node selection events"""
         if node:
             print(f"Node selected: {node.node_type}")
-            self.update_properties_panel(node)
-            # Enable execute button for executable nodes (not start/end)
-            can_execute = node.node_type not in ['start', 'end']
-            self.execute_node_btn.setEnabled(can_execute)
+            
+            # Create workflow context for parameter editing with canvas variables
+            workflow_context = {
+                'context': None,  # No execution context during design time
+                'current_node': node,
+                'workflow_connections': self.canvas.connections if hasattr(self.canvas, 'connections') else [],
+                'canvas_variables': self.canvas.get_all_variables() if hasattr(self.canvas, 'get_all_variables') else {},
+                'workflow': self.current_workflow  # Keep original workflow for backwards compatibility
+            }
+            
+            # Route to appropriate editing panel based on node type
+            if node.node_type == 'condition':
+                self.side_panel.show_conditional_editing(node, workflow_context)
+            elif node.node_type == 'set_variable':
+                self.side_panel.show_set_variable_editing(node, workflow_context)
+            elif node.node_type == 'file_transfer':
+                self.side_panel.show_file_transfer_editing(node, workflow_context)
+            else:
+                self.side_panel.show_node_editing(node, workflow_context)
         else:
             print("Node deselected")
-            self.clear_properties_panel()
-            # Disable execute button when no node is selected
-            self.execute_node_btn.setEnabled(False)
+            # Close the side panel when no node is selected
+            current_mode = self.side_panel.get_current_mode()
+            if current_mode in [SidePanelMode.NODE_EDITING, SidePanelMode.CONDITIONAL_EDITING, SidePanelMode.SET_VARIABLE_EDITING, SidePanelMode.FILE_TRANSFER_EDITING]:
+                self.side_panel.close_panel()
             
-    def update_properties_panel(self, node):
-        """Update the properties panel with node information"""
-        # Create detailed node information
-        node_info = f"""<b>Node Type:</b> {node.node_type}<br>
-<b>Node ID:</b> {node.node_id}<br>
-<b>Display Name:</b> {node.get_display_name()}<br>"""
-        
-        if node.module_info:
-            node_info += "<br><b>Module Information:</b><br>"
-            for key, value in node.module_info.items():
-                node_info += f"• {key}: {value}<br>"
+    def on_node_deselected(self):
+        """Handle node deselection events"""
+        print("Node deselected")
+        # Close the side panel when no node is selected
+        current_mode = self.side_panel.get_current_mode()
+        if current_mode in [SidePanelMode.NODE_EDITING, SidePanelMode.CONDITIONAL_EDITING, SidePanelMode.SET_VARIABLE_EDITING, SidePanelMode.FILE_TRANSFER_EDITING]:
+            self.side_panel.close_panel()
+            
+    def on_node_deleted(self, node):
+        """Handle node deletion from the editing panel"""
+        try:
+            # Remove the node from canvas
+            if node in self.canvas.nodes:
+                # Remove all connections involving this node
+                connections_to_remove = []
+                for connection in self.canvas.connections:
+                    if connection.start_node == node or connection.end_node == node:
+                        connections_to_remove.append(connection)
                 
-        if hasattr(node, 'parameters') and node.parameters:
-            node_info += "<br><b>Parameters:</b><br>"
-            for key, value in node.parameters.items():
-                node_info += f"• {key}: {value}<br>"
+                # Remove connections and node using canvas methods
+                for connection in connections_to_remove:
+                    self.canvas.remove_connection(connection)
+                
+                # Remove node using canvas method
+                self.canvas.remove_node(node)
+                
+                # Clear selection
+                self.canvas.selected_node = None
+                
+                print(f"Deleted node: {node.node_type} ({node.node_id})")
+                
+        except Exception as e:
+            print(f"Error deleting node: {e}")
+            
+    def on_connection_created(self, start_node, end_node):
+        """Handle connection creation in canvas"""
+        print(f"Connection created: {start_node.node_type} -> {end_node.node_type}")
         
-        # Update the properties placeholder
-        self.properties_placeholder.setText(node_info)
-        self.properties_placeholder.setTextFormat(Qt.TextFormat.RichText)
+    def on_node_moved(self, node, position):
+        """Handle node movement in canvas"""
+        # Position updates are handled automatically by the canvas
+        pass
+            
+    def on_side_panel_closed(self):
+        """Handle side panel being closed"""
+        # Clear node selection in canvas if we were in node editing mode
+        if self.canvas.selected_node:
+            self.canvas.clear_selection()
         
-    def clear_properties_panel(self):
-        """Clear the properties panel"""
-        self.properties_placeholder.setText("Node properties will appear here when a node is selected.")
-        self.properties_placeholder.setTextFormat(Qt.TextFormat.PlainText)
+        # Update toolbar state
+        self.variables_action.setChecked(False)
         
     def on_node_parameters_updated(self, node, parameters):
         """Handle node parameter updates"""
         print(f"Node {node.node_type} parameters updated: {parameters}")
-        # Update the properties panel to show new parameters
-        if self.canvas.selected_node == node:
-            self.update_properties_panel(node)
+        
+        # Pass the update to the canvas which handles parameter updates properly
+        self.canvas.on_node_parameters_updated(node, parameters)
             
     def add_start_node(self):
         """Add a start node for new workflows"""
@@ -636,35 +717,15 @@ class WorkflowEditor(QWidget):
         if not self.current_workflow:
             return
             
-        from services.workflows.workflow_service import WorkflowNode as ServiceWorkflowNode, WorkflowConnection as ServiceWorkflowConnection
-        
-        # Convert canvas nodes to service nodes
-        workflow_nodes = []
-        for canvas_node in self.canvas.nodes:
-            workflow_node = ServiceWorkflowNode(
-                node_id=canvas_node.node_id,
-                node_type=canvas_node.node_type,
-                position={'x': canvas_node.scenePos().x(), 'y': canvas_node.scenePos().y()},
-                module_info=canvas_node.module_info.copy(),
-                parameters=canvas_node.parameters.copy(),
-                conditions=[]  # TODO: Implement conditions
-            )
-            workflow_nodes.append(workflow_node)
+        # Use custom canvas method to get workflow data
+        workflow_data = self.canvas.get_workflow_data()
+        if workflow_data:
+            nodes = workflow_data.get('nodes', [])
+            connections = workflow_data.get('connections', [])
             
-        # Convert canvas connections to service connections
-        workflow_connections = []
-        for canvas_connection in self.canvas.connections:
-            connection = ServiceWorkflowConnection(
-                connection_id=canvas_connection.connection_id,
-                source_node_id=canvas_connection.start_node.node_id,
-                target_node_id=canvas_connection.end_node.node_id,
-                condition=None  # TODO: Implement connection conditions
-            )
-            workflow_connections.append(connection)
+            self.current_workflow.nodes = nodes
+            self.current_workflow.connections = connections
             
-        # Update workflow
-        self.current_workflow.nodes = workflow_nodes
-        self.current_workflow.connections = workflow_connections
         
         # Save schema configuration with workflow
         if hasattr(self.current_workflow, 'metadata'):
@@ -679,23 +740,61 @@ class WorkflowEditor(QWidget):
         # Clear existing canvas
         self.canvas.clear_canvas()
         
-        # Create nodes
+        # Create nodes using template-based approach (same as UI creation)
         node_mapping = {}  # Map service node IDs to canvas nodes
         for service_node in workflow.nodes:
             position = QPointF(service_node.position['x'], service_node.position['y'])
-            canvas_node = self.canvas.add_node(
-                service_node.node_type, 
-                position, 
-                service_node.module_info
-            )
-            canvas_node.node_id = service_node.node_id
-            canvas_node.parameters = service_node.parameters.copy()
             
-            # Update parameter display for action nodes after parameters are loaded
-            if hasattr(canvas_node, 'update_parameter_display'):
-                canvas_node.update_parameter_display()
+            # Get template for this node type to ensure proper initialization
+            template = self.canvas.template_registry.get_template(service_node.node_type) if hasattr(self.canvas, 'template_registry') else None
+            
+            if template:
+                # Use template-based creation for proper initialization
+                canvas_node = self.canvas.add_node_from_template(
+                    template, 
+                    position, 
+                    service_node.module_info
+                )
+            else:
+                # Fallback to basic node creation if no template found
+                canvas_node = self.canvas.add_node(
+                    service_node.node_type, 
+                    position, 
+                    service_node.module_info
+                )
+            
+            if canvas_node:
+                # Apply saved node properties
+                canvas_node.node_id = service_node.node_id
+                canvas_node.parameters = service_node.parameters.copy()
                 
-            node_mapping[service_node.node_id] = canvas_node
+                # Ensure proper initialization that might be template-dependent
+                # Re-apply any node-type specific initialization after parameters are set
+                if service_node.node_type == 'condition':
+                    # Ensure condition nodes maintain their square shape
+                    size = max(canvas_node.width, canvas_node.height, 120)
+                    canvas_node.width = size
+                    canvas_node.height = size
+                    print(f"DEBUG: Applied square sizing to condition node: {size}x{size}")
+                
+                # Ensure action points are properly set up after all properties are loaded
+                if template and hasattr(canvas_node, '_setup_action_points'):
+                    canvas_node._setup_action_points(template)
+                    print(f"DEBUG: Set up action points for {service_node.node_type} node")
+                
+                # Update parameter display for action nodes after parameters are loaded
+                if hasattr(canvas_node, 'update_parameter_display'):
+                    canvas_node.update_parameter_display()
+                
+                # Ensure proper visual properties are applied
+                if hasattr(canvas_node, 'set_colors_for_type'):
+                    canvas_node.set_colors_for_type(service_node.node_type)
+                    
+                node_mapping[service_node.node_id] = canvas_node
+                
+                print(f"Loaded node: {service_node.node_id} ({service_node.node_type}) at ({position.x()}, {position.y()}) size: {canvas_node.width}x{canvas_node.height}")
+            else:
+                print(f"Failed to create node: {service_node.node_id} ({service_node.node_type})")
             
         # Create connections
         for service_connection in workflow.connections:
@@ -703,33 +802,70 @@ class WorkflowEditor(QWidget):
             end_node = node_mapping.get(service_connection.target_node_id)
             
             if start_node and end_node:
-                from .workflow_canvas import GuidedWorkflowConnection
-                from services.workflows.node_compatibility import ConnectionType
-                # Use sequential connection type as default for loaded workflows
-                connection = GuidedWorkflowConnection(start_node, end_node, ConnectionType.SEQUENTIAL)
-                connection.connection_id = service_connection.connection_id
-                self.canvas.scene.addItem(connection)
-                self.canvas.connections.append(connection)
+                # Get connection type from service connection with smart fallback
+                saved_connection_type = getattr(service_connection, 'connection_type', None)
                 
-        # Refresh all connection positions after loading
-        self._refresh_connections()
+                # If no saved connection type, detect it based on node types and patterns
+                if saved_connection_type is None or saved_connection_type == 'None':
+                    connection_type = self._detect_connection_type(start_node, end_node, service_connection)
+                    print(f"DEBUG: Detected connection type {connection_type} for {start_node.node_id} -> {end_node.node_id}")
+                else:
+                    connection_type = saved_connection_type
+                    print(f"DEBUG: Using saved connection type {connection_type} for {start_node.node_id} -> {end_node.node_id}")
                 
-    def _refresh_connections(self):
-        """Refresh all connection positions and redraw them"""
-        for connection in self.canvas.connections:
-            connection.update_position()
+                # Create connection using custom canvas method
+                connection = self.canvas.create_connection(
+                    start_node, end_node, service_connection.connection_id, connection_type
+                )
+                if connection:
+                    print(f"Loaded connection: {start_node.node_id} -> {end_node.node_id} (type: {connection_type})")
+                
+    def _detect_connection_type(self, start_node, end_node, service_connection):
+        """Detect connection type based on node types and patterns when not explicitly saved"""
         
-        # Force scene redraw
-        self.canvas.scene.update()
+        # If source is not a condition node, it's a sequential connection
+        if start_node.node_type != 'condition':
+            return 'sequential'
+        
+        # For condition nodes, we need to determine if this is true or false branch
+        # Strategy: Use node positioning and connection order to determine branch type
+        
+        # Get all connections from this condition node
+        condition_connections = []
+        for conn in self.canvas.connections:
+            if conn.start_node == start_node:
+                condition_connections.append(conn)
+        
+        # If this is the first connection from condition node (by Y position), likely true branch (right side)
+        # If this is below the condition node, likely false branch (bottom)
+        start_pos = QPointF(start_node.x, start_node.y)
+        end_pos = QPointF(end_node.x, end_node.y)
+        
+        # Calculate relative position of end node to start node
+        dx = end_pos.x() - start_pos.x()
+        dy = end_pos.y() - start_pos.y()
+        
+        # If target is primarily to the right, it's likely a true branch
+        # If target is primarily below, it's likely a false branch
+        if abs(dx) > abs(dy):  # Horizontal movement dominates
+            if dx > 0:  # Moving right
+                return 'conditional_true'
+            else:  # Moving left (unusual, default to true)
+                return 'conditional_true'
+        else:  # Vertical movement dominates
+            if dy > 0:  # Moving down
+                return 'conditional_false'
+            else:  # Moving up (unusual, default to true)
+                return 'conditional_true'
                 
     def _has_unsaved_changes(self):
         """Check if current workflow has unsaved changes"""
         # TODO: Implement change tracking
         return False  # For now, assume no changes
         
-    def execute_selected_node(self):
-        """Execute the currently selected node individually"""
-        if not self.canvas.selected_node:
+    def execute_single_node(self, node):
+        """Execute a single node individually"""
+        if not node:
             QMessageBox.warning(self, "No Node Selected", "Please select a node to execute")
             return
             
@@ -748,7 +884,7 @@ class WorkflowEditor(QWidget):
                 
         # Execute the selected node
         try:
-            selected_node = self.canvas.selected_node
+            selected_node = node
             
             # Create a minimal workflow for single node execution
             from services.workflows.workflow_service import Workflow, WorkflowNode as ServiceWorkflowNode, WorkflowConnection as ServiceWorkflowConnection
@@ -789,16 +925,20 @@ class WorkflowEditor(QWidget):
                 connections=[connection]
             )
             
-            # Execute using workflow engine
-            execution_id = self.workflow_engine.start_execution(temp_workflow, self.selected_beacon)
+            # Get canvas variables for execution
+            canvas_variables = self.canvas.get_all_variables() if hasattr(self.canvas, 'get_all_variables') else {}
+            
+            # Execute using workflow engine with canvas variables
+            execution_id = self.workflow_engine.start_execution(temp_workflow, self.selected_beacon, canvas_variables)
             
             if execution_id:
                 # Register callback for updates
                 self.workflow_engine.register_execution_callback(execution_id, self._on_single_node_execution_update)
                 
-                # Update UI
-                self.execute_node_btn.setEnabled(False)
-                self.execute_node_btn.setText("Executing...")
+                # Update UI - disable execute button in panel
+                if self.side_panel.get_current_mode() == SidePanelMode.NODE_EDITING:
+                    self.node_editing_content.execute_button.setEnabled(False)
+                    self.node_editing_content.execute_button.setText("Executing...")
                 
                 # Start canvas monitoring for single node execution
                 self.canvas.monitor_workflow_execution(execution_id, self.workflow_engine)
@@ -814,8 +954,50 @@ class WorkflowEditor(QWidget):
         """Handle single node execution updates"""
         # Check if execution is complete
         if context.status.value in ['completed', 'failed', 'stopped']:
-            self.execute_node_btn.setEnabled(True)
-            self.execute_node_btn.setText("Execute Selected Node")
+            # Re-enable execute button in panel
+            if self.side_panel.get_current_mode() == SidePanelMode.NODE_EDITING:
+                self.node_editing_content.execute_button.setEnabled(True)
+                self.node_editing_content.execute_button.setText("Execute")
+                
+    def toggle_variables_panel(self):
+        """Toggle the variables panel visibility"""
+        current_mode = self.side_panel.get_current_mode()
+        
+        if current_mode == SidePanelMode.VARIABLES:
+            # Variables panel is currently shown, close it
+            self.side_panel.close_panel()
+        else:
+            # Show variables panel (this will automatically close node editing if open)
+            self.side_panel.show_variables()
+            
+    def on_variables_updated(self, variables):
+        """Handle variables update from panel"""
+        # Update toolbar button text with count
+        count = len(variables)
+        self.variables_action.setText(f"Variables ({count})")
+        
+        # Variables are already updated in canvas through panel integration
+        print(f"Variables updated: {variables}")
+        
+    def on_side_panel_mode_changed(self, mode: SidePanelMode):
+        """Handle side panel mode changes"""
+        # Update toolbar state based on mode
+        if mode == SidePanelMode.VARIABLES:
+            self.variables_action.setChecked(True)
+        else:
+            self.variables_action.setChecked(False)
+        
+    def setup_canvas_integrations(self):
+        """Set up integrations between canvas and panels"""
+        if self.canvas and self.variables_content:
+            # Connect variables content to canvas
+            self.variables_content.set_canvas(self.canvas)
+            
+            # Update variables count in toolbar
+            if hasattr(self.canvas, 'get_all_variables'):
+                variables = self.canvas.get_all_variables()
+                count = len(variables)
+                self.variables_action.setText(f"Variables ({count})")
     
 
 
@@ -977,3 +1159,18 @@ class WorkflowSelectionDialog(QDialog):
         if current_item:
             return current_item.data(Qt.ItemDataRole.UserRole)
         return None
+        
+    def debug_node_colors(self):
+        """Debug method to analyze node colors"""
+        if hasattr(self.canvas, 'debug_node_colors'):
+            self.canvas.debug_node_colors()
+            
+    def fix_node_colors(self):
+        """Fix any nodes with incorrect colors"""
+        print("=== Fixing Node Colors ===")
+        if hasattr(self.canvas, 'validate_and_fix_node_colors'):
+            fixed_count = self.canvas.validate_and_fix_node_colors()
+            return fixed_count
+        else:
+            print("Canvas fix method not available")
+            return 0

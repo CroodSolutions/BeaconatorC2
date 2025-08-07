@@ -31,7 +31,7 @@ class WorkflowEngine:
         # Worker thread management
         self.active_workers: Dict[str, WorkflowExecutionWorker] = {}
         
-    def start_execution(self, workflow: Workflow, beacon_id: str) -> Optional[str]:
+    def start_execution(self, workflow: Workflow, beacon_id: str, canvas_variables: Optional[Dict[str, Any]] = None) -> Optional[str]:
         """Start executing a workflow on a specific beacon using background thread"""
         try:
             # Validate workflow
@@ -62,7 +62,8 @@ class WorkflowEngine:
                 workflow=workflow,
                 beacon_id=beacon_id,
                 beacon_repository=self.beacon_repository,
-                schema_service=self.schema_service
+                schema_service=self.schema_service,
+                canvas_variables=canvas_variables or {}
             )
             
             # Connect worker signals to our handlers

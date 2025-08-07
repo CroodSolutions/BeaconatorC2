@@ -29,23 +29,42 @@ class NodeTemplate:
         """Get list of action points this node should have"""
         action_points = []
         
-        # Primary output point (most nodes have this)
-        if self.output_capabilities:
-            action_points.append({
-                "type": "output",
-                "position": "right",
-                "connection_type": ConnectionType.SEQUENTIAL,
-                "label": "Next"
-            })
-        
-        # Conditional outputs
-        for i, condition in enumerate(self.conditional_outputs):
-            action_points.append({
-                "type": "conditional_output",
-                "position": f"bottom_{i}",
-                "connection_type": ConnectionType.CONDITIONAL_TRUE if i == 0 else ConnectionType.CONDITIONAL_FALSE,
-                "label": condition
-            })
+        # Special handling for conditional nodes - no "Next" button, specific positioning
+        if self.conditional_outputs and self.node_type == "condition":
+            # For condition nodes: True on right, False on bottom
+            for i, condition in enumerate(self.conditional_outputs):
+                if i == 0:  # First conditional output (True) goes on the right
+                    action_points.append({
+                        "type": "conditional_true",
+                        "position": "right",
+                        "connection_type": ConnectionType.CONDITIONAL_TRUE,
+                        "label": condition
+                    })
+                else:  # Second conditional output (False) goes on bottom
+                    action_points.append({
+                        "type": "conditional_false", 
+                        "position": "bottom",
+                        "connection_type": ConnectionType.CONDITIONAL_FALSE,
+                        "label": condition
+                    })
+        else:
+            # Primary output point (most nodes have this)
+            if self.output_capabilities:
+                action_points.append({
+                    "type": "output",
+                    "position": "right",
+                    "connection_type": ConnectionType.SEQUENTIAL,
+                    "label": "Next"
+                })
+            
+            # Conditional outputs for non-condition nodes
+            for i, condition in enumerate(self.conditional_outputs):
+                action_points.append({
+                    "type": "conditional_output",
+                    "position": f"bottom_{i}",
+                    "connection_type": ConnectionType.CONDITIONAL_TRUE if i == 0 else ConnectionType.CONDITIONAL_FALSE,
+                    "label": condition
+                })
         
             
         return action_points
@@ -99,12 +118,11 @@ class NodeTemplateRegistry:
         
         self.register_template(NodeTemplate(
             node_type="condition",
-            display_name="Condition Check",
+            display_name="Condition",
             description="Branch workflow based on conditions",
             category="Control Flow",
             icon="branch",
             input_requirements=["data"],
-            output_capabilities=["condition_result"],
             conditional_outputs=["True", "False"],
             default_parameters={
                 "condition_type": "contains",
@@ -133,6 +151,42 @@ class NodeTemplateRegistry:
             }
         ))
         
+        self.register_template(NodeTemplate(
+            node_type="set_variable",
+            display_name="Set Variable",
+            description="Define and set workflow variables with template support",
+            category="Actions",
+            icon="variable",
+            input_requirements=["any"],
+            output_capabilities=["variable_set", "variable_output"],
+            default_parameters={
+                "variable_name": "",
+                "variable_value": ""
+            },
+            validation_rules={
+                "variable_name": {"required": True, "min_length": 1},
+                "variable_value": {"required": True, "min_length": 1}
+            }
+        ))
+        
+        self.register_template(NodeTemplate(
+            node_type="file_transfer",
+            display_name="File Transfer",
+            description="Queue file upload/download operations between server and beacon",
+            category="Actions",
+            icon="file_transfer",
+            input_requirements=["any"],
+            output_capabilities=["file_transfer_queued"],
+            default_parameters={
+                "transfer_direction": "to_beacon",
+                "filename": ""
+            },
+            validation_rules={
+                "transfer_direction": {"required": True, "allowed_values": ["to_beacon", "from_beacon"]},
+                "filename": {"required": True, "min_length": 1}
+            }
+        ))
+        
         # Note: Action nodes are now dynamically loaded from schemas via _load_schema_action_templates()
         
         
@@ -152,25 +206,6 @@ class NodeTemplateRegistry:
                 "recovery_action": "continue",
                 "log_error": True,
                 "notify_user": False
-            }
-        ))
-        
-        # Communication nodes
-        self.register_template(NodeTemplate(
-            node_type="notification",
-            display_name="Send Notification",
-            description="Send notification or alert",
-            category="Communication", 
-            icon="bell",
-            input_requirements=["any"],
-            output_capabilities=["notification_sent"],
-            default_parameters={
-                "message": "",
-                "notification_type": "info",
-                "include_timestamp": True
-            },
-            validation_rules={
-                "message": {"required": True, "min_length": 1}
             }
         ))
         

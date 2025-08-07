@@ -58,100 +58,108 @@ class NodeCompatibilityManager:
         self.compatibility_rules = {
             "start": {
                 "output": [
+                    "action",
                     "command_execution",
                     "file_operation", 
                     "condition",
                     "delay",
-                    "reconnaissance",
-                    "persistence",
-                    "lateral_movement"
+                    "set_variable",
+                    "file_transfer"
+                ]
+            },
+            "action": {
+                "output": [
+                    "action",
+                    "command_execution",
+                    "file_operation",
+                    "condition",
+                    "delay",
+                    "set_variable",
+                    "file_transfer",
+                    "end"
                 ]
             },
             "command_execution": {
                 "output": [
+                    "action",
                     "command_execution",
                     "file_operation",
-                    "condition", 
-                    "data_extraction",
-                    "persistence",
+                    "condition",
+                    "delay",
+                    "set_variable",
+                    "file_transfer",
                     "end"
-                ],
+                ]
             },
             "file_operation": {
                 "output": [
+                    "action",
                     "command_execution",
                     "file_operation",
-                    "data_extraction",
                     "condition",
+                    "delay",
+                    "set_variable",
+                    "file_transfer",
                     "end"
-                ],
+                ]
             },
             "condition": {
                 "true_output": [
+                    "action",
                     "command_execution",
                     "file_operation",
-                    "persistence", 
-                    "lateral_movement",
                     "condition",
+                    "delay",
+                    "set_variable",
+                    "file_transfer",
                     "end"
                 ],
                 "false_output": [
-                    "alternative_command",
-                    "notification",
+                    "action",
+                    "command_execution",
+                    "file_operation",
                     "condition",
+                    "delay",
+                    "set_variable",
+                    "file_transfer",
                     "end"
                 ]
             },
             "delay": {
                 "output": [
+                    "action",
                     "command_execution",
                     "file_operation",
                     "condition",
-                    "reconnaissance",
+                    "set_variable",
+                    "file_transfer",
                     "end"
                 ]
             },
-            "reconnaissance": {
+            "set_variable": {
                 "output": [
+                    "action",
                     "command_execution",
-                    "data_extraction",
-                    "condition",
-                    "persistence",
-                    "lateral_movement",
-                    "end"
-                ],
-            },
-            "persistence": {
-                "output": [
-                    "command_execution",
-                    "verification",
-                    "condition",
-                    "lateral_movement",
-                    "end"
-                ],
-            },
-            "lateral_movement": {
-                "output": [
-                    "command_execution",
-                    "reconnaissance",
-                    "persistence",
-                    "condition",
-                    "end"
-                ],
-            },
-            "data_extraction": {
-                "output": [
                     "file_operation",
                     "condition",
-                    "notification",
-                    "end"
-                ],
-            },
-            "notification": {
-                "output": [
+                    "delay",
+                    "set_variable",
+                    "file_transfer",
                     "end"
                 ]
             },
+            "file_transfer": {
+                "output": [
+                    "action",
+                    "command_execution",
+                    "file_operation",
+                    "condition",
+                    "delay",
+                    "set_variable",
+                    "file_transfer",
+                    "end"
+                ]
+            }
         }
         
     def _load_node_capabilities(self):
@@ -160,6 +168,12 @@ class NodeCompatibilityManager:
             "start": NodeCapability(
                 provides_output=True,
                 data_types={"workflow_start"}
+            ),
+            "action": NodeCapability(
+                requires_input=True,
+                provides_output=True,
+                supports_error_handling=True,
+                data_types={"action_output", "module_data", "schema_data"}
             ),
             "command_execution": NodeCapability(
                 requires_input=True,
@@ -184,38 +198,20 @@ class NodeCompatibilityManager:
                 provides_output=True,
                 data_types={"timing_data"}
             ),
-            "reconnaissance": NodeCapability(
-                requires_input=True,
-                provides_output=True,
-                supports_error_handling=True,
-                data_types={"recon_data", "system_info"}
-            ),
-            "persistence": NodeCapability(
-                requires_input=True,
-                provides_output=True,
-                supports_error_handling=True,
-                data_types={"persistence_data", "system_modifications"}
-            ),
-            "lateral_movement": NodeCapability(
-                requires_input=True,
-                provides_output=True,
-                supports_error_handling=True,
-                data_types={"movement_data", "network_access"}
-            ),
-            "data_extraction": NodeCapability(
-                requires_input=True,
-                provides_output=True,
-                supports_error_handling=True,
-                data_types={"extracted_data", "file_data"}
-            ),
-            "notification": NodeCapability(
-                requires_input=True,
-                provides_output=True,
-                data_types={"notification_data"}
-            ),
             "end": NodeCapability(
                 requires_input=True,
                 data_types={"workflow_end"}
+            ),
+            "set_variable": NodeCapability(
+                requires_input=True,
+                provides_output=True,
+                data_types={"variable_data", "variable_set"}
+            ),
+            "file_transfer": NodeCapability(
+                requires_input=True,
+                provides_output=True,
+                supports_error_handling=True,
+                data_types={"file_transfer_queued", "file_data"}
             )
         }
         
@@ -227,11 +223,9 @@ class NodeCompatibilityManager:
         if source_node_type in self.compatibility_rules:
             compatible_nodes.extend(self.compatibility_rules[source_node_type].get(connection_type, []))
         
-        # For start nodes, always add generic action node (schema-less approach)
-        if source_node_type == "start" and connection_type == "output":
-            if "action" not in compatible_nodes:
-                compatible_nodes.append("action")
-                print(f"DEBUG: Added generic action node (schema-less approach)")
+        # always add generic action node (schema-less approach)
+        if "action" not in compatible_nodes:
+            compatible_nodes.append("action")
         
         # For any action node, allow connecting to other actions and control flow nodes
         if source_node_type == "action" and connection_type == "output":
@@ -240,12 +234,11 @@ class NodeCompatibilityManager:
                 compatible_nodes.append("action")
             
             # Also allow control flow nodes
-            control_flow_nodes = ["condition", "delay", "end", "notification"]
+            control_flow_nodes = ["condition", "delay", "end"]
             for node_type in control_flow_nodes:
                 if node_type not in compatible_nodes:
                     compatible_nodes.append(node_type)
         
-        print(f"DEBUG: Compatible nodes for {source_node_type} -> {connection_type}: {compatible_nodes}")
         return compatible_nodes
         
     def get_connection_options(self, source_node_type: str, connection_type: str) -> List[ConnectionOption]:
@@ -298,6 +291,12 @@ class NodeCompatibilityManager:
                 "category": "Control Flow",
                 "icon": "start"
             },
+            "action": {
+                "display_name": "Action",
+                "description": "Execute schema-defined module action",
+                "category": "Actions",
+                "icon": "play"
+            },
             "command_execution": {
                 "display_name": "Execute Command",
                 "description": "Execute system commands on target",
@@ -322,41 +321,17 @@ class NodeCompatibilityManager:
                 "category": "Control Flow",
                 "icon": "clock"
             },
-            "reconnaissance": {
-                "display_name": "Reconnaissance", 
-                "description": "Gather system information",
-                "category": "Information Gathering",
-                "icon": "search"
-            },
-            "persistence": {
-                "display_name": "Establish Persistence",
-                "description": "Maintain access to target system",
-                "category": "Persistence",
-                "icon": "anchor"
-            },
-            "lateral_movement": {
-                "display_name": "Lateral Movement",
-                "description": "Move to other systems in network",
-                "category": "Movement",
-                "icon": "network"
-            },
-            "data_extraction": {
-                "display_name": "Extract Data",
-                "description": "Collect and extract target data",
-                "category": "Data Operations",
-                "icon": "download"
-            },
-            "notification": {
-                "display_name": "Send Notification",
-                "description": "Send alert or notification",
-                "category": "Communication",
-                "icon": "bell"
-            },
             "end": {
                 "display_name": "End",
                 "description": "End of workflow",
                 "category": "Control Flow",
                 "icon": "stop"
+            },
+            "set_variable": {
+                "display_name": "Set Variable",
+                "description": "Define and set workflow variables with template support",
+                "category": "Actions",
+                "icon": "variable"
             }
         }
         

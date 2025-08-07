@@ -301,3 +301,82 @@ def delete_saved_payload(config, file_path: str) -> Tuple[bool, str]:
         
     except Exception as e:
         return False, f"Failed to delete payload: {str(e)}"
+
+
+def strip_filename_quotes(filename: str) -> str:
+    """
+    Safely strip surrounding quotes from filenames while preserving internal quotes
+    
+    Args:
+        filename: The filename that may be surrounded by quotes
+        
+    Returns:
+        Filename with surrounding quotes removed
+        
+    Examples:
+        '"file with spaces.txt"' -> 'file with spaces.txt'
+        "'file with spaces.txt'" -> 'file with spaces.txt'
+        'file_without_spaces.txt' -> 'file_without_spaces.txt'
+        '"file with "inner" quotes.txt"' -> 'file with "inner" quotes.txt'
+    """
+    if not filename:
+        return filename
+    
+    # Strip whitespace first
+    filename = filename.strip()
+    
+    # Handle double quotes
+    if len(filename) >= 2 and filename.startswith('"') and filename.endswith('"'):
+        return filename[1:-1]
+    
+    # Handle single quotes
+    if len(filename) >= 2 and filename.startswith("'") and filename.endswith("'"):
+        return filename[1:-1]
+    
+    # Return unchanged if no surrounding quotes
+    return filename
+
+
+def safe_filename_path(base_dir: Path, filename: str) -> Path:
+    """
+    Create a safe file path that preserves the original filename while preventing directory traversal
+    
+    Args:
+        base_dir: Base directory path
+        filename: Original filename (potentially unsafe)
+        
+    Returns:
+        Safe Path object within the base directory
+        
+    Raises:
+        ValueError: If the filename contains dangerous path elements
+    """
+    # Strip quotes if present
+    filename = strip_filename_quotes(filename)
+    
+    # Check for dangerous path elements
+    if not filename or filename in ('.', '..'):
+        raise ValueError(f"Invalid filename: {filename}")
+    
+    # Check for path separators and other dangerous characters
+    dangerous_chars = ['/', '\\', '..', '\x00']
+    for char in dangerous_chars:
+        if char in filename:
+            raise ValueError(f"Filename contains dangerous character: {char}")
+    
+    # Create path and ensure it's within the base directory
+    filepath = base_dir / filename
+    
+    # Resolve both paths to catch any potential traversal attempts
+    try:
+        base_resolved = base_dir.resolve()
+        file_resolved = filepath.resolve()
+        
+        # Check if the resolved file path is within the base directory
+        if not str(file_resolved).startswith(str(base_resolved)):
+            raise ValueError("Path traversal attempt detected")
+            
+    except (OSError, RuntimeError):
+        raise ValueError("Invalid file path")
+    
+    return filepath

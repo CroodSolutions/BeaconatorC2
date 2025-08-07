@@ -73,7 +73,8 @@ class TextParameterWidget(ParameterWidget):
             self.template_button = TemplateInsertButton(
                 self.workflow_context.get('context'),
                 self.workflow_context.get('current_node'),
-                self.workflow_context.get('workflow_connections')
+                self.workflow_context.get('workflow_connections'),
+                self.workflow_context.get('canvas_variables', {})
             )
             self.template_button.variable_selected.connect(self._insert_template_variable)
             layout.addWidget(self.template_button)

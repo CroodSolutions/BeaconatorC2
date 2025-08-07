@@ -106,6 +106,7 @@ class MainWindow(QMainWindow):
         self.setup_receivers_page()
         self.setup_workflows_page()
         self.setup_settings_page()
+        self.setup_metasploit_page()
 
         main_widget.setLayout(main_layout)
         self.setCentralWidget(main_widget)
@@ -199,19 +200,14 @@ class MainWindow(QMainWindow):
         self.keylogger_display = KeyLoggerDisplay(self.beacon_repository)
         self.tab_widgets['keylogger'] = self.keylogger_display
         
-        # Add Metasploit widget if manager is available
-        if self.metasploit_manager:
-            self.metasploit_widget = MetasploitWidget(self.metasploit_manager, self.beacon_repository)
-            self.tab_widgets['metasploit'] = self.metasploit_widget
+        # Metasploit widget is now handled by navigation menu (setup_metasploit_page)
     
     def add_always_visible_tabs(self):
         """Add tabs that are always visible"""
         self.right_panel.addTab(self.tab_widgets['modules'], "Modules")
         self.right_panel.addTab(self.tab_widgets['beacon_settings'], "Beacon Settings")
         
-        # Add Metasploit tab if available
-        if 'metasploit' in self.tab_widgets:
-            self.right_panel.addTab(self.tab_widgets['metasploit'], "Metasploit RPC")
+        # Metasploit is now in navigation menu, not tabs
     
     def add_conditional_tabs(self):
         """Add conditional tabs (initially all shown for backward compatibility)"""
@@ -285,8 +281,8 @@ class MainWindow(QMainWindow):
     
     def _get_tab_insert_position(self, tab_key: str) -> int:
         """Get the correct position to insert a tab to maintain proper ordering"""
-        # Desired tab order: Modules, File Transfer, KeyLogger, Metasploit, Beacon Settings
-        tab_order = ['modules', 'file_transfer', 'keylogger', 'metasploit', 'beacon_settings']
+        # Desired tab order: Modules, File Transfer, KeyLogger, Beacon Settings
+        tab_order = ['modules', 'file_transfer', 'keylogger', 'beacon_settings']
         
         try:
             target_position = tab_order.index(tab_key)
@@ -335,6 +331,31 @@ class MainWindow(QMainWindow):
         """Create the settings page"""
         self.settings_page = SettingsPage(self.config_manager)
         self.content_stack.addWidget(self.settings_page)
+    
+    def setup_metasploit_page(self):
+        """Create the Metasploit RPC page"""
+        if self.metasploit_manager:
+            # Create main widget container
+            metasploit_widget = QWidget()
+            layout = QVBoxLayout(metasploit_widget)
+            
+            # Create and add the Metasploit widget
+            self.metasploit_page_widget = MetasploitWidget(self.metasploit_manager, self.beacon_repository)
+            layout.addWidget(self.metasploit_page_widget)
+            
+            metasploit_widget.setLayout(layout)
+            self.content_stack.addWidget(metasploit_widget)
+        else:
+            # Create a placeholder if Metasploit manager not available
+            placeholder = QWidget()
+            layout = QVBoxLayout(placeholder)
+            
+            label = QLabel("Metasploit integration is not available")
+            label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            layout.addWidget(label)
+            
+            placeholder.setLayout(layout)
+            self.content_stack.addWidget(placeholder)
 
 
     def start_background_workers(self):
@@ -367,6 +388,8 @@ class MainWindow(QMainWindow):
             self.content_stack.setCurrentIndex(2)
         elif page_id == "settings":
             self.content_stack.setCurrentIndex(3)
+        elif page_id == "metasploit":
+            self.content_stack.setCurrentIndex(4)
 
     def toggle_documentation(self, show: bool):
         """Toggle the documentation panel"""

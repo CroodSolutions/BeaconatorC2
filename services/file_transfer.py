@@ -8,11 +8,28 @@ class FileTransferService:
     @staticmethod
     def send_file(conn: socket.socket, filename: str, config, logger) -> bool:
         """Send file to agent"""
+        from utils import strip_filename_quotes
+        
         try:
-            filepath = Path(config.FILES_FOLDER) / secure_filename(filename)
+            # Strip quotes from filename and log the processing
+            original_filename = filename
+            filename = strip_filename_quotes(filename)
+            logger.log_message(f"File Transfer: Processing filename - Original: '{original_filename}' -> Clean: '{filename}'")
+            
+            # Use safe_filename_path instead of secure_filename to preserve spaces
+            try:
+                from utils import safe_filename_path
+                filepath = safe_filename_path(Path(config.FILES_FOLDER), filename)
+            except ValueError as e:
+                conn.send(f'ERROR|Invalid filename: {str(e)}'.encode('utf-8'))
+                logger.log_message(f"File Transfer Failed: Invalid filename '{filename}' - {e}")
+                return False
+                
+            logger.log_message(f"File Transfer: Looking for file at {filepath}")
+            
             if not filepath.exists():
                 conn.send(b'ERROR|File not found')
-                logger.log_message(f"File Transfer Failed: {filename} - File not found")
+                logger.log_message(f"File Transfer Failed: {filename} - File not found at {filepath}")
                 return False
                 
             try:
@@ -51,9 +68,25 @@ class FileTransferService:
     @staticmethod
     def receive_file(conn: socket.socket, filename: str, config, logger) -> bool:
         """Receive file from agent"""
+        from utils import strip_filename_quotes
+        
         try:
-            logger.log_message(f"Starting file receive for: {filename}")
-            filepath = Path(config.FILES_FOLDER) / secure_filename(filename)
+            # Strip quotes from filename and log the processing
+            original_filename = filename
+            filename = strip_filename_quotes(filename)
+            logger.log_message(f"File Receive: Processing filename - Original: '{original_filename}' -> Clean: '{filename}'")
+            
+            # Use safe_filename_path instead of secure_filename to preserve spaces
+            try:
+                from utils import safe_filename_path
+                filepath = safe_filename_path(Path(config.FILES_FOLDER), filename)
+            except ValueError as e:
+                logger.log_message(f"File Receive Failed: Invalid filename '{filename}' - {e}")
+                try:
+                    conn.send(f'ERROR|Invalid filename: {str(e)}'.encode('utf-8'))
+                except:
+                    pass
+                return False
             
             # Set socket options for larger transfers
             conn.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 1048576)  # 1MB buffer

@@ -24,13 +24,14 @@ class WorkflowExecutionWorker(QThread):
     log_message = pyqtSignal(str, str, str)  # execution_id, level, message
     
     def __init__(self, execution_id: str, workflow: Workflow, beacon_id: str, 
-                 beacon_repository: BeaconRepository, schema_service=None):
+                 beacon_repository: BeaconRepository, schema_service=None, canvas_variables: Optional[Dict[str, Any]] = None):
         super().__init__()
         self.execution_id = execution_id
         self.workflow = workflow
         self.beacon_id = beacon_id
         self.beacon_repository = beacon_repository
         self.schema_service = schema_service
+        self.canvas_variables = canvas_variables or {}
         self._stop_requested = False
         self._context = None
         
@@ -50,11 +51,20 @@ class WorkflowExecutionWorker(QThread):
     def run(self):
         """Main execution method that runs in the background thread"""
         try:
-            # Create execution context
+            # Create execution context with merged variables
+            context_variables = {}
+            
+            # Start with workflow variables
+            if self.workflow.variables:
+                context_variables.update(self.workflow.variables)
+            
+            # Add canvas variables (can override workflow variables)
+            context_variables.update(self.canvas_variables)
+            
             self._context = ExecutionContext(
                 workflow_id=self.workflow.workflow_id,
                 beacon_id=self.beacon_id,
-                variables=self.workflow.variables.copy() if self.workflow.variables else {},
+                variables=context_variables,
                 node_results={},
                 execution_log=[],
                 status=ExecutionStatus.RUNNING,
@@ -195,6 +205,12 @@ class WorkflowExecutionWorker(QThread):
               node.node_type == 'condition'):
             return self._execute_condition_node(node)
             
+        elif node.node_type == 'set_variable':
+            return self._execute_set_variable_node(node)
+            
+        elif node.node_type == 'file_transfer':
+            return self._execute_file_transfer_node(node)
+            
         else:
             error_msg = f'Unknown node type: {node.node_type}'
             self._log("error", error_msg)
@@ -284,6 +300,95 @@ class WorkflowExecutionWorker(QThread):
         return self.condition_processor.execute_condition_node(
             node, self._context, self.workflow.connections
         )
+        
+    def _execute_set_variable_node(self, node: WorkflowNode) -> Dict[str, Any]:
+        """Execute a set_variable node to define and store workflow variables"""
+        try:
+            # Get variable name and value from parameters (already template-substituted)
+            variable_name = node.parameters.get('variable_name', '').strip()
+            variable_value = node.parameters.get('variable_value', '').strip()
+            
+            # Validate required parameters
+            if not variable_name:
+                return {'status': 'error', 'output': 'Variable name is required but not specified'}
+                
+            if not variable_value:
+                return {'status': 'error', 'output': 'Variable value is required but not specified'}
+            
+            # Additional validation for variable name format
+            if not variable_name.replace('_', '').replace('-', '').isalnum():
+                return {'status': 'error', 'output': f'Invalid variable name format: {variable_name}. Use alphanumeric characters, underscores, and hyphens only.'}
+            
+            # Store the variable in the execution context
+            self._context.variables[variable_name] = variable_value
+            
+            self._log("info", f"Set variable '{variable_name}' = '{variable_value}'")
+            
+            # Return success result with the set variable information
+            return {
+                'status': 'completed', 
+                'output': f'Variable "{variable_name}" set to: {variable_value}',
+                'variable_name': variable_name,
+                'variable_value': variable_value
+            }
+            
+        except Exception as e:
+            error_msg = f'Failed to set variable: {str(e)}'
+            self._log("error", error_msg)
+            return {'status': 'error', 'output': error_msg}
+        
+    def _execute_file_transfer_node(self, node: WorkflowNode) -> Dict[str, Any]:
+        """Execute a file_transfer node to queue file upload/download operations"""
+        try:
+            # Get transfer direction and filename from parameters (already template-substituted)
+            transfer_direction = node.parameters.get('transfer_direction', 'to_beacon').strip()
+            filename = node.parameters.get('filename', '').strip()
+            
+            # Validate required parameters
+            if not filename:
+                return {'status': 'error', 'output': 'Filename is required but not specified'}
+                
+            if transfer_direction not in ['to_beacon', 'from_beacon']:
+                return {'status': 'error', 'output': f'Invalid transfer direction: {transfer_direction}. Must be "to_beacon" or "from_beacon"'}
+            
+            # Format the appropriate command based on transfer direction
+            if transfer_direction == 'to_beacon':
+                # Download file to beacon (server -> beacon)
+                command = f'download_file {filename}'
+                operation_desc = f'Download "{filename}" to beacon'
+            else:
+                # Upload file from beacon (beacon -> server)
+                command = f'upload_file {filename}'
+                operation_desc = f'Upload "{filename}" from beacon'
+            
+            # Queue the command via beacon repository
+            if self.beacon_id and self.beacon_repository:
+                try:
+                    self.beacon_repository.update_beacon_command(self.beacon_id, command)
+                    self._log("info", f"File transfer queued: {operation_desc}")
+                    
+                    # Return success result with the queued operation information
+                    return {
+                        'status': 'completed', 
+                        'output': f'File transfer queued: {operation_desc}',
+                        'transfer_direction': transfer_direction,
+                        'filename': filename,
+                        'command': command
+                    }
+                    
+                except Exception as e:
+                    error_msg = f'Failed to queue file transfer command: {str(e)}'
+                    self._log("error", error_msg)
+                    return {'status': 'error', 'output': error_msg}
+            else:
+                error_msg = 'No beacon selected or beacon repository not available for file transfer'
+                self._log("error", error_msg)
+                return {'status': 'error', 'output': error_msg}
+            
+        except Exception as e:
+            error_msg = f'Failed to execute file transfer node: {str(e)}'
+            self._log("error", error_msg)
+            return {'status': 'error', 'output': error_msg}
         
     def _wait_for_command_completion(self, command: str, timeout: int = 300) -> Dict[str, Any]:
         """Wait for a command to complete by monitoring beacon status and output"""

@@ -239,11 +239,12 @@ class CanvasOptimizer:
         
     def get_visible_items(self):
         """Get only items visible in current viewport"""
-        if not self.canvas.scene:
+        if not hasattr(self.canvas, 'custom_scene') or not self.canvas.custom_scene:
             return []
+        scene = self.canvas.custom_scene
             
         viewport_rect = self.canvas.mapToScene(self.canvas.viewport().rect()).boundingRect()
-        return self.canvas.scene.items(viewport_rect)
+        return scene.items(viewport_rect)
         
     def optimize_node_rendering(self, node):
         """Optimize individual node rendering"""
@@ -274,18 +275,85 @@ class CanvasOptimizer:
                 
     def batch_updates(self, update_func, items: List):
         """Batch multiple updates together"""
+        if not hasattr(self.canvas, 'custom_scene') or not self.canvas.custom_scene:
+            # Fallback: execute updates individually without batching
+            for item in items:
+                update_func(item)
+            return
+        
+        scene = self.canvas.custom_scene
         # Disable scene updates during batch
-        if hasattr(self.canvas.scene, 'setUpdatesEnabled'):
-            self.canvas.scene.setUpdatesEnabled(False)
+        if hasattr(scene, 'setUpdatesEnabled'):
+            scene.setUpdatesEnabled(False)
             
         try:
             for item in items:
                 update_func(item)
         finally:
             # Re-enable updates
-            if hasattr(self.canvas.scene, 'setUpdatesEnabled'):
-                self.canvas.scene.setUpdatesEnabled(True)
-                self.canvas.scene.update()
+            if hasattr(scene, 'setUpdatesEnabled'):
+                scene.setUpdatesEnabled(True)
+                scene.update()
+                
+    def batch_scene_changes(self, operations: List[callable]):
+        """Batch multiple scene operations to minimize redraws"""
+        if not operations:
+            return
+            
+        # Block signals and updates during batch operations
+        if not hasattr(self.canvas, 'custom_scene') or not self.canvas.custom_scene:
+            # Fallback: execute operations individually without batching
+            for operation in operations:
+                try:
+                    operation()
+                except Exception as e:
+                    print(f"Error in fallback operation: {e}")
+            return
+        scene = self.canvas.custom_scene
+            
+        if hasattr(scene, 'blockSignals'):
+            scene.blockSignals(True)
+        if hasattr(scene, 'setUpdatesEnabled'):
+            scene.setUpdatesEnabled(False)
+            
+        try:
+            # Execute all operations
+            for operation in operations:
+                try:
+                    operation()
+                except Exception as e:
+                    print(f"Error in batch operation: {e}")
+        finally:
+            # Re-enable everything and trigger single update
+            if hasattr(scene, 'blockSignals'):
+                scene.blockSignals(False)
+            if hasattr(scene, 'setUpdatesEnabled'):
+                scene.setUpdatesEnabled(True)
+                scene.update()
+                
+    def optimize_viewport_culling(self):
+        """DISABLED - Viewport culling was counterproductive"""
+        # This optimization was removed because profiling showed it was taking 120.26ms
+        # and was counterproductive for performance. Canvas now renders all items.
+        pass
+                
+    def enable_smart_invalidation(self):
+        """Enable smart scene invalidation to minimize redraws"""
+        if not hasattr(self.canvas, 'custom_scene') or not self.canvas.custom_scene:
+            return
+        scene = self.canvas.custom_scene
+        if not hasattr(scene, 'invalidate'):
+            return
+            
+        # Override scene invalidation to be more selective
+        original_invalidate = scene.invalidate
+        
+        def smart_invalidate(rect=None, layers=None):
+            # Only invalidate if viewport culling allows it
+            if self.optimize_viewport_updates():
+                original_invalidate(rect, layers)
+                
+        scene.invalidate = smart_invalidate
 
 
 class MemoryManager:
@@ -395,6 +463,33 @@ class WorkflowPerformanceManager(QObject):
             return
             
         canvas = self.canvas_optimizer.canvas
+        
+        # Enable smart scene invalidation
+        self.canvas_optimizer.enable_smart_invalidation()
+        
+        # Viewport culling optimization removed - was counterproductive
+            
+        # Set up scale change optimization  
+        if hasattr(canvas, 'scaleChanged'):
+            canvas.scaleChanged.connect(self._on_scale_changed)
+        
+    def batch_canvas_operations(self, operations: List[callable]):
+        """Public method to batch canvas operations for performance"""
+        if self.canvas_optimizer:
+            self.canvas_optimizer.batch_scene_changes(operations)
+            
+    def trigger_viewport_optimization(self):
+        """DISABLED - Viewport optimization was counterproductive"""
+        # This method is disabled because viewport culling was removed
+        pass
+        
+    def _on_scale_changed(self):
+        """Handle scale/zoom changes"""
+        if self.canvas_optimizer:
+            # Update level-of-detail for all nodes (viewport culling removed)
+            if hasattr(self.canvas_optimizer.canvas, 'nodes'):
+                for node in self.canvas_optimizer.canvas.nodes:
+                    self.canvas_optimizer.optimize_node_rendering(node)
         
         # Override paint events for optimization
         original_paint = canvas.paintEvent

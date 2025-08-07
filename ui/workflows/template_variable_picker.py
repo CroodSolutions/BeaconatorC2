@@ -40,8 +40,7 @@ class TemplateVariableItem(QListWidgetItem):
         colors = {
             'previous_output': '#4CAF50',  # Green
             'node_output': '#2196F3',     # Blue  
-            'variable': '#FF9800',        # Orange
-            'input': '#9C27B0'           # Purple
+            'variable': '#FF9800'       # Orange
         }
         
         color = QColor(colors.get(var_type, '#757575'))
@@ -158,11 +157,13 @@ class TemplateVariableDialog(QDialog):
     
     variable_selected = pyqtSignal(str)
     
-    def __init__(self, context=None, current_node=None, workflow_connections=None, parent=None):
+    def __init__(self, context=None, current_node=None, workflow_connections=None, canvas_variables=None, all_nodes=None, parent=None):
         super().__init__(parent)
         self.context = context
         self.current_node = current_node
         self.workflow_connections = workflow_connections or []
+        self.canvas_variables = canvas_variables or {}
+        self.all_nodes = all_nodes or []
         self.template_engine = ParameterTemplateEngine()
         self.available_variables = []
         
@@ -313,7 +314,7 @@ Template variables are enclosed in double curly braces:
 • {{previous_output}} - Output from previous node
 • {{node_<id>.output}} - Output from specific node
 • {{variables.<name>}} - Workflow variables  
-• {{input.<field>}} - Input data fields
+
 
 Variables are resolved during workflow execution.
         """.strip())
@@ -336,19 +337,38 @@ Variables are resolved during workflow execution.
         
     def load_variables(self):
         """Load available template variables"""
-        if not all([self.context, self.current_node]):
+        if not self.current_node:
             # Create dummy variables for demonstration
             self._show_demo_variables()
             return
             
         try:
             self.available_variables = self.template_engine.get_available_variables(
-                self.context, self.current_node, self.workflow_connections
+                self.context, self.current_node, self.workflow_connections, self.canvas_variables, self.all_nodes
             )
             self._populate_variable_list()
         except Exception as e:
             print(f"Error loading template variables: {e}")
+            import traceback
+            traceback.print_exc()
             self._show_demo_variables()
+            
+    def refresh_variables(self, context=None, current_node=None, workflow_connections=None, canvas_variables=None, all_nodes=None):
+        """Refresh variables with updated context"""
+        # Update context if provided
+        if context is not None:
+            self.context = context
+        if current_node is not None:
+            self.current_node = current_node
+        if workflow_connections is not None:
+            self.workflow_connections = workflow_connections
+        if canvas_variables is not None:
+            self.canvas_variables = canvas_variables
+        if all_nodes is not None:
+            self.all_nodes = all_nodes
+            
+        # Reload variables with updated context
+        self.load_variables()
             
     def _show_demo_variables(self):
         """Show demonstration variables when context is not available"""
@@ -396,8 +416,15 @@ Variables are resolved during workflow execution.
             
         # Add grouped items
         for group_type, variables in groups.items():
-            # Add group header
-            header_item = QListWidgetItem(f"--- {group_type.replace('_', ' ').title()} ---")
+            # Add group header with friendly names
+            group_display_names = {
+                'previous_output': 'Previous Output',
+                'node_output': 'Node Outputs',  # Individual node outputs
+                'variable': 'Variables'
+            }
+            
+            header_text = group_display_names.get(group_type, group_type.replace('_', ' ').title())
+            header_item = QListWidgetItem(f"--- {header_text} ---")
             header_item.setFlags(header_item.flags() & ~Qt.ItemFlag.ItemIsSelectable)
             header_item.setForeground(QColor(100, 150, 255))
             font = header_item.font()
@@ -448,22 +475,26 @@ class TemplateInsertButton(QPushButton):
     
     variable_selected = pyqtSignal(str)
     
-    def __init__(self, context=None, current_node=None, workflow_connections=None, parent=None):
-        super().__init__("📋", parent)  # Clipboard emoji as icon
+    def __init__(self, context=None, current_node=None, workflow_connections=None, canvas_variables=None, parent=None):
+        super().__init__(parent)  # Template variables button
+        
+        # Set icon from resources
+        
+        self.setIcon(QIcon("resources/cube-plus.svg"))
+        self.setText("")  # No text, just icon
         self.context = context
         self.current_node = current_node  
         self.workflow_connections = workflow_connections
+        self.canvas_variables = canvas_variables or {}
         
         self.setToolTip("Insert template variable")
-        self.setMaximumWidth(30)
+        self.setFixedSize(28, 28)
         self.setStyleSheet("""
             QPushButton {
                 background-color: #4a90e2;
                 border: none;
-                border-radius: 3px;
-                color: white;
-                font-weight: bold;
-                padding: 5px;
+                border-radius: 4px;
+                padding: 4px;
             }
             QPushButton:hover {
                 background-color: #5a9ff2;
@@ -475,16 +506,57 @@ class TemplateInsertButton(QPushButton):
         
         self.clicked.connect(self._show_template_dialog)
         
-    def update_context(self, context, current_node, workflow_connections):
+    def update_context(self, context, current_node, workflow_connections, canvas_variables=None):
         """Update the workflow context"""
         self.context = context
         self.current_node = current_node
         self.workflow_connections = workflow_connections
+        self.canvas_variables = canvas_variables or {}
         
     def _show_template_dialog(self):
         """Show the template variable selection dialog"""
+        # Try to get fresh context from parent widgets
+        fresh_context = self._get_fresh_context()
+        
         dialog = TemplateVariableDialog(
-            self.context, self.current_node, self.workflow_connections, self
+            fresh_context.get('context', self.context), 
+            fresh_context.get('current_node', self.current_node), 
+            fresh_context.get('workflow_connections', self.workflow_connections), 
+            fresh_context.get('canvas_variables', self.canvas_variables),
+            fresh_context.get('all_nodes', []),
+            self
         )
         dialog.variable_selected.connect(self.variable_selected.emit)
         dialog.exec()
+        
+    def _get_fresh_context(self):
+        """Try to get fresh context from parent widgets"""
+        fresh_context = {}
+        
+        # Walk up the widget hierarchy to find workflow editor or canvas
+        current_widget = self.parent()
+        while current_widget:
+            # Check if we can get workflow context from the parent
+            if hasattr(current_widget, 'workflow_context'):
+                workflow_context = current_widget.workflow_context
+                if isinstance(workflow_context, dict):
+                    fresh_context['canvas_variables'] = workflow_context.get('canvas_variables', {})
+                    
+            # Check if we can get canvas reference for workflow connections and nodes
+            if hasattr(current_widget, 'canvas'):
+                canvas = current_widget.canvas
+                if hasattr(canvas, 'connections'):
+                    fresh_context['workflow_connections'] = canvas.connections
+                if hasattr(canvas, 'workflow_variables'):
+                    fresh_context['canvas_variables'] = canvas.workflow_variables
+                # Also get all nodes from canvas for better variable generation
+                if hasattr(canvas, 'nodes'):
+                    fresh_context['all_nodes'] = canvas.nodes
+                    
+            # Check if we can get current node from parent
+            if hasattr(current_widget, 'current_node'):
+                fresh_context['current_node'] = current_widget.current_node
+                
+            current_widget = current_widget.parent()
+            
+        return fresh_context

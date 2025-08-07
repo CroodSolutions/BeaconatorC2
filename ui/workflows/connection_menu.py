@@ -55,31 +55,21 @@ class ConnectionMenu(QMenu):
         """Build enhanced menu with templates and visual indicators"""
         # Get connection type string for compatibility manager
         connection_type_str = self._connection_type_to_string(self.action_point.connection_type)
-        print(f"DEBUG: Building menu for connection type: {connection_type_str}, source node: {self.source_node.node_type}")
         
         # Get compatible node types
         compatible_types = self.compatibility_manager.get_compatible_nodes(
             self.source_node.node_type, 
             connection_type_str
         )
-        print(f"DEBUG: Compatible node types: {compatible_types}")
         
         if not compatible_types:
-            print("DEBUG: No compatible node types found")
             self._add_no_options_message()
             return
             
         # Get templates for compatible types
         templates_by_category = self._group_templates_by_category(compatible_types)
-        print(f"DEBUG: Templates by category: {list(templates_by_category.keys())}")
-        print(f"DEBUG: Total templates found: {sum(len(templates) for templates in templates_by_category.values())}")
-        
-        # Debug: Check template registry state
-        print(f"DEBUG: Template registry has {len(self.template_registry.templates)} total templates")
-        print(f"DEBUG: Template registry categories: {self.template_registry.get_all_categories()}")
         
         if not templates_by_category:
-            print("DEBUG: No templates found for compatible types")
             self._add_no_templates_message()
             return
             
@@ -92,13 +82,11 @@ class ConnectionMenu(QMenu):
         
         for node_type in compatible_types:
             template = self.template_registry.get_template(node_type)
-            print(f"DEBUG: Looking for template '{node_type}': {'Found' if template else 'Not found'}")
             if template:
                 category = template.category
                 if category not in templates_by_category:
                     templates_by_category[category] = []
                 templates_by_category[category].append(template)
-                print(f"DEBUG: Added template '{template.display_name}' to category '{category}'")
                 
         return templates_by_category
         
@@ -107,13 +95,7 @@ class ConnectionMenu(QMenu):
         # Category order for logical arrangement
         category_order = [
             "Control Flow",
-            "Actions - Basic Commands",
-            "Actions - Discovery", 
-            "Actions - File Operations",
-            "Actions - Information Gathering",
-            "Actions - Persistence",
-            "Actions - Movement", 
-            "Actions - Data Operations",
+            "Actions",
             "Communication",
             "Error Handling"
         ]
@@ -433,8 +415,8 @@ class TemplateOptionWidget(QWidget):
         # Description
         if self.template.description:
             desc_text = self.template.description
-            if len(desc_text) > 50:
-                desc_text = desc_text[:47] + "..."
+            if len(desc_text) > 80:
+                desc_text = desc_text[:77] + "..."
                 
             desc_label = QLabel(desc_text)
             desc_label.setStyleSheet("""
@@ -449,21 +431,7 @@ class TemplateOptionWidget(QWidget):
         
         layout.addLayout(content_layout)
         layout.addStretch()
-        
-        # Parameters indicator
-        if self.template.default_parameters:
-            param_count = len(self.template.default_parameters)
-            param_label = QLabel(f"{param_count} param{'s' if param_count != 1 else ''}")
-            param_label.setStyleSheet("""
-                QLabel {
-                    color: #999999;
-                    font-size: 10px;
-                    background-color: #2a2a2a;
-                    border-radius: 8px;
-                    padding: 2px 6px;
-                }
-            """)
-            layout.addWidget(param_label)
+
         
         self.setLayout(layout)
         
@@ -513,15 +481,9 @@ class TemplateOptionWidget(QWidget):
         """Get color for template based on category"""
         color_map = {
             "Control Flow": "#4CAF50",      # Green
-            "Actions - Basic Commands": "#2196F3",   # Blue
-            "Actions - Discovery": "#FF9800",  # Orange
-            "Actions - File Operations": "#9C27B0",    # Purple
-            "Actions - Information Gathering": "#FF9800",  # Orange
-            "Actions - Persistence": "#F44336",        # Red
-            "Actions - Movement": "#607D8B",           # Blue Grey
-            "Actions - Data Operations": "#795548",     # Brown
+            "Actions": "#F44336",        # Red
             "Communication": "#3F51B5",      # Indigo
-            "Error Handling": "#E91E63"      # Pink
+            "Error Handling": "#D8E91E"      # yellow
         }
         return color_map.get(self.template.category, "#757575")  # Default grey
         
@@ -728,8 +690,8 @@ class TemplateOptionWithSchemaWidget(QWidget):
         # Description
         if self.template.description:
             desc_text = self.template.description
-            if len(desc_text) > 45:  # Slightly shorter for schema context
-                desc_text = desc_text[:42] + "..."
+            if len(desc_text) > 80:  # Slightly shorter for schema context
+                desc_text = desc_text[:77] + "..."
                 
             desc_label = QLabel(desc_text)
             desc_label.setStyleSheet("""
@@ -744,21 +706,7 @@ class TemplateOptionWithSchemaWidget(QWidget):
         
         layout.addLayout(content_layout)
         layout.addStretch()
-        
-        # Parameters indicator
-        if self.template.default_parameters:
-            param_count = len(self.template.default_parameters)
-            param_label = QLabel(f"{param_count} param{'s' if param_count != 1 else ''}")
-            param_label.setStyleSheet("""
-                QLabel {
-                    color: #999999;
-                    font-size: 10px;
-                    background-color: #2a2a2a;
-                    border-radius: 8px;
-                    padding: 2px 6px;
-                }
-            """)
-            layout.addWidget(param_label)
+
         
         self.setLayout(layout)
     
@@ -840,13 +788,7 @@ class TemplateOptionWithSchemaWidget(QWidget):
     def _get_template_color(self):
         """Get base color for template based on category"""
         color_map = {
-            "Actions - Basic Commands": "#2196F3",   # Blue
-            "Actions - Discovery": "#FF9800",  # Orange
-            "Actions - File Operations": "#9C27B0",    # Purple
-            "Actions - Information Gathering": "#FF9800",  # Orange
-            "Actions - Persistence": "#F44336",        # Red
-            "Actions - Movement": "#607D8B",           # Blue Grey
-            "Actions - Data Operations": "#795548",     # Brown
+            "Actions": "#F44336"        # Red
         }
         return QColor(color_map.get(self.template.category, "#757575"))  # Default grey
         

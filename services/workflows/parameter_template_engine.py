@@ -172,8 +172,18 @@ class ParameterTemplateEngine:
                            workflow_connections: List[WorkflowConnection]) -> Optional[str]:
         """Find the immediate predecessor node for the current node"""
         for connection in workflow_connections:
-            if connection.target_node_id == current_node.node_id:
-                return connection.source_node_id
+            try:
+                # Handle canvas connections (have start_node/end_node objects)
+                if hasattr(connection, 'start_node') and hasattr(connection, 'end_node'):
+                    if hasattr(connection.end_node, 'node_id') and connection.end_node.node_id == current_node.node_id:
+                        if hasattr(connection.start_node, 'node_id'):
+                            return connection.start_node.node_id
+                # Handle service connections (have source_node_id/target_node_id)
+                elif hasattr(connection, 'source_node_id') and hasattr(connection, 'target_node_id'):
+                    if connection.target_node_id == current_node.node_id:
+                        return connection.source_node_id
+            except Exception:
+                continue
         return None
     
     def _extract_field_from_output(self, output: str, field_name: str) -> str:
@@ -220,14 +230,22 @@ class ParameterTemplateEngine:
         
         return ''
     
-    def get_available_variables(self, context: ExecutionContext, 
+    def get_available_variables(self, context: Optional[ExecutionContext], 
                                current_node: WorkflowNode, 
-                               workflow_connections: List[WorkflowConnection]) -> List[TemplateVariable]:
+                               workflow_connections: List[WorkflowConnection],
+                               canvas_variables: Optional[Dict[str, Any]] = None,
+                               all_nodes: Optional[List[WorkflowNode]] = None) -> List[TemplateVariable]:
         """
         Get list of available template variables for the current node
         
         This is useful for UI components that want to show users what variables
         they can use in their parameter templates.
+        
+        Args:
+            context: Execution context (may be None during design time)
+            current_node: Current workflow node
+            workflow_connections: Workflow connections
+            canvas_variables: Canvas workflow variables (for design-time editing)
         """
         variables = []
         
@@ -241,44 +259,138 @@ class ParameterTemplateEngine:
                 description="Output from the previous node"
             ))
         
-        # Add all node outputs
-        for node_id, result in context.node_results.items():
-            if node_id != current_node.node_id:  # Don't include self
+        # Add all node outputs (runtime context)
+        if context and hasattr(context, 'node_results'):
+            for node_id, result in context.node_results.items():
+                if node_id != current_node.node_id:  # Don't include self
+                    variables.append(TemplateVariable(
+                        name=f"node_{node_id}.output",
+                        type="node_output",
+                        value=f"{{{{node_{node_id}.output}}}}",
+                        description=f"Output from node {node_id}"
+                    ))
+        
+        # Add all workflow nodes for design-time (when context is not available)
+        elif all_nodes or workflow_connections:
+            # Prefer using all_nodes if available (more complete)
+            if all_nodes:
+                workflow_nodes = [node for node in all_nodes if hasattr(node, 'node_id') and node.node_id != current_node.node_id]
+            else:
+                workflow_nodes = self._get_workflow_nodes_for_design_time(current_node, workflow_connections)
+            
+            for node in workflow_nodes:
+                # Create friendly display name using node title or type
+                node_display_name = getattr(node, 'title', None)
+                if not node_display_name:
+                    node_type = getattr(node, 'node_type', 'unknown')
+                    node_display_name = f"{node_type.replace('_', ' ').title()} Node"
+                
+                # Include module information for action nodes
+                module_info = ""
+                if hasattr(node, 'parameters') and node.parameters:
+                    # Check for module or action_name in parameters
+                    module_name = node.parameters.get('module')
+                    action_name = node.parameters.get('action_name')
+                    if module_name:
+                        module_info = f" ({module_name})"
+                    elif action_name:
+                        module_info = f" ({action_name})"
+                    
+                if hasattr(node, 'node_id'):
+                    # Create enhanced display name with module info
+                    enhanced_name = f"{node_display_name}{module_info}"
+                    variables.append(TemplateVariable(
+                        name=f"{enhanced_name} - Output",
+                        type="node_output", 
+                        value=f"{{{{node_{node.node_id}.output}}}}",
+                        description=f"Output from {enhanced_name} (ID: {node.node_id})"
+                    ))
+        
+        # Add workflow variables from execution context
+        if context and hasattr(context, 'variables'):
+            for var_name, var_value in context.variables.items():
                 variables.append(TemplateVariable(
-                    name=f"node_{node_id}.output",
-                    type="node_output",
-                    value=f"{{{{node_{node_id}.output}}}}",
-                    description=f"Output from node {node_id}"
+                    name=f"variables.{var_name}",
+                    type="variable",
+                    value=f"{{{{variables.{var_name}}}}}",
+                    description=f"Workflow variable: {var_name} (runtime)"
                 ))
         
-        # Add workflow variables
-        for var_name, var_value in context.variables.items():
-            variables.append(TemplateVariable(
-                name=f"variables.{var_name}",
-                type="variable",
-                value=f"{{{{variables.{var_name}}}}}",
-                description=f"Workflow variable: {var_name}"
-            ))
+        # Add canvas workflow variables (for design-time editing)
+        if canvas_variables:
+            for var_name, var_value in canvas_variables.items():
+                variables.append(TemplateVariable(
+                    name=f"variables.{var_name}",
+                    type="variable", 
+                    value=f"{{{{variables.{var_name}}}}}",
+                    description=f"Canvas variable: {var_name} (current value: {var_value})"
+                ))
         
-        # Add common input fields for condition nodes
+        # Add common node data fields (previously "input" fields)
         if current_node.node_type == 'condition' or current_node.node_type.startswith('condition_'):
-            input_fields = [
+            node_data_fields = [
                 ("input.raw", "Raw input text"),
-                ("input.length", "Input text length"),
+                ("input.length", "Input text length"), 
                 ("input.lines", "Number of lines in input"),
                 ("input.line1", "First line of input"),
                 ("input.line2", "Second line of input")
             ]
             
-            for field_name, description in input_fields:
+            for field_name, description in node_data_fields:
                 variables.append(TemplateVariable(
                     name=field_name,
-                    type="input",
+                    type="nodes",  # Changed from "input" to "nodes"
                     value=f"{{{{{field_name}}}}}",
                     description=description
                 ))
         
         return variables
+    
+    def _get_workflow_nodes_for_design_time(self, current_node: WorkflowNode, 
+                                           workflow_connections: List[WorkflowConnection]) -> List[WorkflowNode]:
+        """
+        Extract all workflow nodes from connections for design-time variable generation
+        
+        Args:
+            current_node: The current node
+            workflow_connections: All workflow connections
+            
+        Returns:
+            List of all nodes that appear before the current node in the workflow
+        """
+        # Collect all unique nodes from connections
+        all_nodes = set()
+        current_node_id = getattr(current_node, 'node_id', None)
+        
+        if not current_node_id:
+            return []
+        
+        # Add nodes from connections - handle both service and canvas connection types
+        for connection in workflow_connections:
+            try:
+                # Canvas WorkflowConnection (has start_node and end_node objects)
+                if hasattr(connection, 'start_node') and hasattr(connection, 'end_node'):
+                    start_node = connection.start_node
+                    end_node = connection.end_node
+                    
+                    # Only include nodes that come before the current node
+                    if hasattr(end_node, 'node_id') and end_node.node_id == current_node_id:
+                        all_nodes.add(start_node)
+                    # Also add any nodes that are not the current node for broader availability
+                    elif hasattr(start_node, 'node_id') and start_node.node_id != current_node_id:
+                        all_nodes.add(start_node)
+                    if hasattr(end_node, 'node_id') and end_node.node_id != current_node_id:
+                        all_nodes.add(end_node)
+                        
+                # Service WorkflowConnection (has source_node_id and target_node_id)
+                elif hasattr(connection, 'source_node_id') and hasattr(connection, 'target_node_id'):
+                    # We can't get node objects from IDs in this context, skip for now
+                    pass
+                    
+            except Exception:
+                continue
+        
+        return list(all_nodes)
     
     def validate_template(self, template_string: str) -> tuple[bool, str]:
         """

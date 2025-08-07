@@ -5,40 +5,42 @@ compatibility_rules:
   # Control Flow Nodes
   start:
     output:
+      - action
       - command_execution
-      - file_upload
-      - file_download
-      - system_info
+      - file_operation
       - condition
       - delay
-      - persistence_registry
-      - notification
+      - set_variable
+      - file_transfer
 
   condition:
     true_output:
+      - action
       - command_execution
-      - file_upload
-      - file_download
-      - system_info
-      - persistence_registry
+      - file_operation
       - condition
-      - notification
+      - delay
+      - set_variable
+      - file_transfer
       - end
     false_output:
+      - action
       - command_execution
-      - notification
+      - file_operation
       - condition
+      - delay
+      - set_variable
+      - file_transfer
       - end
 
   delay:
     output:
+      - action
       - command_execution
-      - file_upload
-      - file_download
-      - system_info
+      - file_operation
       - condition
-      - persistence_registry
-      - notification
+      - set_variable
+      - file_transfer
       - end
 
   # Basic Operation Nodes
@@ -205,6 +207,27 @@ node_capabilities:
     provides_output: false
     supports_conditions: false
     supports_error_handling: false
+    
+  set_variable:
+    data_types: ["variable_data", "variable_set"]
+    requires_input: true
+    provides_output: true
+    supports_conditions: false
+    supports_error_handling: false
+    
+  file_transfer:
+    data_types: ["file_transfer_queued", "file_data"]
+    requires_input: true
+    provides_output: true
+    supports_conditions: false
+    supports_error_handling: true
+    
+  action:
+    data_types: ["action_output", "module_data", "schema_data"]
+    requires_input: true
+    provides_output: true
+    supports_conditions: false
+    supports_error_handling: true
 
 # Category Definitions
 categories:
