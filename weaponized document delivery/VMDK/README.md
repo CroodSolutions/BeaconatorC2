@@ -1,0 +1,3 @@
+In at least some of our testing, maldoc delivery of Beaconator or AutoRMM payloads proved evasive, from an EDR perspective. However, email and cloud sandboxes do an excellent job of detecting these payloads. While it should be relatively easy to add some sandbox evasion to these files, it still seems like static file analysis or even the presence of a macro enabled document, may be enough to trigger detection on email security platforms. However, strategies such as placing the document in a VMDK or password protected zip could get around this. 
+
+Important note: only use Beaconator and the associated tools and techniques for legal and ethical training and testing purposes. 

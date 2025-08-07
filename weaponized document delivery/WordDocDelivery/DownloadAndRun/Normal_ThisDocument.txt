@@ -1,0 +1,9 @@
+Option Explicit
+
+' Paste in Normal, ThisDocument, under Microsoft Word Objects in VBA editor.
+' Make sure the names match up between this and what you call Module 1 script, if you make edits. 
+
+' Launches the sub when the doc is opened.  
+Private Sub Document_Open()
+    RetrieveFile
+End Sub
