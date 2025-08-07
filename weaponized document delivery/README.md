@@ -5,3 +5,8 @@ Note that some delivery methods, work better with small payloads, in particular 
 It is our belief that by achieving more realistic adversary emulation, we will improve overall readiness and defensive capability levels.  
 
 Important note: only use Beaconator and the associated tools and techniques for legal and ethical training and testing purposes. 
+
+
+https://github.com/user-attachments/assets/2258d48b-fd71-4239-a2df-cf6aab8f7bea
+
+
