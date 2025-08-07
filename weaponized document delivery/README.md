@@ -4,4 +4,4 @@ Note that some delivery methods, work better with small payloads, in particular 
 
 It is our belief that by achieving more realistic adversary emulation, we will improve overall readiness and defensive capability levels.  
 
-Important note: Use these tools only for legal and ethical red/purple team testing.  
+Important note: only use Beaconator and the associated tools and techniques for legal and ethical training and testing purposes. 
