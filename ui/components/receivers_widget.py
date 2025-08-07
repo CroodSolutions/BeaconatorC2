@@ -230,7 +230,7 @@ class ReceiversWidget(QWidget):
                 status_item = QTableWidgetItem(status)
                 if receiver.status.name == "RUNNING":
                     status_item.setForeground(Qt.GlobalColor.green)
-                elif receiver.status.name == "ERROR":
+                elif receiver.status.name == "ERROR" or "STOPPED":
                     status_item.setForeground(Qt.GlobalColor.red)
                 else:
                     status_item.setForeground(Qt.GlobalColor.gray)

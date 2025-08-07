@@ -127,7 +127,7 @@ class MetasploitReceiver(BaseReceiver):
                 from services.metasploit_service import get_metasploit_service
                 self.metasploit_service = get_metasploit_service()
                 
-                if not self.metasploit_service or not self.metasploit_service.is_connected():
+                if not self.metasploit_service or not self.metasploit_service.is_connected:
                     raise Exception("Metasploit service not available or not connected")
                     
             except ImportError:
@@ -313,7 +313,7 @@ class MetasploitReceiver(BaseReceiver):
         return {
             "polling_interval": self.polling_interval,
             "monitored_sessions": len(self.monitored_sessions),
-            "metasploit_connected": self.metasploit_service.is_connected() if self.metasploit_service else False,
+            "metasploit_connected": self.metasploit_service.is_connected if self.metasploit_service else False,
             "encoding": self.encoding_strategy.get_name()
         }
         
@@ -355,7 +355,7 @@ class MetasploitReceiver(BaseReceiver):
             "monitored_sessions": len(self.monitored_sessions),
             "active_sessions": len(self.get_active_sessions()),
             "polling_interval": self.polling_interval,
-            "metasploit_connected": self.metasploit_service.is_connected() if self.metasploit_service else False
+            "metasploit_connected": self.metasploit_service.is_connected if self.metasploit_service else False
         }
         
         return {**base_stats, **metasploit_stats}

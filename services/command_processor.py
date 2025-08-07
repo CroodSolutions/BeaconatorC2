@@ -105,10 +105,13 @@ class CommandProcessor:
     @staticmethod
     def _format_command_response(command: str) -> str:
         """Format a command string into a pipe-delimited response format."""
+        from utils import strip_filename_quotes
 
         # Special handling for file operations
         if command.startswith(("download_file ", "upload_file ")):
             action, parameter = command.split(" ", 1)
+            # Strip quotes from filename parameter
+            parameter = strip_filename_quotes(parameter)
             return f"{action}|{parameter}"
         
         # Handle execute_module commands

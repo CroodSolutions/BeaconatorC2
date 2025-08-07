@@ -51,8 +51,15 @@ class ParameterWidget:
                     self.widget.setMinimum(int(self.parameter.validation.min_value))
                 if self.parameter.validation.max_value is not None:
                     self.widget.setMaximum(int(self.parameter.validation.max_value))
-            if self.parameter.default is not None:
-                self.widget.setValue(int(self.parameter.default))
+            if self.parameter.default is not None and str(self.parameter.default).strip():
+                try:
+                    self.widget.setValue(int(self.parameter.default))
+                except (ValueError, TypeError):
+                    # Handle invalid default values gracefully
+                    if self.parameter.validation and self.parameter.validation.min_value is not None:
+                        self.widget.setValue(int(self.parameter.validation.min_value))
+                    else:
+                        self.widget.setValue(0)
                 
         elif self.parameter.type == ParameterType.FLOAT:
             self.widget = QDoubleSpinBox()
@@ -61,8 +68,15 @@ class ParameterWidget:
                     self.widget.setMinimum(float(self.parameter.validation.min_value))
                 if self.parameter.validation.max_value is not None:
                     self.widget.setMaximum(float(self.parameter.validation.max_value))
-            if self.parameter.default is not None:
-                self.widget.setValue(float(self.parameter.default))
+            if self.parameter.default is not None and str(self.parameter.default).strip():
+                try:
+                    self.widget.setValue(float(self.parameter.default))
+                except (ValueError, TypeError):
+                    # Handle invalid default values gracefully
+                    if self.parameter.validation and self.parameter.validation.min_value is not None:
+                        self.widget.setValue(float(self.parameter.validation.min_value))
+                    else:
+                        self.widget.setValue(0.0)
                 
         elif self.parameter.type == ParameterType.BOOLEAN:
             self.widget = QCheckBox()

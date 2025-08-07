@@ -11,10 +11,15 @@ The system manages beacons (remote agents) through a GUI interface, with capabil
 ```
 BeaconatorC2/
 ├── BeaconatorC2-Manager.py      # Main application entry point
+├── requirements.txt             # Python package dependencies
+├── settings.json               # Application configuration file
 ├── config/
 │   ├── __init__.py
 │   ├── config_manager.py                   # Configuration persistence management
 │   └── server_config.py                    # Server configuration dataclass
+├── configs/
+│   ├── __init__.py
+│   └── receivers.json                      # Receiver configuration storage
 ├── database/
 │   ├── __init__.py
 │   ├── models.py                           # SQLAlchemy Beacon model
@@ -28,12 +33,22 @@ BeaconatorC2/
 │   ├── custom_msf_rpc.py                   # Native Metasploit RPC client with session handling
 │   ├── metasploit_manager.py               # Metasploit process lifecycle management
 │   ├── metasploit_service.py               # High-level Metasploit integration service
-│   └── receivers/                          # Modular receiver system
+│   └── receivers/                          # Extensible receiver system
 │       ├── __init__.py
 │       ├── receiver_manager.py             # Receiver lifecycle and coordination
+│       ├── receiver_registry.py            # Dynamic receiver loading system
+│       ├── base_receiver.py                # Abstract receiver base class
 │       ├── tcp_receiver.py                 # TCP receiver implementation
-│       ├── receiver_config.py              # Receiver configuration management
+│       ├── udp_receiver.py                 # UDP receiver implementation
+│       ├── smb_receiver.py                 # SMB named pipe receiver implementation
+│       ├── http_receiver.py                # HTTP REST receiver implementation
+│       ├── metasploit_receiver.py          # Metasploit integration receiver
+│       ├── encoding_strategies.py          # Data encoding/decoding strategies
+│       ├── receiver_config.py              # Receiver configuration and type definitions
 │       └── legacy_migration.py             # Legacy system migration utilities
+├── beacons/
+│   ├── python_beacon.py                   # Multi-protocol Python beacon implementation
+│   └── simple_python_beacon.py            # Lightweight beacon alternative
 ├── workers/
 │   ├── __init__.py
 │   ├── beacon_update_worker.py             # Background beacon status monitoring
@@ -45,10 +60,12 @@ BeaconatorC2/
 │   ├── logger.py                           # Logging system with PyQt6 signals
 │   ├── documentation_manager.py            # Documentation content management
 │   ├── font_manager.py                     # Application-wide font management
-│   └── helpers.py                          # Utility functions
+│   └── helpers.py                          # Utility functions and payload handling
 ├── schemas/
 │   ├── beacon_schema_format.yaml           # Schema format specification
 │   ├── autohotkey_beacon.yaml              # Default AutoHotkey beacon schema
+│   ├── python_beacon.yaml                 # Multi-protocol Python beacon schema
+│   ├── simple_python_beacon.yaml          # Simple beacon schema definition
 │   └── SCHEMA_REFERENCE.md                 # Schema documentation
 └── ui/
     ├── __init__.py
@@ -62,8 +79,8 @@ BeaconatorC2/
     │   ├── settings_page.py                # Application settings
     │   ├── documentation_panel.py          # Help documentation with YAML editor
     │   ├── beacon_settings_widget.py       # Beacon management and schema assignment
-    │   ├── receivers_widget.py             # Receiver management interface
-    │   ├── receiver_config_dialog.py       # Receiver configuration dialog
+    │   ├── receivers_widget.py             # Registry-driven receiver management interface
+    │   ├── receiver_config_dialog.py       # Dynamic receiver configuration dialog
     │   └── metasploit_widget.py            # Metasploit integration interface with tabs
     └── widgets/
         ├── __init__.py
@@ -90,13 +107,28 @@ BeaconatorC2/
 - **`services/command_processor.py`** - Handles beacon command validation, queuing, and execution coordination
 - **`services/file_transfer.py`** - Manages file upload/download operations with progress tracking  
 - **`services/schema_service.py`** - Schema loading, parsing, validation, and caching
+
+#### **Receiver System Architecture**
+- **`services/receivers/receiver_manager.py`** - Central orchestrator managing receiver lifecycle, threading, and graceful shutdown with registry integration
+- **`services/receivers/receiver_registry.py`** - Dynamic receiver loading system implementing registry pattern for extensible receiver management
+- **`services/receivers/base_receiver.py`** - Abstract base class providing unified data processing, encoding integration, and common receiver functionality
+- **`services/receivers/tcp_receiver.py`** - TCP receiver implementation with threading, connection management, and unified data processing
+- **`services/receivers/udp_receiver.py`** - UDP receiver implementation with stateless datagram processing and connection handling
+- **`services/receivers/smb_receiver.py`** - SMB named pipe receiver supporting Windows (win32pipe) and Unix (FIFO) implementations
+- **`services/receivers/http_receiver.py`** - HTTP REST receiver implementation supporting GET/POST requests with root path communication
+- **`services/receivers/metasploit_receiver.py`** - Specialized receiver for Metasploit Framework integration and session management
+- **`services/receivers/encoding_strategies.py`** - Pluggable encoding/decoding strategies (Plain, Base64, XOR) implementing strategy pattern
+- **`services/receivers/receiver_config.py`** - Receiver configuration dataclasses, validation, and type definitions with registry mappings
+- **`services/receivers/legacy_migration.py`** - Utilities for migrating from legacy server architecture
+
+#### **Metasploit Integration**
 - **`services/custom_msf_rpc.py`** - Native Metasploit RPC client with session timeout handling, automatic retry logic, and comprehensive error parsing
 - **`services/metasploit_manager.py`** - Metasploit Framework process lifecycle management with automatic startup, health monitoring, and installation validation
 - **`services/metasploit_service.py`** - High-level Metasploit integration service with payload generation, listener management, session monitoring, and automatic session recovery
-- **`services/receivers/receiver_manager.py`** - Central orchestrator managing receiver lifecycle, threading, and graceful shutdown
-- **`services/receivers/tcp_receiver.py`** - TCP receiver implementation with threading and connection management
-- **`services/receivers/receiver_config.py`** - Receiver configuration dataclasses and validation
-- **`services/receivers/legacy_migration.py`** - Utilities for migrating from legacy server architecture
+
+### **Beacon Implementations**
+- **`beacons/python_beacon.py`** - Multi-protocol Python beacon supporting TCP, UDP, SMB, and HTTP communication with file transfer capabilities
+- **`beacons/simple_python_beacon.py`** - Lightweight beacon implementation with minimal dependencies and basic command execution
 
 ### **Background Workers**
 - **`workers/beacon_update_worker.py`** - Background thread monitoring beacon heartbeats and updating status
@@ -104,9 +136,18 @@ BeaconatorC2/
 - **`workers/command_output_monitor.py`** - Monitors and processes command output from connected beacons
 - **`workers/keylogger_monitor.py`** - Specialized worker for processing keylogger output streams
 
+### **Configuration Management**
+- **`config/server_config.py`** - Contains `ServerConfig` dataclass with application settings (ports, paths, timeouts)
+- **`config/config_manager.py`** - `ConfigManager` class for persistent configuration storage and retrieval
+- **`configs/receivers.json`** - JSON-based receiver configuration storage and persistence
+- **`settings.json`** - Application-wide configuration file for UI preferences
+- **`requirements.txt`** - Python package dependencies specification
+
 ### **Schema System**
 - **`schemas/beacon_schema_format.yaml`** - Defines the structure and validation rules for beacon schemas
 - **`schemas/autohotkey_beacon.yaml`** - Complete schema definition for AutoHotkey-based beacon
+- **`schemas/python_beacon.yaml`** - Multi-protocol Python beacon schema supporting TCP, UDP, SMB, and HTTP protocols
+- **`schemas/simple_python_beacon.yaml`** - Lightweight beacon schema with minimal command set
 - **`schemas/SCHEMA_REFERENCE.md`** - Comprehensive documentation for schema creation and modification
 
 ### **Utilities**
@@ -127,9 +168,9 @@ BeaconatorC2/
 - **`ui/components/file_transfer_widget.py`** - File upload/download interface with progress tracking
 - **`ui/components/settings_page.py`** - Application configuration interface
 - **`ui/components/documentation_panel.py`** - Help panel with module documentation and YAML editor
-- **`ui/components/beacon_settings_widget.py`** - Beacon management and schema assignment
-- **`ui/components/receivers_widget.py`** - Receiver management interface with status monitoring and configuration
-- **`ui/components/receiver_config_dialog.py`** - Modal dialog for receiver configuration and validation
+- **`ui/components/beacon_settings_widget.py`** - Beacon management and schema assignment with dynamic tab visibility
+- **`ui/components/receivers_widget.py`** - Registry-driven receiver management interface with dynamic type support, status monitoring, and enhanced metadata display
+- **`ui/components/receiver_config_dialog.py`** - Dynamic receiver configuration dialog with registry-based type population and enhanced descriptions
 - **`ui/components/metasploit_widget.py`** - Metasploit integration interface with tabbed design for payload generation, listener management, session monitoring, and connection diagnostics
 
 #### **Display Widgets**
@@ -137,26 +178,273 @@ BeaconatorC2/
 - **`ui/widgets/output_display.py`** - Command output display
 - **`ui/widgets/keylogger_display.py`** - Keylogger output display
 
-## Receiver Management Architecture
+## Multi-Protocol Communication Architecture
+
+BeaconatorC2 implements multiple communication protocols for diverse operational environments and beacon deployment scenarios. The system supports TCP, UDP, SMB, and HTTP protocols with unified command processing.
+
+### **Universal Protocol Features**
+
+**Common Message Format:**
+```
+command|parameter1|parameter2|parameter3|...
+```
+
+**Core Commands (All Protocols):**
+- `register|beacon_id|computer_name` - Initial beacon registration with system identification
+- `request_action|beacon_id` - Beacon requests pending commands from server
+- `command_output|beacon_id|output_data` - Beacon submits command execution results
+- `keylogger_output|beacon_id|keylog_data` - Beacon submits keylogger capture data
+- `checkin|beacon_id` - Periodic beacon heartbeat for status monitoring
+- `to_beacon|filename` - Server initiates file download to beacon
+- `from_beacon|filename` - Beacon initiates file upload to server
+
+### **HTTP Communication Protocol**
+
+**RESTful Architecture:**
+- **Endpoint**: Root path `/` for clean URL structure
+- **Methods**: GET (query parameters) and POST (request body) support
+- **Content Types**: `application/octet-stream` for binary data, query parameters for simple commands
+- **Status Codes**: Standard HTTP response codes for error handling
+
+**HTTP Request Patterns:**
+```http
+POST / HTTP/1.1
+Content-Type: application/octet-stream
+User-Agent: BeaconatorC2-Beacon/agent_id
+
+register|beacon_id|computer_name
+```
+
+**Response Handling:**
+- **Success Responses**: HTTP 200 with response data in body
+- **Error Responses**: Appropriate HTTP status codes (400, 404, 500) with error details
+- **File Transfers**: Content-Disposition headers for file downloads
+
+### **TCP Communication Protocol**
+
+BeaconatorC2's TCP implementation provides reliable, connection-oriented communication with optimized performance for sustained operations.
+
+#### **Protocol Structure**
+
+**Message Format:**
+```
+command|parameter1|parameter2|parameter3|...
+```
+
+**Core Commands:**
+- `register|beacon_id|computer_name` - Initial beacon registration with system identification
+- `request_action|beacon_id` - Beacon requests pending commands from server
+- `command_output|beacon_id|output_data` - Beacon submits command execution results
+- `keylogger_output|beacon_id|keylog_data` - Beacon submits keylogger capture data
+- `checkin|beacon_id` - Periodic beacon heartbeat for status monitoring
+- `to_beacon|filename` - Server initiates file download to beacon
+- `from_beacon|filename` - Beacon initiates file upload to server
+
+**Response Formatting:**
+```python
+# File operations: action|parameter
+"download_file|document.pdf" → "download_file|document.pdf"
+
+# Module execution: execute_module|module_data
+"execute_module|reconnaissance_data" → "execute_module|reconnaissance_data"
+
+# Standard commands: execute_command|command_string
+"whoami" → "execute_command|whoami"
+```
+
+#### **File Transfer System Architecture**
+
+**Optimized Chunking System:**
+
+**Transfer Configuration:**
+- **Chunk Size**: 1,048,576 bytes (1MB chunks)
+- **Socket Buffers**: 1MB send/receive buffers for optimal throughput
+- **Progress Tracking**: Logging every MB transferred for monitoring
+- **Error Recovery**: Comprehensive error handling with status reporting
+
+**File Upload Process (from beacon):**
+```
+1. Beacon sends: "from_beacon|filename"
+2. Server responds: "READY"
+3. Beacon transmits file in 1MB chunks
+4. Server writes chunks to secure filename
+5. Server confirms: "SUCCESS" or "ERROR|details"
+```
+
+**File Download Process (to beacon):**
+```
+1. Beacon sends: "to_beacon|filename"
+2. Server validates file existence
+3. Server transmits file in 1MB chunks
+4. Progress logged every 1MB transferred
+5. Transfer completion logged with total size
+```
+
+### **UDP Communication Protocol**
+
+**Stateless Architecture:**
+- **Datagram-Based**: Each command sent as independent UDP datagram
+- **No Connection State**: Server processes each datagram independently
+- **Timeout Handling**: Client-side timeout and retry logic for reliability
+- **File Transfer Restrictions**: File operations rejected with appropriate error messages
+
+**UDP Packet Structure:**
+```
+UDP Datagram: command|parameter1|parameter2|...
+Response: response_data (separate UDP datagram)
+```
+
+### **SMB Communication Protocol**
+
+**Named Pipe Architecture:**
+- **Windows Implementation**: Win32 named pipes with proper authentication
+- **Unix Implementation**: FIFO-based simulation for cross-platform support
+- **Persistent Sessions**: Maintained pipe connections for multiple commands
+
+**Platform-Specific Details:**
+```python
+# Windows Named Pipe
+pipe_path = f"\\\\.\\pipe\\{pipe_name}"
+
+# Unix FIFO
+pipe_path = f"/tmp/beaconator_c2_pipes/{pipe_name}"
+```
+
+**Connection Flow:**
+1. **Pipe Creation**: Server creates named pipe or FIFO
+2. **Client Connection**: Beacon connects to named pipe
+3. **Command Exchange**: Bidirectional communication through pipe
+4. **Session Management**: Persistent connection for multiple commands
+
+## Receiver Architecture
+
+### **Receiver Registry System**
+
+The BeaconatorC2 framework implements an extensible receiver architecture using the registry pattern, enabling zero-code addition of new receiver types through configuration-driven loading.
+
+#### **Core Registry Components**
+
+**ReceiverRegistry (`services/receivers/receiver_registry.py`)**
+- **Dynamic Receiver Loading**: Implements factory pattern with on-demand module importing
+- **Configuration-Driven Mapping**: Uses `RECEIVER_MAPPINGS` dictionary for receiver type definitions
+- **Type Safety**: Validates receiver classes inherit from `BaseReceiver` before instantiation
+- **Error Isolation**: Import failures for one receiver type don't affect others
+- **Metadata Support**: Stores receiver descriptions and capabilities for UI integration
+- **Singleton Pattern**: Global registry instance with thread-safe operations
+
+```python
+class ReceiverRegistry:
+    def create_instance(self, receiver_type: ReceiverType, config: ReceiverConfig, 
+                       encoding_strategy: EncodingStrategy) -> BaseReceiver:
+        receiver_class = self._load_receiver_class(receiver_type)
+        return receiver_class(config, encoding_strategy)
+```
+
+**Registry Configuration (`services/receivers/receiver_config.py`)**
+```python
+RECEIVER_MAPPINGS = {
+    ReceiverType.TCP: {
+        "module": "services.receivers.tcp_receiver",
+        "class": "TCPReceiver",
+        "description": "TCP socket receiver for direct network communication"
+    },
+    ReceiverType.HTTP: {
+        "module": "services.receivers.http_receiver", 
+        "class": "HTTPReceiver",
+        "description": "HTTP REST receiver for web-based communication"
+    }
+    # Additional receiver types...
+}
+```
+
+#### **BaseReceiver Abstraction**
+
+**Unified Data Processing (`services/receivers/base_receiver.py`)**
+- **Abstract Base Class**: Defines common interface for all receiver implementations
+- **Unified Command Processing**: `process_received_data()` method provides transport-agnostic command handling
+- **Encoding Integration**: Automatic encoding/decoding using strategy pattern
+- **Statistics Collection**: Thread-safe statistics tracking with real-time updates
+- **Signal-Based Communication**: PyQt6 signals for UI integration and status updates
+- **Lifecycle Management**: Standardized start/stop/restart operations
+
+```python
+def process_received_data(self, raw_data: bytes, client_info: Dict[str, Any]) -> tuple[bytes, bool]:
+    """Transport-agnostic data processing returning response and connection persistence flag"""
+    decoded_data = self.encoding_strategy.decode(raw_data)
+    # Process commands, generate responses, handle file transfers
+    return response_bytes, keep_connection_alive
+```
+
+### **Multi-Protocol Receiver Implementations**
+
+#### **HTTP Receiver (`services/receivers/http_receiver.py`)**
+- **RESTful Communication**: Supports GET and POST methods with query parameter handling
+- **Root Path Endpoint**: Uses `/` as default endpoint for clean URL structure
+- **HTTP Standards Compliance**: Proper status codes, headers, and content types
+- **File Transfer Support**: HTTP-based file upload/download with multipart handling
+- **Request Routing**: Validates endpoint paths and method compatibility
+
+#### **UDP Receiver (`services/receivers/udp_receiver.py`)**
+- **Stateless Communication**: Each datagram processed independently
+- **Connection Simulation**: Treats each datagram as a temporary "connection" for statistics
+- **File Transfer Restrictions**: Properly rejects file transfer requests over UDP
+- **Error Handling**: Robust error handling for malformed datagrams
+
+#### **SMB Receiver (`services/receivers/smb_receiver.py`)**
+- **Cross-Platform Support**: Windows named pipes (win32pipe) and Unix FIFOs
+- **Persistent Connections**: Maintains pipe connections for multiple command exchanges
+- **Platform Detection**: Automatic selection of Windows vs Unix implementation
+- **Enhanced Security**: Proper file permissions and access control for FIFOs
+
+#### **TCP Receiver (`services/receivers/tcp_receiver.py`)**
+- **Enhanced with Unified Processing**: Migrated to use `BaseReceiver.process_received_data()`
+- **Connection Management**: Threading with configurable timeouts and keep-alive
+- **File Transfer Optimization**: Large file support with chunked transfer
+- **Socket Optimization**: Buffer size tuning for performance
+
+### **Encoding Strategies System**
+
+**Strategy Pattern Implementation (`services/receivers/encoding_strategies.py`)**
+- **Pluggable Encoding**: Abstract `EncodingStrategy` base class for extensible encoding support
+- **Multiple Algorithms**: Plain text, Base64, and XOR encoding implementations
+- **Configuration Support**: Strategy-specific configuration (XOR keys, rotation values)
+- **Transparent Integration**: Automatic encoding/decoding in BaseReceiver
+
+```python
+class XOREncoding(EncodingStrategy):
+    def __init__(self, key: str):
+        self.key = key.encode('utf-8')
+    
+    def encode(self, data: bytes) -> bytes:
+        return bytes(a ^ b for a, b in zip(data, itertools.cycle(self.key)))
+```
+
+### **Receiver Manager Integration**
+
+**Registry-Driven Management (`services/receivers/receiver_manager.py`)**
+- **Zero-Code Extensibility**: New receiver types require only registry mapping entry
+- **Dynamic Type Discovery**: UI components query registry for supported types
+- **Enhanced Error Handling**: Registry validates receiver availability before creation
+- **Metadata Integration**: Registry descriptions displayed in UI tooltips and help
+
+```python
+def _create_receiver_instance(self, config: ReceiverConfig, encoding_strategy) -> Optional[BaseReceiver]:
+    return self.receiver_registry.create_instance(config.receiver_type, config, encoding_strategy)
+```
+
+## Traditional Receiver Management (Legacy)
 
 ### **Receiver System Components**
 
 **ReceiverManager (`services/receivers/receiver_manager.py`)**
-- Central coordinator for all receiver instances
+- Central coordinator for all receiver instances with registry integration
 - Manages receiver lifecycle (start, stop, restart, remove)
 - Provides statistics aggregation and status monitoring
 - Handles configuration persistence and validation
 - Implements signal-based communication with UI components
 
-**TCP Receiver (`services/receivers/tcp_receiver.py`)**
-- Standalone TCP server implementation
-- Handles beacon connections and protocol processing
-- Integrates with CommandProcessor and FileTransferService
-- Provides connection statistics and status reporting
-- Implements graceful shutdown with timeout handling
-
 **Receiver Configuration (`services/receivers/receiver_config.py`)**
-- Dataclass-based configuration management
+- Dataclass-based configuration management with registry mappings
 - Supports multiple receiver types and encoding strategies
 - Provides validation and serialization methods
 - Handles defensive programming for type consistency
@@ -205,6 +493,94 @@ BeaconatorC2/
 - Connection count tracking
 - Data transfer statistics
 - Per-receiver beacon counting
+
+## Multi-Protocol Beacon Architecture
+
+### **Beacon Implementations**
+
+BeaconatorC2 provides multiple beacon implementations supporting diverse communication protocols and deployment scenarios.
+
+#### **Python Beacon (`beacons/python_beacon.py`)**
+
+**Multi-Protocol Support:**
+- **TCP Communication**: Direct socket-based communication with persistent connections
+- **UDP Communication**: Stateless datagram communication with timeout handling
+- **SMB Communication**: Named pipe communication supporting Windows (win32pipe) and Unix (FIFO)
+- **HTTP Communication**: RESTful communication using root path `/` endpoint with GET/POST support
+
+**Protocol Selection:**
+```python
+python beacon.py --protocol http --server 192.168.1.100 --port 8080 --endpoint /
+python beacon.py --protocol tcp --server 192.168.1.100 --port 5074
+python beacon.py --protocol udp --server 192.168.1.100 --port 5075
+python beacon.py --protocol smb --server 192.168.1.100 --pipe BeaconatorC2_5074
+```
+
+**Core Capabilities:**
+- **Command Execution**: System command execution with output capture and timeout handling
+- **File Transfer**: Upload/download operations with protocol-specific implementations
+- **Registration System**: Automatic beacon registration with unique agent ID generation
+- **Heartbeat Monitoring**: Configurable check-in intervals with server communication
+- **Error Handling**: Comprehensive error handling with protocol-specific recovery
+
+**Agent ID Generation:**
+```python
+def generate_agent_id(self):
+    system_info = f"{platform.node()}{platform.system()}{username}{mac_address}{script_path}"
+    return hashlib.md5(system_info.encode()).hexdigest()[:8]
+```
+
+#### **Simple Python Beacon (`beacons/simple_python_beacon.py`)**
+
+**Lightweight Design:**
+- **Minimal Dependencies**: Reduced external library requirements for broad compatibility
+- **Basic Command Set**: Essential command execution and communication capabilities
+- **Simplified Protocol Support**: Focus on TCP communication with optional protocol extensions
+- **Reduced Footprint**: Smaller file size and memory consumption for constrained environments
+
+### **Protocol-Specific Implementations**
+
+#### **HTTP Protocol Implementation**
+- **Endpoint Configuration**: Configurable endpoint path (default: `/`)
+- **Method Support**: GET requests with query parameters, POST requests with body data
+- **Content Handling**: Proper Content-Type headers and response formatting
+- **File Transfer**: HTTP-based file upload via POST and download via GET
+- **Error Responses**: Standard HTTP status codes for error conditions
+
+#### **TCP Protocol Implementation** 
+- **Persistent Connections**: Long-lived socket connections with keep-alive
+- **Binary Protocol**: Efficient binary communication with minimal overhead
+- **Connection Management**: Automatic reconnection and timeout handling
+- **Streaming Support**: Large file transfer with streaming capabilities
+
+#### **UDP Protocol Implementation**
+- **Stateless Design**: Each request/response independent of previous communications
+- **Reliability Handling**: Application-level acknowledgment and retry mechanisms
+- **Broadcast Support**: Potential for broadcast and multicast communication patterns
+- **Firewall Traversal**: Enhanced NAT and firewall traversal capabilities
+
+#### **SMB Protocol Implementation**
+- **Named Pipes**: Windows named pipe communication with proper authentication
+- **FIFO Support**: Unix FIFO-based communication for cross-platform compatibility
+- **Persistence**: Maintains pipe connections across multiple command exchanges
+- **Security**: Proper access control and permission management
+
+### **Beacon Configuration and Management**
+
+**Schema Integration:**
+- **Dynamic Capabilities**: Beacon capabilities defined in YAML schema files
+- **Protocol-Aware Schemas**: Schema definitions include supported protocols and features
+- **Tab Visibility Control**: UI components dynamically show/hide features based on beacon capabilities
+- **Version Management**: Schema versioning for backward compatibility
+
+**Runtime Configuration:**
+```yaml
+beacon_info:
+  beacon_type: python_beacon
+  supported_protocols: [tcp, udp, smb, http]
+  file_transfer_supported: true
+  keylogger_supported: true
+```
 
 ## Dynamic Schema System Architecture
 
@@ -411,58 +787,6 @@ def apply_yaml_changes(self):
     schema_service.cache.invalidate(schema_file)
     self.command_widget.set_beacon(current_beacon_id, force_reload=True)
 ```
-
-**Integration Benefits:**
-- **Real-Time Updates**: Schema changes immediately reflected in UI
-- **Cache Consistency**: Automatic cache invalidation ensures data integrity
-- **Developer Workflow**: Seamless schema development and testing
-
-## Technical Architecture Patterns
-
-### **Layered Architecture**
-The application follows a clean layered architecture:
-1. **Presentation Layer** (`ui/`) - User interface components and widgets with dynamic generation
-2. **Service Layer** (`services/`) - Business logic, schema processing, and application services
-3. **Data Access Layer** (`database/`) - Data models and repository pattern for beacons
-4. **Infrastructure Layer** (`utils/`, `workers/`) - Cross-cutting concerns and background processing
-5. **Schema Layer** (`schemas/`) - Dynamic module definitions and validation rules
-
-### **Repository Pattern**
-- `BeaconRepository` encapsulates all database operations for Beacon entities
-- Provides clean separation between data access and business logic
-- Enables easy testing and database technology changes
-- Supports schema assignment and beacon lifecycle management
-
-### **Schema-Driven Architecture**
-- **Dynamic Module Loading**: Modules defined in YAML schemas rather than hardcoded
-- **Type-Safe Parameters**: Strong typing with runtime validation
-- **Extensible Design**: New modules added without code changes
-- **Version Management**: Schema versioning for backward compatibility
-
-### **Intelligent Caching Strategy**
-- **Multi-Level Caching**: File-level and module-level cache optimization
-- **Automatic Invalidation**: File modification tracking prevents stale data
-- **Performance Optimization**: Reduced I/O and parsing overhead
-- **Memory Management**: Efficient cache utilization with cleanup
-
-### **Signal/Slot Communication**
-- PyQt6 signals provide loose coupling between UI components
-- Background workers communicate with UI through Qt's thread-safe signal system
-- Logger emits signals for real-time log updates across the application
-- Schema changes propagated through signal emissions
-
-### **Background Processing**
-- Dedicated worker threads handle time-intensive operations
-- Beacon status monitoring runs independently of UI thread
-- Command output processing occurs asynchronously
-- Schema loading and parsing performed in background
-
-### **Modular Component Design**
-- Each UI component is self-contained with clear interfaces
-- Components can be developed, tested, and maintained independently
-- New functionality can be added without modifying existing components
-- Schema-driven components adapt automatically to new module definitions
-
 ## Data Model Architecture
 
 ### **Beacon Model**
@@ -495,188 +819,46 @@ def get_online_beacons_count_by_receiver(self, receiver_id: str) -> int
 def mark_timed_out_beacons(self, timeout_minutes: int)
 ```
 
-## Security Module Categories
+## System Dependencies and Requirements
 
-The command interface organizes security operations into tactical categories based on the MITRE ATT&CK framework:
+### **Python Package Dependencies**
 
-### **Basic Commands**
-- **Command Execution**: Direct system command execution
-- **WinGet PowerShell Execution**: PowerShell script execution via WinGet LOLBIN
-
-### **Discovery** (MITRE T1057, T1018, T1083)
-- **Basic Reconnaissance**: System information and network enumeration
-- **PII Discovery**: Sensitive data identification in file systems
-- **Domain Controller Enumeration**: Active Directory infrastructure mapping
-- **Domain Trust Analysis**: Trust relationship discovery
-- **Domain Administrator Identification**: Privileged account enumeration
-- **Unconstrained Delegation Detection**: Kerberos delegation vulnerability assessment
-- **Active Directory User Membership**: Current user privilege analysis
-- **Port Scanning**: Network service discovery and enumeration
-
-### **Evasion** (MITRE T1562, T1055, T1140)
-- **Outbound Firewall Denial**: Security product communication blocking
-- **Host File URL Blocking**: DNS manipulation for security bypass
-- **NTDLL Unhooking**: API hook removal for EDR evasion
-
-### **Privilege Escalation** (MITRE T1548, T1134)
-- **CMSTP UAC Bypass**: User Account Control bypass technique
-- **Run As User Functionality**: Credential-based privilege escalation
-
-### **Persistence** (MITRE T1136, T1547, T1053)
-- **Administrative User Creation**: Backdoor account establishment
-- **Registry Startup Entries**: Boot persistence via registry modification
-- **Scheduled Task Installation**: Time-based persistence mechanisms
-
-### **Lateral Movement** (MITRE T1021, T1218)
-- **MSI Package Installation**: Software deployment for lateral access
-- **RDP Connection Establishment**: Remote desktop lateral movement
-
-### **Impact** (MITRE T1486, T1565)
-- **File Encryption**: Data encryption for impact demonstration
-- **File Decryption**: Data recovery operations
-
-## Communication Protocol Architecture
-
-### **TCP Communication Protocol**
-
-BeaconatorC2 implements a TCP-based communication system for beacon management and control. The protocol uses a pipe-delimited format for command structure and optimized chunking for file transfers.
-
-#### **Protocol Structure**
-
-**Message Format:**
+**Core Dependencies (`requirements.txt`):**
 ```
-command|parameter1|parameter2|parameter3|...
+PyQt6>=6.8.0           # GUI framework for cross-platform desktop application
+PyQt6-Qt6>=6.8.1       # Qt6 libraries and bindings for PyQt6
+PyQt6_sip>=13.9.1      # SIP module for PyQt6 Python/C++ bindings
+PyYAML>=6.0.2          # YAML parsing for schema files and configuration
+SQLAlchemy>=2.0.37     # Database ORM for beacon persistence and management
+Werkzeug>=3.1.3        # Utility library for secure filename handling and HTTP utilities
+requests>=2.32.4       # HTTP library for external API communication and payload generation
+msgpack>=1.0.8         # Binary serialization for Metasploit RPC communication
 ```
 
-**Core Commands:**
-- `register|beacon_id|computer_name` - Initial beacon registration with system identification
-- `request_action|beacon_id` - Beacon requests pending commands from server
-- `command_output|beacon_id|output_data` - Beacon submits command execution results
-- `keylogger_output|beacon_id|keylog_data` - Beacon submits keylogger capture data
-- `checkin|beacon_id` - Periodic beacon heartbeat for status monitoring
-- `to_beacon|filename` - Server initiates file download to beacon
-- `from_beacon|filename` - Beacon initiates file upload to server
+### **Platform Requirements**
 
-#### **Connection Handling Architecture**
+**Operating System Support:**
+- **Windows**: Windows 10/11 with optional pywin32 for SMB named pipe support
+- **Linux**: Modern distributions with Python 3.8+ and Qt6 libraries
 
-**TCP Receiver Infrastructure:**
-- ThreadingTCPServer with configurable port
-- SO_REUSEADDR enabled for rapid restart capability
-- Daemon threads for automatic cleanup on shutdown
-- Connection routing with protocol detection
-- Session management with keep-alive support
+**Python Version:**
+- **Minimum**: Python 3.8 for dataclass support and type annotations
+- **Recommended**: Python 3.10+ for improved type hints and pattern matching
+- **Compatibility**: Tested with Python 3.8, 3.9, 3.10, and 3.11
 
-**Connection Flow:**
-```
-Beacon Connection → TCP Receiver → Protocol Detection
-                                 ↓
-                       File Transfer ←→ Command Processing
-                                 ↓
-                       Response Generation → Beacon
-```
+### **Optional Dependencies**
 
-#### **Command Processing Pipeline**
-
-**Command Validation:**
-- **Registration Processing**: Beacon registration with status tracking
-- **Action Requests**: Pending command retrieval and queuing
-- **Output Processing**: Command result storage with timestamp logging
-- **Status Updates**: Beacon heartbeat and timeout monitoring
-
-**Response Formatting:**
+**Enhanced SMB Support (Windows):**
 ```python
-# File operations: action|parameter
-"download_file|document.pdf" → "download_file|document.pdf"
-
-# Module execution: execute_module|module_data
-"execute_module|reconnaissance_data" → "execute_module|reconnaissance_data"
-
-# Standard commands: execute_command|command_string
-"whoami" → "execute_command|whoami"
+# Optional for enhanced Windows SMB named pipe functionality
+pywin32>=227  # Windows-specific APIs for named pipe management
 ```
+### **External Tool Integration**
 
-#### **File Transfer System Architecture**
-
-**Optimized Chunking System:**
-
-**Transfer Configuration:**
-- **Chunk Size**: 1,048,576 bytes (1MB chunks)
-- **Socket Buffers**: 1MB send/receive buffers for optimal throughput
-- **Progress Tracking**: Logging every MB transferred for monitoring
-- **Error Recovery**: Comprehensive error handling with status reporting
-
-**File Upload Process (from beacon):**
-```
-1. Beacon sends: "from_beacon|filename"
-2. Server responds: "READY"
-3. Beacon transmits file in 1MB chunks
-4. Server writes chunks to secure filename
-5. Server confirms: "SUCCESS" or "ERROR|details"
-```
-
-**File Download Process (to beacon):**
-```
-1. Beacon sends: "to_beacon|filename"
-2. Server validates file existence
-3. Server transmits file in 1MB chunks
-4. Progress logged every 1MB transferred
-5. Transfer completion logged with total size
-```
-
-**Security Features:**
-- **Secure Filename Handling**: `werkzeug.secure_filename()` prevents path traversal
-- **File Validation**: Existence checking before transfer initiation
-- **Error Boundaries**: Isolated error handling prevents connection corruption
-- **Resource Management**: Automatic file handle cleanup
-
-#### **Socket Optimization**
-
-**Performance Enhancements:**
-```python
-# Optimized buffer sizes for large file transfers
-conn.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 1048576)  # 1MB send buffer
-conn.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 1048576)  # 1MB receive buffer
-
-# Chunked transfer for memory efficiency
-CHUNK_SIZE = 1048576  # 1MB chunks reduce memory pressure
-```
-
-**Connection Management:**
-- **Timeout Handling**: Configurable timeouts for different operation types
-- **Keep-Alive Sessions**: Multi-command sessions for efficiency
-- **Graceful Shutdown**: Clean connection termination with proper resource cleanup
-- **Thread Safety**: ThreadingTCPServer handles concurrent connections
-
-## Performance Optimizations
-
-### **UI Performance Enhancements**
-
-**Beacon Table Optimization:**
-- **QAbstractTableModel**: High-performance table implementation
-- **Efficient Updates**: Model-based updates reduce UI overhead
-- **Selection Optimization**: Async beacon selection prevents UI blocking
-
-**Command Widget Performance:**
-- **Lazy Loading**: Module interfaces created on-demand
-- **Smart Caching**: UI state preservation across selections
-- **Async Operations**: Heavy operations deferred to prevent blocking
-
-**Memory Management:**
-- **Interface Cleanup**: Automatic disposal of unused components
-- **Cache Boundaries**: Intelligent cache size management
-- **Resource Pooling**: Shared resources across components
-
-### **Schema Processing Optimization**
-
-**File I/O Reduction:**
-- **Modification Time Tracking**: Files loaded only when changed
-- **Bulk Operations**: Multiple module updates in single file operation
-- **Streaming Parser**: Memory-efficient YAML processing
-
-**Caching Strategy:**
-- **Hierarchical Caching**: Schema, category, and module level caching
-- **Selective Invalidation**: Granular cache updates
-- **Memory Efficiency**: Optimal cache utilization patterns
+**Metasploit Framework (Optional):**
+- **Installation**: Metasploit Framework 6.0+ for payload generation and session management
+- **RPC Daemon**: msfrpcd for remote procedure call interface
+- **Database**: PostgreSQL backend for Metasploit data persistence
 
 ## Data Flow Architecture
 
@@ -830,45 +1012,3 @@ MSF_STARTUP_TIMEOUT: int = 30         # RPC startup timeout
 - **Diagnostic Tools**: One-click comprehensive connection and functionality testing
 - **Manual Controls**: Refresh connection and run diagnostics buttons
 - **Automatic Updates**: 5-second status refresh intervals
-
-### **Error Handling Strategy**
-
-#### **Error Classification**
-- **Session Timeout**: Detected via `Msf::RPC::Exception` with specific method context
-- **Module Not Found**: Enhanced with payload name suggestions and correction
-- **Connection Issues**: Network and authentication problems with specific guidance
-- **Database Problems**: Metasploit database connectivity issues
-
-#### **User Experience**
-- **Progressive Disclosure**: Basic error messages with option to view detailed information
-- **Actionable Guidance**: Specific steps for resolving different error types
-- **Automatic Recovery**: Silent recovery for transient issues with user notification
-- **Context-Aware Messages**: Different messaging based on operation being performed
-
-### **Performance Optimizations**
-
-#### **Connection Management**
-- **Session Persistence**: Long-lived connections with keep-alive management
-- **Connection Pooling**: Efficient reuse of authenticated sessions
-- **Background Operations**: Non-blocking payload discovery and status monitoring
-- **Cache Integration**: Payload list caching to reduce RPC overhead
-
-#### **Error Recovery Efficiency**
-- **Fast Failure Detection**: Quick identification of session timeout conditions
-- **Minimal Reconnection Time**: Streamlined reconnection process
-- **Operation Queuing**: Maintain operation context during reconnection
-- **Resource Cleanup**: Proper cleanup of failed connections and resources
-
-### **Security Considerations**
-
-#### **Defensive Focus**
-- **Payload Generation**: For authorized security testing and red team exercises
-- **Session Monitoring**: Tracking of authorized penetration testing activities
-- **Access Control**: Integration respects Metasploit's authentication mechanisms
-- **Audit Logging**: Comprehensive logging of all RPC operations and errors
-
-#### **Error Information Disclosure**
-- **Safe Error Messages**: Technical details logged but user messages are generalized
-- **Debugging Information**: Detailed RPC logs available for authorized troubleshooting
-- **Connection Security**: Proper SSL/TLS handling for encrypted RPC communications
-

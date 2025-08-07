@@ -218,6 +218,28 @@ categories:
             - ports
           - - timeout
             - threads
+  credential_access:
+    display_name: Credential Access
+    description: Modules for accessing and extracting credentials from target systems
+    modules:
+      ntds_dump:
+        display_name: NTDS Dump
+        description: Extract domain credentials by dumping NTDS.dit, SYSTEM, SAM,
+          and SECURITY files from NTFS raw disk
+        command_template: execute_module|NTDSDump
+        parameters: {}
+        documentation:
+          content: Performs raw NTFS disk reading to extract critical Windows system
+            files containing domain and local credentials. Extracts NTDS.dit (Active
+            Directory database), SYSTEM, SAM, and SECURITY registry files directly
+            from disk without requiring file system access. Requires administrative
+            privileges to access physical disk.
+          examples: []
+        execution:
+          timeout: 1800
+          requires_admin: true
+        ui:
+          layout: simple
   evasion:
     display_name: Evasion
     description: Modules for evading detection and defensive measures

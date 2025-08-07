@@ -253,6 +253,11 @@ class MetasploitRpcClient:
         
         try:
             # Log RPC request for debugging
+            import utils
+            if utils.logger:
+                utils.logger.log_message(f"RPC Call: {method} with params: {params}")
+            
+            # Original logging comment
             if utils.logger:
                 params_str = str(params) if params else "[]"
                 utils.logger.log_message(f"Metasploit RPC Request: {method}({params_str})")
@@ -309,8 +314,19 @@ class MetasploitRpcClient:
                             error_msg += f": {error_string}"
                         raise RpcMethodError(error_msg)
                 else:
-                    # Standard error message handling
-                    raise RpcMethodError(f"RPC method '{method}' failed: {error_value}")
+                    # Handle specific database errors more gracefully
+                    if error_class == 'NameError' and ('DBManager' in error_string or 'Acunetix' in error_string):
+                        # Database module errors - these can affect various operations
+                        if method in ['db.status', 'console.create', 'console.read', 'console.write']:
+                            if utils.logger:
+                                utils.logger.log_message(f"Database module error (attempting workaround): {error_string}")
+                            # Return a result indicating database issues but don't fail completely
+                            return {'error': 'database_module_error', 'error_message': error_string, 'critical': False}
+                        else:
+                            raise RpcMethodError(f"Database error in '{method}': {error_string}")
+                    else:
+                        # Standard error message handling
+                        raise RpcMethodError(f"RPC method '{method}' failed: {error_value}")
             
             return result
             
@@ -384,7 +400,14 @@ class MetasploitApiHandlers:
         
         try:
             # Test database connectivity
-            diagnostics['db_status'] = self.db.status()
+            db_status = self.db.status()
+            diagnostics['db_status'] = db_status
+            
+            # Check if it's a non-critical database error
+            if isinstance(db_status, dict) and not db_status.get('critical', True):
+                # Non-critical database error - log as warning instead of error
+                diagnostics['warnings'] = diagnostics.get('warnings', [])
+                diagnostics['warnings'].append(f"Database warning: {db_status.get('error', 'Unknown database issue')}")
         except Exception as e:
             diagnostics['errors'].append(f"Database status check failed: {str(e)}")
         
@@ -502,7 +525,16 @@ class ModuleHandler(BaseHandler):
     
     def execute(self, module_type: str, module_name: str, options: Dict[str, Any]) -> Dict[str, Any]:
         """Execute a module with specified options"""
-        return self.call('module.execute', [module_type, module_name, options])
+        import utils
+        if utils.logger:
+            utils.logger.log_message(f"ModuleHandler.execute: module_type={module_type}, module_name={module_name}, options={options}")
+        
+        result = self.call('module.execute', [module_type, module_name, options])
+        
+        if utils.logger:
+            utils.logger.log_message(f"ModuleHandler.execute: RPC result={result}")
+        
+        return result
     
     def encode(self, data: str, encoder: str, options: Dict[str, Any] = None) -> Dict[str, Any]:
         """Encode data using specified encoder"""
@@ -606,7 +638,25 @@ class DatabaseHandler(BaseHandler):
     
     def status(self) -> Dict[str, Any]:
         """Get database connection status"""
-        return self.call('db.status')
+        try:
+            result = self.call('db.status')
+            # Check for graceful database error
+            if isinstance(result, dict) and result.get('error') == 'database_module_error':
+                return {
+                    'connected': False,
+                    'error': result.get('error_message', 'Database module error'),
+                    'critical': False
+                }
+            return result
+        except RpcMethodError as e:
+            # Handle database errors gracefully
+            if 'database' in str(e).lower() or 'dbmanager' in str(e).lower():
+                return {
+                    'connected': False,
+                    'error': str(e),
+                    'critical': False
+                }
+            raise
     
     def connect(self, opts: Dict[str, Any]) -> Dict[str, Any]:
         """Connect to database"""

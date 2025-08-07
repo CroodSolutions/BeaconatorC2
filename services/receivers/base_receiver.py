@@ -277,13 +277,19 @@ class BaseReceiver(QObject):
     
     def handle_file_transfer(self, sock: socket.socket, command: str, parts: list, client_address: tuple):
         """Handle file transfer with encoding - common implementation"""
+        import utils
+        
         if len(parts) < 2:
             response = self.encoding_strategy.encode(b"ERROR|Invalid file transfer command")
             self._send_data(sock, response)
             return
             
-        filename = parts[1]
+        filename = utils.strip_filename_quotes(parts[1])
         config = ServerConfig()
+        
+        # Log the file transfer request for debugging
+        if utils.logger:
+            utils.logger.log_message(f"File transfer request: {command} - Original: '{parts[1]}' -> Processed: '{filename}'")
         
         if command == "to_beacon":
             # Send file (encoded)
@@ -296,11 +302,27 @@ class BaseReceiver(QObject):
     
     def _send_file(self, sock: socket.socket, filename: str, config) -> bool:
         """Send file with encoding"""
+        import utils
+        
         try:
-            filepath = Path(config.FILES_FOLDER) / secure_filename(filename)
+            # Use safe_filename_path instead of secure_filename to preserve spaces
+            try:
+                filepath = utils.safe_filename_path(Path(config.FILES_FOLDER), filename)
+            except ValueError as e:
+                if utils.logger:
+                    utils.logger.log_message(f"Invalid filename '{filename}': {e}")
+                error_response = self.encoding_strategy.encode(b'ERROR|Invalid filename')
+                self._send_data(sock, error_response)
+                return False
+                
+            if utils.logger:
+                utils.logger.log_message(f"File transfer: Looking for file at {filepath}")
+                
             if not filepath.exists():
                 error_response = self.encoding_strategy.encode(b'ERROR|File not found')
                 self._send_data(sock, error_response)
+                if utils.logger:
+                    utils.logger.log_message(f"File not found: {filepath}")
                 return False
                 
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 1048576)
@@ -330,8 +352,18 @@ class BaseReceiver(QObject):
             
     def _receive_file(self, sock: socket.socket, filename: str, config) -> bool:
         """Receive file with decoding"""
+        import utils
+        
         try:
-            filepath = Path(config.FILES_FOLDER) / secure_filename(filename)
+            # Use safe_filename_path instead of secure_filename to preserve spaces
+            try:
+                filepath = utils.safe_filename_path(Path(config.FILES_FOLDER), filename)
+            except ValueError as e:
+                if utils.logger:
+                    utils.logger.log_message(f"Invalid filename '{filename}': {e}")
+                error_response = self.encoding_strategy.encode(b'ERROR|Invalid filename')
+                self._send_data(sock, error_response)
+                return False
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 1048576)
             
             with open(filepath, 'wb') as f:

@@ -42,11 +42,13 @@ class NavigationMenu(QWidget):
         # Navigation buttons including toggle
         self.nav_buttons = {}
         nav_items = {
-            "toggle": ("Hide", QStyle.StandardPixmap.SP_ArrowLeft),
-            "beacons": ("Beacons", QStyle.StandardPixmap.SP_ComputerIcon),
-            "receivers": ("Receivers", QIcon("resources/server-bolt.svg")),  # Custom icon
-            "settings": ("Settings", QStyle.StandardPixmap.SP_FileDialogListView),
-            "docs": ("Documentation", QStyle.StandardPixmap.SP_FileDialogDetailedView),  
+            "toggle": ("Hide", QIcon("resources/arrow-big-left.svg")), 
+            "beacons": ("Beacons", QIcon("resources/building-broadcast-tower.svg")),  
+            "receivers": ("Receivers", QIcon("resources/server-bolt.svg")), 
+            "workflows": ("Workflows", QIcon("resources/sitemap.svg")),
+            #"settings": ("Settings", QStyle.StandardPixmap.SP_FileDialogListView),
+            "metasploit": ("Metasploit RPC", QIcon("resources/bomb.svg")),
+            "docs": ("Documentation", QIcon("resources/info-hexagon.svg")),   
         }
         
         for nav_id, (text, icon) in nav_items.items():
@@ -123,9 +125,9 @@ class NavigationMenu(QWidget):
             btn.setText(self.button_texts[nav_id] if self.expanded else "")
         
         # Update toggle button icon and text
-        toggle_icon = QStyle.StandardPixmap.SP_ArrowLeft if self.expanded else QStyle.StandardPixmap.SP_ArrowRight
+        toggle_icon = QIcon("resources/arrow-big-left.svg") if self.expanded else QIcon("resources/arrow-big-right.svg")
         toggle_text = "Hide" if self.expanded else "Expand"
-        self.nav_buttons["toggle"].setIcon(QIcon(self.style().standardIcon(toggle_icon)))
+        self.nav_buttons["toggle"].setIcon(toggle_icon)
         self.button_texts["toggle"] = toggle_text
         if self.expanded:
             self.nav_buttons["toggle"].setText(toggle_text)

@@ -1,0 +1,182 @@
+name: zsh One-Liner Beacon
+description: Lightweight zsh-based beacon optimized for macOS systems (10.15+) with zsh as default shell
+author: BeaconatorC2
+version: 1.0
+supported_platforms:
+  - macOS
+  - Linux (with zsh installed)
+
+modules:
+  SystemInfo:
+    description: Gather comprehensive system information using zsh and macOS-specific commands
+    category: Reconnaissance
+    safe: true
+    parameters: {}
+    examples:
+      - description: "Get system information"
+        command: "execute_module|SystemInfo"
+    output: |
+      Returns system details including:
+      - Hostname (short form)
+      - Current user and UID
+      - Group memberships
+      - macOS version (via sw_vers)
+      - System uptime
+      - Shell and process information
+      - zsh version
+
+  ProcessEnum:
+    description: Enumerate running processes
+    category: Reconnaissance
+    safe: true
+    parameters: {}
+    examples:
+      - description: "List running processes"
+        command: "execute_module|ProcessEnum"
+    output: |
+      Returns a list of running processes (top 50) with:
+      - User, PID, CPU%, Memory%
+      - Process start time
+      - Command line
+
+  NetworkEnum:
+    description: Enumerate network interfaces and connections using macOS tools
+    category: Reconnaissance
+    safe: true
+    parameters: {}
+    examples:
+      - description: "Get network information"
+        command: "execute_module|NetworkEnum"
+    output: |
+      Returns:
+      - Network interfaces via ifconfig
+      - Active TCP/UDP connections
+      - Listening ports
+
+  UserEnum:
+    description: Enumerate users using macOS dscl command
+    category: Reconnaissance
+    safe: true
+    parameters: {}
+    examples:
+      - description: "Enumerate local users"
+        command: "execute_module|UserEnum"
+    output: |
+      Returns:
+      - Current user information
+      - Group memberships
+      - Sudo access status
+      - Local user accounts (non-system)
+
+  FileSearch:
+    description: Search for files by name pattern
+    category: Reconnaissance
+    safe: true
+    parameters:
+      directory:
+        type: string
+        required: false
+        default: "/tmp"
+        description: "Directory to search in"
+      pattern:
+        type: string
+        required: false
+        default: "txt"
+        description: "File name pattern to search for"
+    examples:
+      - description: "Search for PDF files in Downloads"
+        command: "execute_module|FileSearch|~/Downloads,pdf"
+      - description: "Search for config files in /etc"
+        command: "execute_module|FileSearch|/etc,conf"
+    output: |
+      Returns a list of files matching the pattern (max 50 results)
+
+  PortScan:
+    description: Scan TCP ports using zsh's built-in TCP module
+    category: Reconnaissance
+    safe: true
+    parameters:
+      target:
+        type: string
+        required: false
+        default: "127.0.0.1"
+        description: "Target IP address or hostname"
+      ports:
+        type: string
+        required: false
+        default: "22,80,443"
+        description: "Comma-separated list of ports to scan"
+    examples:
+      - description: "Scan common ports on localhost"
+        command: "execute_module|PortScan|127.0.0.1,22,80,443,3306,5432"
+      - description: "Scan specific host"
+        command: "execute_module|PortScan|192.168.1.100,22,3389"
+    output: |
+      Returns port status (OPEN/CLOSED) for each scanned port using zsh/net/tcp module
+
+  ZshFeatures:
+    description: Display zsh-specific information and capabilities
+    category: Reconnaissance
+    safe: true
+    parameters: {}
+    examples:
+      - description: "Get zsh environment details"
+        command: "execute_module|ZshFeatures"
+    output: |
+      Returns:
+      - zsh version information
+      - Loaded zsh modules
+      - Active shell options
+      - History configuration
+      - Current prompt settings
+
+  Cleanup:
+    description: Stop the beacon and clean up
+    category: Management
+    safe: true
+    parameters: {}
+    examples:
+      - description: "Shutdown beacon"
+        command: "execute_module|Cleanup"
+    output: |
+      Sends cleanup confirmation and terminates the beacon
+
+ui_config:
+  command_widget:
+    layout:
+      - section: "System Reconnaissance"
+        modules: ["SystemInfo", "ProcessEnum", "NetworkEnum", "UserEnum"]
+      - section: "File Operations"
+        modules: ["FileSearch"]
+      - section: "Network Discovery"
+        modules: ["PortScan"]
+      - section: "zsh Specific"
+        modules: ["ZshFeatures"]
+      - section: "Beacon Management"
+        modules: ["Cleanup"]
+
+  parameter_widgets:
+    FileSearch:
+      directory:
+        widget_type: "text"
+        placeholder: "e.g., /Users/username/Documents"
+      pattern:
+        widget_type: "text"
+        placeholder: "e.g., *.pdf"
+    
+    PortScan:
+      target:
+        widget_type: "text"
+        placeholder: "e.g., 192.168.1.1"
+      ports:
+        widget_type: "text"
+        placeholder: "e.g., 22,80,443"
+
+notes:
+  - This beacon is optimized for zsh (default shell on macOS 10.15+)
+  - Uses zsh's built-in TCP module for enhanced port scanning
+  - Leverages zsh-specific parameter expansion and array handling
+  - Includes zsh version and module information
+  - Uses simplified string handling (no $'\n' syntax needed)
+  - Some operations may trigger macOS security prompts
+  - Terminal may need Full Disk Access for certain operations

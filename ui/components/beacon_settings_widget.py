@@ -120,6 +120,13 @@ class BeaconSettingsWidget(QWidget):
         self.schema_combo.setMaxVisibleItems(10)  # Limit dropdown height
         schema_select_layout.addWidget(self.schema_combo)
         
+        # Refresh button to reload schemas
+        refresh_schema_btn = QPushButton("Refresh")
+        refresh_schema_btn.setMinimumWidth(80)
+        refresh_schema_btn.setToolTip("Refresh available schemas and reload current schema from disk")
+        refresh_schema_btn.clicked.connect(self.refresh_schema_system)
+        schema_select_layout.addWidget(refresh_schema_btn)
+        
         # Apply button in same row to avoid dropdown overlap
         apply_schema_btn = QPushButton("Apply")
         apply_schema_btn.setMinimumWidth(80)
@@ -164,6 +171,64 @@ class BeaconSettingsWidget(QWidget):
                     self.schema_combo.setCurrentIndex(index)
         except Exception as e:
             QMessageBox.warning(self, "Error", f"Failed to load schemas: {e}")
+    
+    def refresh_schema_system(self):
+        """Refresh schema system: clear caches, reload schemas, and refresh current beacon's schema"""
+        try:
+            # Step 1: Clear schema service cache to pick up file system changes
+            self.schema_service.cache.invalidate()
+            
+            # Step 2: Clear local widget cache  
+            self._schema_cache.clear()
+            
+            # Step 3: Refresh dropdown list (rescans filesystem for new/removed schemas)
+            self.refresh_schemas()
+            
+            # Step 4: Reload current beacon's schema if applicable
+            if self.current_beacon_id:
+                # Force reload from database and file system
+                try:
+                    # Remove from cache to force database query
+                    self._schema_cache.pop(self.current_beacon_id, None)
+                    
+                    # Get fresh schema association from database
+                    current_schema = self.beacon_repository.get_beacon_schema(self.current_beacon_id)
+                    
+                    if current_schema:
+                        # Check if schema file still exists in dropdown
+                        index = self.schema_combo.findData(current_schema)
+                        if index >= 0:
+                            self.schema_combo.setCurrentIndex(index)
+                            # Update cache with fresh data
+                            self._schema_cache[self.current_beacon_id] = current_schema
+                        else:
+                            # Schema file was removed/renamed, reset to no selection
+                            self.schema_combo.setCurrentIndex(0)
+                            self._schema_cache[self.current_beacon_id] = None
+                            QMessageBox.warning(
+                                self, 
+                                "Schema Not Found", 
+                                f"Schema file '{current_schema}' no longer exists. "
+                                f"Please select a new schema for beacon {self.current_beacon_id}."
+                            )
+                    else:
+                        # No schema associated, ensure "No schema selected" is shown
+                        self.schema_combo.setCurrentIndex(0)
+                        self._schema_cache[self.current_beacon_id] = None
+                        
+                except Exception as e:
+                    # Handle database or other errors gracefully
+                    QMessageBox.warning(self, "Error", f"Failed to reload beacon schema: {str(e)}")
+                    self.schema_combo.setCurrentIndex(0)
+            
+            QMessageBox.information(
+                self, 
+                "Refresh Complete", 
+                "Schema system refreshed successfully. All caches cleared and schemas reloaded from disk."
+            )
+            
+        except Exception as e:
+            QMessageBox.critical(self, "Refresh Error", f"Failed to refresh schema system: {str(e)}")
     
     def apply_schema(self):
         """Apply selected schema to the current beacon"""

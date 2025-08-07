@@ -410,7 +410,7 @@ class SchemaService:
         
         return [
             f.name for f in self.schemas_directory.glob("*.yaml") 
-            if f.is_file() and not f.name.startswith("SCHEMA_REFERENCE")
+            if f.is_file() and not f.name.startswith("SCHEMA_REFERENCE") and not "format" in f.name.lower()
         ]
     
     def get_module_yaml_data(self, schema_file: str, category_name: str, module_name: str) -> Dict[str, Any]:
