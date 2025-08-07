@@ -10,7 +10,8 @@ This project has been started to help better test products, configurations, dete
 
 ## --- Instructions and Overview ---
 
-This framework is structured with hierarchical folders, organized around relevant phases of MITRE ATT&CK. The agent and server provided in initial access, allow for the deployment of most other modules and phases. For red teams operating in the scope of an engagement, you may want to use this as part of a more stealthy approach; such as using AutoPwnKey for initial access to drop some other beacon, then possibly deploy other evasive AHK payloads later managed via AutoPwnKey C2. For blue/purple teams it is far easier - just adapt and run these things and see if your AV/EDR or other tools detect them.  If they do not, open a ticket with your vendors and help raise awareness. If they do catch these tactics right away, also share that and help share successes related to security vendors who are doing a good job of covering these use cases. Sometimes as defenders it seems like the deck is stacked against us. By aligning exploit and evasion research with control refinement and detection engineering, we can both find gaps and also opportunities to better protect and respond.  
+TBD
+
 ## --- How to Contribute ---
 
 We welcome and encourage contributions, participation, and feedback - as long as all participation is legal and ethical in nature. Please develop new scripts, contribute ideas, improve the scripts that we have created. The goal of this project is to come up with a robust testing framework that is available to red/blue/purple teams for assessment purposes, with the hope that one day we can archive this project because improvements to detection logic make this attack vector irrelevant.
@@ -23,9 +24,10 @@ We welcome and encourage contributions, participation, and feedback - as long as
 
 ## --- Acknowledgments ---
 
+Management interface for Beaconator created by [shammahwoods](https://github.com/shammahwoods) 
+
 Key contributors, both directly and because we are using building blocks from prior work:
 
-- [shammahwoods](https://github.com/shammahwoods) 
 - [BiniamGebrehiwot1](https://github.com/BiniamGebrehiwot1)
 - Jordan Mastel
 - lolrmm.io
