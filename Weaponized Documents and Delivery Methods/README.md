@@ -1,5 +1,7 @@
-In this project, our primary focus is on creating some atomic test scripts to validate your controls and detection logic, against various remote management/remote access abuse scenarios. However, for red/purple teams, if you want to be realistic it is sometimes useful to explore end-to-end kill chains, going from delivery through to impact. For this reason, we have included some various delivery mechanisms you can explore and test, along with cross-references to other projects that can be combined with AutoRMM for a more comprehensive set of assessments.  
+We have worked on a variety of approaches for weaponized document delivery, along with other methods of delivering Beaconator payloads. It has been our observation that initial access is an area where a lot of testing skips over; as such, we have been working to create options for a more realistic adversary emulation experience.  
 
-At the time of this writing, we have not tested these maldoc deliveries with AV/EDR/Sandbox products. We are sharing them to enrich testing and improve testing options, but millage may vary.  
+Note that some delivery methods, work better with small payloads, in particular when looking across our different tools. For example, dropping a cert util encoded payload into a spreadsheet as an Active-X module may work well for a simple beacon, but it will not work as well for a huge remote management tool installer or even a large full-featured beacon payload.  Sometimes a maldoc approach can deliver a small lightweight payload, which then can be used as the basis to pull down and run a full agent. 
 
-Use these tools only for legal and ethical red/purple team testing.  
+It is our belief that by achieving more realistic adversary emulation, we will improve overall readiness and defensive capability levels.  
+
+Important note: Use these tools only for legal and ethical red/purple team testing.  
