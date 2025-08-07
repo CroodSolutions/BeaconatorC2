@@ -24,6 +24,7 @@ import json
 import time
 import subprocess
 import platform
+import os
 from services import MetasploitManager, MetasploitService, PayloadConfig, ListenerConfig
 from database import BeaconRepository
 from config import ServerConfig
@@ -193,6 +194,54 @@ class StatusTab(QWidget):
         status_group.setLayout(status_layout)
         layout.addWidget(status_group)
         
+        # Connection Configuration group
+        config_group = QGroupBox("Connection Configuration")
+        config_layout = QFormLayout()
+        
+        # Connection settings
+        self.host_input = QLineEdit(self.metasploit_manager.config.MSF_RPC_HOST)
+        self.host_input.setPlaceholderText("127.0.0.1")
+        
+        self.port_input = QLineEdit(str(self.metasploit_manager.config.MSF_RPC_PORT))
+        self.port_input.setPlaceholderText("55553")
+        
+        self.user_input = QLineEdit(self.metasploit_manager.config.MSF_RPC_USER)
+        self.user_input.setPlaceholderText("msf")
+        
+        self.pass_input = QLineEdit(self.metasploit_manager.config.MSF_RPC_PASS)
+        self.pass_input.setPlaceholderText("msf123")
+
+        
+        self.ssl_checkbox = QCheckBox("Use SSL")
+        self.ssl_checkbox.setChecked(self.metasploit_manager.config.MSF_RPC_SSL)
+        
+        config_layout.addRow("RPC Host:", self.host_input)
+        config_layout.addRow("RPC Port:", self.port_input)
+        config_layout.addRow("Username:", self.user_input)
+        config_layout.addRow("Password:", self.pass_input)
+        config_layout.addRow("", self.ssl_checkbox)
+        
+        # Connection control buttons
+        conn_btn_layout = QHBoxLayout()
+        
+        self.connect_btn = QPushButton("Connect to External RPC")
+        self.connect_btn.clicked.connect(self.connect_to_external_rpc)
+        conn_btn_layout.addWidget(self.connect_btn)
+        
+        self.start_rpc_btn = QPushButton("Start Local RPC")
+        self.start_rpc_btn.clicked.connect(self.start_local_rpc)
+        conn_btn_layout.addWidget(self.start_rpc_btn)
+        
+        self.stop_rpc_btn = QPushButton("Stop RPC")
+        self.stop_rpc_btn.clicked.connect(self.stop_rpc)
+        self.stop_rpc_btn.setEnabled(False)
+        conn_btn_layout.addWidget(self.stop_rpc_btn)
+        
+        config_layout.addRow("", conn_btn_layout)
+        
+        config_group.setLayout(config_layout)
+        layout.addWidget(config_group)
+        
         # Installation info section
         install_group = QGroupBox("Installation Information")
         install_layout = QFormLayout()
@@ -218,6 +267,9 @@ class StatusTab(QWidget):
         layout.addStretch()
         
         self.setLayout(layout)
+        
+        # Load saved connection settings
+        self.load_connection_settings()
         
         # Start status updates
         self.status_timer = QTimer()
@@ -255,11 +307,18 @@ class StatusTab(QWidget):
         if status['is_running']:
             self.status_indicator.setText("●")
             self.status_indicator.setStyleSheet("color: green;")
-            self.status_text.setText("Connected")
+            # Show if it's external or managed
+            if status.get('is_managed', False):
+                self.status_text.setText("Connected (Local)")
+            else:
+                self.status_text.setText("Connected (External)")
         else:
             self.status_indicator.setText("●")
             self.status_indicator.setStyleSheet("color: red;")
             self.status_text.setText("Disconnected")
+        
+        # Update button states
+        self.update_button_states()
             
     def refresh_connection(self):
         """Manually refresh connection"""
@@ -323,6 +382,201 @@ class StatusTab(QWidget):
         
         # Refresh the status display
         self.update_status()
+    
+    def connect_to_external_rpc(self):
+        """Connect to an external Metasploit RPC instance"""
+        try:
+            # Get connection settings from UI
+            host = self.host_input.text().strip()
+            port = self.port_input.text().strip()
+            user = self.user_input.text().strip()
+            password = self.pass_input.text().strip()
+            ssl = self.ssl_checkbox.isChecked()
+            
+            # Validate inputs
+            if not host or not port or not user or not password:
+                QMessageBox.warning(self, "Connection Error", "Please fill in all connection fields")
+                return
+            
+            try:
+                port = int(port)
+            except ValueError:
+                QMessageBox.warning(self, "Connection Error", "Port must be a valid number")
+                return
+            
+            # Update configuration temporarily
+            self.metasploit_manager.config.MSF_RPC_HOST = host
+            self.metasploit_manager.config.MSF_RPC_PORT = port
+            self.metasploit_manager.config.MSF_RPC_USER = user
+            self.metasploit_manager.config.MSF_RPC_PASS = password
+            self.metasploit_manager.config.MSF_RPC_SSL = ssl
+            
+            # Test the connection
+            if utils.logger:
+                utils.logger.log_message(f"Attempting to connect to external RPC at {host}:{port}")
+            
+            success, message = self.metasploit_manager.test_connection()
+            
+            if success:
+                # Mark as external connection
+                self.metasploit_manager._status.is_running = True
+                self.metasploit_manager._status.is_managed = False
+                self.metasploit_manager._status.connection_status = "Connected (External)"
+                
+                # Update MetasploitService with new connection details
+                if self.metasploit_manager.metasploit_service:
+                    self.metasploit_manager.metasploit_service.config.MSF_RPC_HOST = host
+                    self.metasploit_manager.metasploit_service.config.MSF_RPC_PORT = port
+                    self.metasploit_manager.metasploit_service.config.MSF_RPC_USER = user
+                    self.metasploit_manager.metasploit_service.config.MSF_RPC_PASS = password
+                    self.metasploit_manager.metasploit_service.config.MSF_RPC_SSL = ssl
+                    
+                    # Force reconnection
+                    self.metasploit_manager.metasploit_service.disconnect()
+                    connected = self.metasploit_manager.metasploit_service.connect()
+                    
+                    if connected:
+                        QMessageBox.information(self, "Success", f"Connected to external RPC at {host}:{port}")
+                        self.stop_rpc_btn.setEnabled(False)  # Don't allow stopping external RPC
+                        # Save successful connection settings
+                        self.save_connection_settings()
+                    else:
+                        QMessageBox.warning(self, "Connection Failed", "Connected to RPC but service initialization failed")
+                else:
+                    QMessageBox.information(self, "Success", f"Connected to external RPC at {host}:{port}")
+                    # Save successful connection settings
+                    self.save_connection_settings()
+                    
+                # Start health monitoring
+                self.metasploit_manager._start_health_monitoring()
+                
+            else:
+                QMessageBox.warning(self, "Connection Failed", f"Failed to connect:\n{message}")
+                
+        except Exception as e:
+            QMessageBox.critical(self, "Connection Error", f"Unexpected error:\n{str(e)}")
+            if utils.logger:
+                utils.logger.log_message(f"Error connecting to external RPC: {str(e)}")
+        
+        self.update_status()
+    
+    def start_local_rpc(self):
+        """Start the local Metasploit RPC daemon"""
+        try:
+            # Check if already running
+            if self.metasploit_manager._status.is_running:
+                QMessageBox.information(self, "RPC Status", "RPC is already running")
+                return
+            
+            # Start the RPC daemon
+            success, message = self.metasploit_manager.start_rpc_daemon()
+            
+            if success:
+                QMessageBox.information(self, "Success", "Local RPC daemon started successfully")
+                self.stop_rpc_btn.setEnabled(True)
+                
+                # Update MetasploitService connection
+                if self.metasploit_manager.metasploit_service:
+                    self.metasploit_manager.metasploit_service.connect()
+            else:
+                QMessageBox.warning(self, "Start Failed", f"Failed to start RPC daemon:\n{message}")
+                
+        except Exception as e:
+            QMessageBox.critical(self, "Start Error", f"Unexpected error:\n{str(e)}")
+            if utils.logger:
+                utils.logger.log_message(f"Error starting local RPC: {str(e)}")
+        
+        self.update_status()
+    
+    def stop_rpc(self):
+        """Stop the RPC daemon if we manage it"""
+        try:
+            if not self.metasploit_manager._status.is_managed:
+                QMessageBox.warning(self, "Cannot Stop", "Cannot stop external RPC instance")
+                return
+            
+            # Stop the daemon
+            success, message = self.metasploit_manager.stop_rpc_daemon()
+            
+            if success:
+                QMessageBox.information(self, "Success", "RPC daemon stopped successfully")
+                self.stop_rpc_btn.setEnabled(False)
+                
+                # Disconnect MetasploitService
+                if self.metasploit_manager.metasploit_service:
+                    self.metasploit_manager.metasploit_service.disconnect()
+            else:
+                QMessageBox.warning(self, "Stop Failed", f"Failed to stop RPC daemon:\n{message}")
+                
+        except Exception as e:
+            QMessageBox.critical(self, "Stop Error", f"Unexpected error:\n{str(e)}")
+            if utils.logger:
+                utils.logger.log_message(f"Error stopping RPC: {str(e)}")
+        
+        self.update_status()
+    
+    def update_button_states(self):
+        """Update button states based on connection status"""
+        is_running = self.metasploit_manager._status.is_running
+        is_managed = self.metasploit_manager._status.is_managed
+        
+        # Enable/disable buttons based on state
+        self.connect_btn.setEnabled(not is_running)
+        self.start_rpc_btn.setEnabled(not is_running)
+        self.stop_rpc_btn.setEnabled(is_running and is_managed)
+        
+        # Update stop button text
+        if is_running and not is_managed:
+            self.stop_rpc_btn.setText("Stop RPC (External)")
+        else:
+            self.stop_rpc_btn.setText("Stop RPC")
+    
+    def save_connection_settings(self):
+        """Save connection settings to a file for persistence"""
+        try:
+            settings = {
+                'host': self.host_input.text(),
+                'port': self.port_input.text(),
+                'user': self.user_input.text(),
+                'ssl': self.ssl_checkbox.isChecked()
+            }
+            
+            # Save to a config file
+            config_dir = os.path.expanduser('~/.beaconatorc2')
+            os.makedirs(config_dir, exist_ok=True)
+            config_file = os.path.join(config_dir, 'msf_connection.json')
+            
+            with open(config_file, 'w') as f:
+                json.dump(settings, f, indent=2)
+                
+            if utils.logger:
+                utils.logger.log_message(f"Saved Metasploit connection settings to {config_file}")
+                
+        except Exception as e:
+            if utils.logger:
+                utils.logger.log_message(f"Error saving connection settings: {str(e)}")
+    
+    def load_connection_settings(self):
+        """Load saved connection settings if they exist"""
+        try:
+            config_file = os.path.expanduser('~/.beaconatorc2/msf_connection.json')
+            
+            if os.path.exists(config_file):
+                with open(config_file, 'r') as f:
+                    settings = json.load(f)
+                
+                # Update UI with saved settings
+                self.host_input.setText(settings.get('host', self.metasploit_manager.config.MSF_RPC_HOST))
+                self.port_input.setText(settings.get('port', str(self.metasploit_manager.config.MSF_RPC_PORT)))
+                self.user_input.setText(settings.get('user', self.metasploit_manager.config.MSF_RPC_USER))
+                self.ssl_checkbox.setChecked(settings.get('ssl', self.metasploit_manager.config.MSF_RPC_SSL))
+                
+                if utils.logger:
+                    utils.logger.log_message("Loaded saved Metasploit connection settings")
+                    
+        except Exception as e:
+            if utils.logger:
+                utils.logger.log_message(f"Error loading connection settings: {str(e)}")
 
 
 class PayloadGeneratorTab(QWidget):
