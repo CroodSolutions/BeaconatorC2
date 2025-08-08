@@ -28,6 +28,7 @@ import os
 from services import MetasploitManager, MetasploitService, PayloadConfig, ListenerConfig
 from database import BeaconRepository
 from config import ServerConfig
+from ui.dialogs import SessionTerminalDialog
 from utils.helpers import save_payload_to_disk
 import utils
 
@@ -2794,9 +2795,39 @@ class SessionsTab(QWidget):
         current_row = self.sessions_table.currentRow()
         if current_row >= 0:
             session_id = self.sessions_table.item(current_row, 0).text()
-            # This could open a command interface or switch to the beacon
-            QMessageBox.information(self, "Info", 
-                                  f"Session interaction for {session_id} would be implemented here")
+            
+            # Get session information
+            try:
+                if self.metasploit_service and self.metasploit_service.is_connected:
+                    # Get session list using the session handler directly
+                    print(f"Debug: Getting session list for session_id: {session_id}")
+                    sessions_data = self.metasploit_service._handlers.session.list()
+                    print(f"Debug: Sessions available: {list(sessions_data.keys())}")
+                    print(f"Debug: session_id type: {type(session_id)}, first key type: {type(list(sessions_data.keys())[0]) if sessions_data else 'N/A'}")
+                    
+                    # Convert session_id to int for comparison since Metasploit uses integer keys
+                    session_key = int(session_id) if session_id.isdigit() else session_id
+                    
+                    if session_key in sessions_data:
+                        session_info = sessions_data[session_key]
+                        print(f"Debug: Session info: {session_info}")
+                        
+                        # Open terminal dialog
+                        terminal_dialog = SessionTerminalDialog(
+                            self.metasploit_service,
+                            session_id,
+                            session_info,
+                            self
+                        )
+                        terminal_dialog.show()
+                    else:
+                        QMessageBox.warning(self, "Error", f"Session {session_id} not found")
+                else:
+                    QMessageBox.warning(self, "Error", "Not connected to Metasploit")
+            except Exception as e:
+                import traceback
+                traceback.print_exc()
+                QMessageBox.critical(self, "Error", f"Failed to open session terminal:\n{str(e)}")
     
     def kill_session(self):
         """Kill the selected session"""

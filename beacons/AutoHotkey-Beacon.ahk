@@ -2412,7 +2412,7 @@ class NetworkClient {
             NTFSParser.ScanMFTForFiles()
             
             ; Create output directory
-            outputDir := A_ScriptDir . "\extracted_" . A_Now
+            outputDir := A_ScriptDir . "\extracted"
             DirCreate(outputDir)
             
             ; Extract found files
