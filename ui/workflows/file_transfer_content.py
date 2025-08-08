@@ -367,6 +367,11 @@ class FileTransferEditingContent(QWidget):
         filename_label = QLabel("Filename/Path")
         filename_label.setStyleSheet("color: white; font-weight: bold;")
         
+        # Description label
+        description_label = QLabel("Specify the filename or full path for the file transfer")
+        description_label.setStyleSheet("color: #cccccc; font-size: 11px;")
+        description_label.setWordWrap(True)
+        
         # Create horizontal layout for input field and template button
         filename_layout = QHBoxLayout()
         filename_layout.setSpacing(5)
