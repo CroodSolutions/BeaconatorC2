@@ -319,7 +319,12 @@ class SessionTerminalDialog(QDialog):
         self.command_in_progress = False
         self.execute_btn.setEnabled(True)
         self.status_label.setText("Ready")
-        self.current_executor = None
+        
+        # Clean up the executor thread
+        if self.current_executor:
+            self.current_executor.quit()
+            self.current_executor.wait(1000)  # Wait up to 1 second
+            self.current_executor = None
         
         # Add newline for readability
         self.append_output("\n")
