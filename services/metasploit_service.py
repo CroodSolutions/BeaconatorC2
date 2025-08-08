@@ -1121,35 +1121,58 @@ class MetasploitService:
             
             # Determine session type and use appropriate method
             if 'meterpreter' in session_type:
-                # For Meterpreter sessions, try different approaches
+                # For Meterpreter sessions, use console-based approach for better output
                 if utils.logger:
                     utils.logger.log_message(f"Executing meterpreter command: {command}")
                 
                 try:
-                    # Method 1: Try meterpreter_write followed by meterpreter_read
-                    write_result = self._handlers.session.meterpreter_write(session_id, command)
-                    if utils.logger:
-                        utils.logger.log_message(f"Meterpreter write result: {write_result}")
-                    
-                    # Small delay to allow command execution
-                    import time
-                    time.sleep(1)
-                    
-                    read_result = self._handlers.session.meterpreter_read(session_id)
-                    if utils.logger:
-                        utils.logger.log_message(f"Meterpreter read result: {read_result}")
-                    
-                    output = read_result.get('data', '') if isinstance(read_result, dict) else str(read_result)
-                    
+                    # Create a console and interact with the session
+                    console_result = self._handlers.console.create()
+                    if console_result and 'id' in console_result:
+                        console_id = console_result['id']
+                        
+                        try:
+                            # Clear any initial output
+                            self._handlers.console.read(console_id)
+                            
+                            # Send session command
+                            session_cmd = f"sessions -i {session_id}"
+                            self._handlers.console.write(console_id, session_cmd + "\n")
+                            import time
+                            time.sleep(0.5)
+                            
+                            # Clear the session start output
+                            self._handlers.console.read(console_id)
+                            
+                            # Send the actual command
+                            self._handlers.console.write(console_id, command + "\n")
+                            time.sleep(1)
+                            
+                            # Read the output
+                            output_result = self._handlers.console.read(console_id)
+                            output = output_result.get('data', '') if isinstance(output_result, dict) else str(output_result)
+                            
+                            # Exit back to main console
+                            self._handlers.console.write(console_id, "background\n")
+                            time.sleep(0.2)
+                            
+                        finally:
+                            # Clean up console
+                            try:
+                                self._handlers.console.destroy(console_id)
+                            except:
+                                pass
+                    else:
+                        # Fallback to run_single if console creation fails
+                        result = self._handlers.session.meterpreter_run_single(session_id, command)
+                        output = f"Command executed: {command}" if str(result) == 'success' else str(result)
+                        
                 except Exception as e:
                     if utils.logger:
-                        utils.logger.log_message(f"Meterpreter write/read failed: {e}, trying run_single")
-                    
-                    # Fallback: Try the original method
+                        utils.logger.log_message(f"Console approach failed: {e}")
+                    # Final fallback
                     result = self._handlers.session.meterpreter_run_single(session_id, command)
-                    if utils.logger:
-                        utils.logger.log_message(f"Meterpreter run_single result: {result}")
-                    output = str(result) if result and str(result) != 'success' else f"Command '{command}' executed successfully"
+                    output = f"Command '{command}' executed (status: {result})"
                     
                 if utils.logger:
                     utils.logger.log_message(f"Final meterpreter output: '{output}'")

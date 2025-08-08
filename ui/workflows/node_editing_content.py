@@ -428,7 +428,7 @@ class NodeEditingContent(QWidget):
             }
         """)
         self.save_button.clicked.connect(self.save_parameters)
-        self.save_button.setEnabled(False)
+        self.save_button.setEnabled(True)
         
         footer_layout.addWidget(self.reset_button)
         footer_layout.addWidget(self.save_button)
@@ -472,7 +472,7 @@ class NodeEditingContent(QWidget):
         self.execute_button.setEnabled(node.node_type != 'start')
         self.delete_button.setEnabled(True)
         self.reset_button.setEnabled(True)
-        self.save_button.setEnabled(False)
+        # Save button state will be set by load_node_parameters based on node type
             
     def show_action_node_interface(self, node):
         """Show interface for action nodes (schema/module selection)"""
@@ -765,10 +765,10 @@ class NodeEditingContent(QWidget):
         for param_info in parameters:
             self.create_parameter_widget(param_info)
             
-        # Enable/disable buttons based on whether we have parameters
+        # Enable/disable buttons based on parameters
         has_params = len(parameters) > 0
         self.reset_button.setEnabled(has_params)
-        self.save_button.setEnabled(has_params)
+        self.save_button.setEnabled(True)  # Always allow saving
 
             
     def create_parameter_widget(self, param_info):
@@ -901,7 +901,7 @@ class NodeEditingContent(QWidget):
             # Emit signal
             self.node_updated.emit(self.current_node, updated_parameters)
             
-            self.save_button.setEnabled(False)
+            self.save_button.setEnabled(True)
             
         except Exception as e:
             QMessageBox.warning(self, "Error", f"Failed to save parameters: {e}")
