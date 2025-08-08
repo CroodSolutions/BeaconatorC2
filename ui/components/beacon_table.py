@@ -94,13 +94,8 @@ class BeaconTableWidget(QTableView):
             pass
 
     def setup_table(self):
-        # Try to set font, but use default if not available
-        try:
-            families = QFontDatabase.families()
-            if len(families) > 1:
-                self.setFont(QFont(families[1]))
-        except:
-            pass
+        # Font is already set by FontManager in __init__, no need to override it
+        # If FontManager wasn't available, Qt will use system default which is fine
             
         self.setSelectionBehavior(QTableView.SelectionBehavior.SelectRows)
         self.setSelectionMode(QTableView.SelectionMode.SingleSelection)

@@ -367,14 +367,18 @@ class WorkflowExecutionWorker(QThread):
                     self.beacon_repository.update_beacon_command(self.beacon_id, command)
                     self._log("info", f"File transfer queued: {operation_desc}")
                     
-                    # Return success result with the queued operation information
-                    return {
-                        'status': 'completed', 
-                        'output': f'File transfer queued: {operation_desc}',
-                        'transfer_direction': transfer_direction,
-                        'filename': filename,
-                        'command': command
-                    }
+                    # Wait for the file transfer to complete (same as action nodes)
+                    self._log("info", f"Waiting for file transfer completion: {operation_desc}")
+                    result = self._wait_for_command_completion(command)
+                    
+                    # Add transfer metadata to the result
+                    if result.get('status') == 'completed':
+                        result['transfer_direction'] = transfer_direction
+                        result['filename'] = filename
+                        result['command'] = command
+                        result['output'] = f"File transfer completed: {operation_desc}\n{result.get('output', '')}"
+                    
+                    return result
                     
                 except Exception as e:
                     error_msg = f'Failed to queue file transfer command: {str(e)}'

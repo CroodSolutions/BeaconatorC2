@@ -10,7 +10,84 @@ This project has been started to help better test products, configurations, dete
 
 ## --- Instructions and Overview ---
 
-TBD
+### Getting Started
+  Prerequisites
+
+  - Python 3.8 or higher (Python 3.10+ recommended)
+  - Git for cloning the repository
+  - pip for installing Python packages
+
+  Installation
+
+  1. Clone the Repository
+
+  git clone https://github.com/yourusername/BeaconatorC2.git
+  cd BeaconatorC2
+
+  2. Create a Virtual Environment (Recommended)
+
+  Windows:
+  python -m venv venv
+  venv\Scripts\activate
+
+  Linux/macOS:
+  python3 -m venv venv
+  source venv/bin/activate
+
+  3. Install Required Packages
+
+  pip install -r requirements.txt
+
+  Note: On some Linux distributions, you may need to install additional system packages for PyQt6:
+  #### Ubuntu/Debian
+  sudo apt-get install python3-pyqt6 libgl1 libxcb-cursor0
+
+  #### Fedora/RHEL
+  sudo dnf install python3-pyqt6 mesa-libGL libxcb-cursor
+
+  4. Run BeaconatorC2
+
+  Windows:
+  python BeaconatorC2-Manager.py
+
+  Linux/macOS:
+  python3 BeaconatorC2-Manager.py
+
+  First Time Setup
+
+  1. Launch the Application: The GUI will open with the main dashboard
+  2. Configure Receivers: Navigate to the "Receivers" tab to set up your first receiver (TCP, HTTP,
+  etc.)
+  3. Deploy a Beacon: Use one of the example beacons in the beacons/ directory: `python beacons/simple_python_beacon.py --server 127.0.0.1 --port 5074`
+  4. Assign Schema: When your beacon appears in the dashboard, rassign an appropriate
+  schema (e.g., simple_python_beacon.yaml) in the beacon settings tab
+  5. Execute Commands: Use the Command interface to interact with your beacon
+
+  Quick Test
+
+  To quickly verify your installation:
+
+  1. Start BeaconatorC2-Manager
+  2. Go to Receivers tab → Add New Receiver → TCP on port 5074
+  3. In a separate terminal, run:
+  python beacons/simple_python_beacon.py --server 127.0.0.1 --port 5074
+  4. You should see the beacon appear in the main dashboard
+
+  Optional: Metasploit Integration
+
+  To enable Metasploit integration features:
+
+  1. Install Metasploit Framework
+  2. Start the RPC daemon:
+`msf > load msgrpc ServerHost=127.0.0.1 ServerPort=55553 User=(user) Pass='(password)' SSL=false`
+  3. Configure connection in BeaconatorC2 under the Metasploit tab
+
+  Next Steps
+
+  - Review the Architecture.md to understand the system design
+  - Check the communication_standards.md for beacon protocol details
+  - Explore the schemas/ directory to understand beacon capability definitions
+  - See beacons/ for example beacon implementations in various languages
 
 ## --- Demo of Code Execution on MacOS ---
 
