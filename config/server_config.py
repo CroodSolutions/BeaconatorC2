@@ -19,15 +19,15 @@ class ServerConfig:
     MSF_RPC_PORT: int = 55553
     MSF_RPC_USER: str = 'msf'
     MSF_RPC_PASS: str = 'msf123'
-    MSF_RPC_SSL: bool = True
+    MSF_RPC_SSL: bool = False
     MSF_RPC_URI: str = '/api/'
     MSF_ENABLED: bool = True
     MSF_AUTO_CLEANUP: bool = True
     MSF_DEFAULT_LHOST: str = ''  # Will be auto-detected if empty
     
     # Metasploit Process Management
-    MSF_AUTO_START: bool = True          # Auto-start RPC on BeaconatorC2 launch
-    MSF_AUTO_STOP: bool = True           # Auto-stop RPC on BeaconatorC2 exit
+    MSF_AUTO_START: bool = False         # Auto-start RPC on BeaconatorC2 launch
+    MSF_AUTO_STOP: bool = False          # Auto-stop RPC on BeaconatorC2 exit
     MSF_DAEMON_PATH: str = 'msfrpcd'     # Path to msfrpcd executable
     MSF_CONSOLE_PATH: str = 'msfconsole' # Path to msfconsole executable
     MSF_STARTUP_TIMEOUT: int = 30        # Seconds to wait for RPC startup

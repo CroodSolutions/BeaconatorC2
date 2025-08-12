@@ -48,7 +48,7 @@ class NavigationMenu(QWidget):
             "workflows": ("Workflows", QIcon("resources/sitemap.svg")),
             #"settings": ("Settings", QStyle.StandardPixmap.SP_FileDialogListView),
             "metasploit": ("Metasploit RPC", QIcon("resources/bomb.svg")),
-            "docs": ("Documentation", QIcon("resources/info-hexagon.svg")),   
+           # "docs": ("Documentation", QIcon("resources/info-hexagon.svg")),   
         }
         
         for nav_id, (text, icon) in nav_items.items():
