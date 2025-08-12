@@ -403,6 +403,20 @@ class WorkflowExecutionWorker(QThread):
         
         self._log("info", f"Waiting for command completion: {command}")
         
+        # Check if this is a file transfer command
+        is_file_transfer = command.startswith(('upload_file ', 'download_file '))
+        if is_file_transfer:
+            # Extract filename for monitoring
+            parts = command.split(' ', 1)
+            if len(parts) > 1:
+                filename = parts[1].strip()
+                # Get just the filename without path for log matching
+                import os
+                base_filename = os.path.basename(filename)
+                self._log("info", f"Monitoring file transfer for: {base_filename}")
+            else:
+                base_filename = None
+        
         # Get initial output length to detect new output
         initial_output = self._get_beacon_output()
         initial_output_length = len(initial_output)
@@ -435,25 +449,64 @@ class WorkflowExecutionWorker(QThread):
                 
             # Once picked up, wait for new output to appear and stabilize
             if command_picked_up:
-                current_output = self._get_beacon_output()
-                current_output_length = len(current_output)
-                
-                # Check if we have new output since command started
-                if current_output_length > initial_output_length:
-                    # Output is growing, reset stability counter
-                    if current_output_length != last_output_length:
-                        stable_output_count = 0
-                        last_output_length = current_output_length
-                    else:
-                        # Output length hasn't changed, increment stability
-                        stable_output_count += 1
+                # Special handling for file transfers
+                if is_file_transfer:
+                    # For file transfers, check logs for completion message
+                    # Calculate how long we've been waiting since command was picked up
+                    elapsed_time = time.time() - start_time
+                    if elapsed_time >= 10:  # Wait at least 10 seconds before checking logs
+                        # Check recent log messages for file transfer completion
+                        try:
+                            from pathlib import Path
+                            from config.server_config import ServerConfig
+                            from datetime import datetime, timedelta
+                            
+                            config = ServerConfig()
+                            log_folder = Path(config.LOGS_FOLDER)
+                            
+                            # Get today's log file
+                            today = datetime.now().strftime("%Y-%m-%d")
+                            log_file = log_folder / f"{today}.log"
+                            
+                            if log_file.exists() and base_filename:
+                                # Read last 100 lines of log file
+                                with open(log_file, 'r', encoding='utf-8', errors='ignore') as f:
+                                    lines = f.readlines()[-100:]
+                                    
+                                # Check for file transfer completion message
+                                for line in reversed(lines):
+                                    if f"File received: {base_filename}" in line:
+                                        self._log("info", f"File transfer confirmed in logs: {base_filename}")
+                                        return {'status': 'completed', 'output': f'File transfer completed: {base_filename}'}
+                        except Exception as e:
+                            self._log("debug", f"Could not check logs for file transfer: {e}")
                         
-                    # Consider output stable after 3 consecutive checks with same length
-                    if stable_output_count >= 3:
-                        # Extract new output since command started
-                        new_output = current_output[initial_output_length:] if current_output_length > initial_output_length else ""
-                        self._log("info", f"Command completed with output length: {len(new_output)}")
-                        return {'status': 'completed', 'output': new_output.strip()}
+                        # If we've waited long enough and command was picked up, consider it complete
+                        if elapsed_time >= 30:
+                            self._log("info", f"File transfer assumed complete after {elapsed_time:.0f}s")
+                            return {'status': 'completed', 'output': f'File transfer completed (no confirmation): {command}'}
+                
+                # Regular command handling (non-file transfer)
+                else:
+                    current_output = self._get_beacon_output()
+                    current_output_length = len(current_output)
+                    
+                    # Check if we have new output since command started
+                    if current_output_length > initial_output_length:
+                        # Output is growing, reset stability counter
+                        if current_output_length != last_output_length:
+                            stable_output_count = 0
+                            last_output_length = current_output_length
+                        else:
+                            # Output length hasn't changed, increment stability
+                            stable_output_count += 1
+                            
+                        # Consider output stable after 3 consecutive checks with same length
+                        if stable_output_count >= 3:
+                            # Extract new output since command started
+                            new_output = current_output[initial_output_length:] if current_output_length > initial_output_length else ""
+                            self._log("info", f"Command completed with output length: {len(new_output)}")
+                            return {'status': 'completed', 'output': new_output.strip()}
                         
             time.sleep(1)  # Check every second
             
