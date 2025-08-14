@@ -1,4 +1,7 @@
 from PyQt6.QtCore import QThread, pyqtSignal
+
+import utils
+from config import ServerConfig
 from database import BeaconRepository
 
 class BeaconUpdateWorker(QThread):
@@ -11,8 +14,6 @@ class BeaconUpdateWorker(QThread):
         self._running = True  # Add running flag
 
     def run(self):
-        import utils  # Import here to avoid circular imports
-        from config import ServerConfig  # Import ServerConfig
         config = ServerConfig()  # Get timeout value
         
         while self._running:  # Use running flag

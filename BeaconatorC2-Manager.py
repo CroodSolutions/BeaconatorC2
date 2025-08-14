@@ -5,19 +5,20 @@ A universal C2 beacon framework manager supporting beacons in any programming la
 """
 
 import sys
+import threading
 from pathlib import Path
-from PyQt6.QtWidgets import QApplication
+
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QPalette, QColor
+from PyQt6.QtWidgets import QApplication
 
-# Import refactored modules
-from config import ServerConfig, ConfigManager
+from config import ConfigManager, ServerConfig
 from database import setup_database
 from services import CommandProcessor, FileTransferService, MetasploitManager
 from services.receivers import ReceiverManager
 from services.receivers.legacy_migration import ensure_legacy_receiver_exists
 from ui import MainWindow
-from utils import Logger, setup_taskbar_icon, ensure_directories
+from utils import Logger, ensure_directories, setup_taskbar_icon
 import utils
 
 def main():
@@ -97,7 +98,6 @@ def main():
         original_close_event(event)  # Call original close event
         
         # Try to shutdown gracefully with timeout
-        import threading
         def shutdown_with_timeout():
             try:
                 # Shutdown Metasploit manager first

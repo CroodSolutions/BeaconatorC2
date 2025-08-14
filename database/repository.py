@@ -1,6 +1,9 @@
-from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
-from typing import Optional, List
+from typing import List, Optional
+
+from sqlalchemy.orm import Session
+
+import utils
 from .models import Beacon
 
 class BeaconRepository:
@@ -39,7 +42,6 @@ class BeaconRepository:
             session.commit()
 
     def update_beacon_command(self, beacon_id: str, command: Optional[str]):
-        import utils  # Import here to avoid circular imports
         with self._get_session() as session:
             if beacon := session.query(Beacon).filter_by(beacon_id=beacon_id).first():
                 beacon.pending_command = command

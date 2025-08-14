@@ -5,16 +5,17 @@ Handles automatic startup, monitoring, and shutdown of Metasploit RPC daemon
 """
 
 import os
-import sys
-import time
 import signal
 import socket
 import subprocess
+import sys
 import threading
-from typing import Optional, Tuple
+import time
 from dataclasses import dataclass
-from config import ServerConfig
+from typing import Optional, Tuple
+
 import utils
+from config import ServerConfig
 
 
 @dataclass

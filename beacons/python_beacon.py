@@ -5,19 +5,19 @@ Multi-protocol beacon supporting TCP, UDP, SMB, and HTTP communication
 Designed for testing receiver implementations across multiple protocols
 """
 
+import argparse
+import base64
+import hashlib
+import os
+import platform
 import socket
 import subprocess
-import time
-import hashlib
-import platform
-import uuid
-import os
 import sys
-import argparse
 import threading
-import base64
-import urllib.request
+import time
 import urllib.parse
+import urllib.request
+import uuid
 from pathlib import Path
 
 

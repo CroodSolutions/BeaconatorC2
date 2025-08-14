@@ -1,6 +1,8 @@
+from typing import Tuple as PyTuple
+
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from typing import Tuple as PyTuple
+
 from .models import Base
 from .repository import BeaconRepository
 

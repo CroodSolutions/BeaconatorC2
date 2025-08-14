@@ -1,4 +1,6 @@
 from PyQt6.QtCore import QThread, pyqtSignal
+
+import utils
 from services.receivers import ReceiverManager
 
 class ReceiverUpdateWorker(QThread):
@@ -11,7 +13,6 @@ class ReceiverUpdateWorker(QThread):
         self._running = True
 
     def run(self):
-        import utils  # Import here to avoid circular imports
         while self._running:
             try:
                 # Trigger stats update for all receivers
