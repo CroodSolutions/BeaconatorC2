@@ -1,6 +1,9 @@
 import socket
 from pathlib import Path
+
 from werkzeug.utils import secure_filename
+
+from utils import safe_filename_path, strip_filename_quotes
 
 class FileTransferService:
     """Handles file transfer operations"""
@@ -8,7 +11,6 @@ class FileTransferService:
     @staticmethod
     def send_file(conn: socket.socket, filename: str, config, logger) -> bool:
         """Send file to agent"""
-        from utils import strip_filename_quotes
         
         try:
             # Strip quotes from filename and log the processing
@@ -18,7 +20,6 @@ class FileTransferService:
             
             # Use safe_filename_path instead of secure_filename to preserve spaces
             try:
-                from utils import safe_filename_path
                 filepath = safe_filename_path(Path(config.FILES_FOLDER), filename)
             except ValueError as e:
                 conn.send(f'ERROR|Invalid filename: {str(e)}'.encode('utf-8'))
@@ -68,7 +69,6 @@ class FileTransferService:
     @staticmethod
     def receive_file(conn: socket.socket, filename: str, config, logger) -> bool:
         """Receive file from agent"""
-        from utils import strip_filename_quotes
         
         try:
             # Strip quotes from filename and log the processing
@@ -78,7 +78,6 @@ class FileTransferService:
             
             # Use safe_filename_path instead of secure_filename to preserve spaces
             try:
-                from utils import safe_filename_path
                 filepath = safe_filename_path(Path(config.FILES_FOLDER), filename)
             except ValueError as e:
                 logger.log_message(f"File Receive Failed: Invalid filename '{filename}' - {e}")

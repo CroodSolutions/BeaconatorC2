@@ -5,16 +5,16 @@ TCP-only beacon with configurable encoding (plaintext/base64)
 Designed for testing receiver encoding strategy implementations
 """
 
-import socket
-import subprocess
-import time
-import hashlib
-import platform
-import uuid
-import os
-import sys
 import argparse
 import base64
+import hashlib
+import os
+import platform
+import socket
+import subprocess
+import sys
+import time
+import uuid
 
 
 class SimplePythonBeacon:
