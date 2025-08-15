@@ -80,7 +80,7 @@ class NodePositionManager:
     
     def __init__(self):
         # Grid system - all spacing should be multiples of grid size for symmetry
-        self.grid_snap_size = 25     # Snap positions to grid (75px for better alignment)
+        self.grid_snap_size = 25     # Snap positions to grid (unified with canvas grid_size)
         self.default_spacing_x = 300  # Horizontal spacing between nodes (4 grid units)
         self.default_spacing_y = 150  # Vertical spacing for branches (2 grid units)
         self.collision_padding = 20   # Extra padding to avoid collisions

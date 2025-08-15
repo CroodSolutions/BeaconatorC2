@@ -524,6 +524,8 @@ class CustomWorkflowCanvas(QWidget):
         self.is_selecting = False  # Selection rectangle mode
         self.last_mouse_pos = QPoint()
         self.drag_start_pos = QPoint()
+        self.drag_offset = QPointF()  # Offset between click point and primary node position
+        self.drag_node_offsets = {}  # Dictionary to store offsets for all selected nodes
         self.hovered_action_point = None
         
         # Selection rectangle
@@ -538,7 +540,12 @@ class CustomWorkflowCanvas(QWidget):
         # Visual settings
         self.background_color = QColor(45, 45, 45)
         self.grid_color = QColor(60, 60, 60)
-        self.grid_size = 20
+        self.grid_size = 25  # Unified grid size (changed from 20 to match positioning system)
+        
+        # Dot matrix settings
+        self.dot_size = 2  # Radius of grid dots in pixels
+        self.dot_color = QColor(70, 70, 70)  # Slightly lighter than grid_color for subtlety
+        self.dot_opacity = 0.7  # Opacity for subtle but visible guidance
         
         # Performance settings
         self.enable_grid = True
@@ -560,19 +567,20 @@ class CustomWorkflowCanvas(QWidget):
         
     def add_node(self, node_type: str, position: QPointF, module_info: dict = None) -> WorkflowNode:
         """Add a new node to the canvas (WorkflowEditor interface)"""
-        # Convert QPointF position to world coordinates
+        # Convert QPointF position to world coordinates and snap to grid
         world_pos = self.screen_to_world(position)
+        snapped_pos = self.snap_to_grid(world_pos)
         
         # Get template for node type
         template = self.template_registry.get_template(node_type)
         if not template:
             # Create a basic node if no template found
-            node = WorkflowNode(world_pos.x(), world_pos.y(), title=node_type.title(), node_type=node_type)
+            node = WorkflowNode(snapped_pos.x(), snapped_pos.y(), title=node_type.title(), node_type=node_type)
         else:
             # Create node from template
-            node_data = self.node_factory.create_node_from_template(template, world_pos)
+            node_data = self.node_factory.create_node_from_template(template, snapped_pos)
             node = WorkflowNode(
-                world_pos.x(), world_pos.y(), 
+                snapped_pos.x(), snapped_pos.y(), 
                 title=template.display_name, 
                 node_type=node_type
             )
@@ -732,7 +740,8 @@ class CustomWorkflowCanvas(QWidget):
                     position = QPointF(0, 0) if not self.nodes else QPointF(300, 150)
                 
             # Position is already in world coordinates from our positioning system
-            world_pos = position
+            # Snap to grid for consistent alignment
+            world_pos = self.snap_to_grid(position)
             
             # Get node type from template
             node_type = getattr(template, 'node_type', 'action')
@@ -939,6 +948,15 @@ class CustomWorkflowCanvas(QWidget):
         bottom_right = self.screen_to_world(QPointF(self.width(), self.height()))
         return QRectF(top_left, bottom_right)
         
+    def snap_to_grid(self, position: QPointF) -> QPointF:
+        """Snap position to the nearest grid point for consistent alignment"""
+        grid_size = self.grid_size
+        
+        snapped_x = round(position.x() / grid_size) * grid_size
+        snapped_y = round(position.y() / grid_size) * grid_size
+        
+        return QPointF(snapped_x, snapped_y)
+        
     def find_node_at_position(self, world_pos: QPointF) -> Optional[WorkflowNode]:
         """Find the node at the given world position"""
         for node in reversed(self.nodes):  # Check from top to bottom
@@ -988,34 +1006,68 @@ class CustomWorkflowCanvas(QWidget):
             
             
     def _draw_grid(self, painter: QPainter):
-        """Draw the background grid"""
-        painter.setPen(QPen(self.grid_color, 1))
+        """Draw the background dot matrix grid"""
+        # Set up dot drawing properties
+        dot_color = QColor(self.dot_color)
+        dot_color.setAlphaF(self.dot_opacity)
+        painter.setBrush(QBrush(dot_color))
+        painter.setPen(Qt.PenStyle.NoPen)  # No outline for dots
         
         # Get visible area
         visible_rect = self.get_visible_rect()
         
-        # Calculate grid bounds
+        # Calculate grid bounds with some padding to avoid edge artifacts
         grid_spacing = self.grid_size
-        start_x = int(visible_rect.left() / grid_spacing) * grid_spacing
-        start_y = int(visible_rect.top() / grid_spacing) * grid_spacing
-        end_x = visible_rect.right()
-        end_y = visible_rect.bottom()
+        padding = grid_spacing * 2
+        start_x = int((visible_rect.left() - padding) / grid_spacing) * grid_spacing
+        start_y = int((visible_rect.top() - padding) / grid_spacing) * grid_spacing
+        end_x = visible_rect.right() + padding
+        end_y = visible_rect.bottom() + padding
         
-        # Draw vertical lines
-        x = start_x
-        while x <= end_x:
-            screen_start = self.world_to_screen(QPointF(x, visible_rect.top()))
-            screen_end = self.world_to_screen(QPointF(x, visible_rect.bottom()))
-            painter.drawLine(screen_start.toPoint(), screen_end.toPoint())
-            x += grid_spacing
-            
-        # Draw horizontal lines
+        # Calculate dot size based on zoom level for better visibility
+        screen_dot_size = max(1.0, self.dot_size * self.zoom_factor)
+        
+        # Only draw dots if they will be visible (performance optimization)
+        if screen_dot_size < 0.5:
+            return
+        
+        # Enhanced performance: Calculate drawing bounds in screen space to reduce coordinate conversions
+        widget_rect = QRectF(0, 0, self.width(), self.height())
+        dot_radius = screen_dot_size
+        
+        # Draw dots at grid intersections with optimized boundary checking
         y = start_y
-        while y <= end_y:
-            screen_start = self.world_to_screen(QPointF(visible_rect.left(), y))
-            screen_end = self.world_to_screen(QPointF(visible_rect.right(), y))
-            painter.drawLine(screen_start.toPoint(), screen_end.toPoint())
+        dots_drawn = 0
+        max_dots = 10000  # Prevent excessive dot rendering at extreme zoom levels
+        
+        while y <= end_y and dots_drawn < max_dots:
+            x = start_x
+            while x <= end_x and dots_drawn < max_dots:
+                # Convert world coordinates to screen coordinates
+                screen_pos = self.world_to_screen(QPointF(x, y))
+                
+                # Enhanced viewport culling: check if dot (including radius) is within visible area
+                dot_bounds = QRectF(
+                    screen_pos.x() - dot_radius,
+                    screen_pos.y() - dot_radius,
+                    dot_radius * 2,
+                    dot_radius * 2
+                )
+                
+                if widget_rect.intersects(dot_bounds):
+                    painter.drawEllipse(
+                        int(screen_pos.x() - dot_radius),
+                        int(screen_pos.y() - dot_radius),
+                        int(dot_radius * 2),
+                        int(dot_radius * 2)
+                    )
+                    dots_drawn += 1
+                
+                x += grid_spacing
             y += grid_spacing
+        
+        # Reset brush after drawing dots to avoid affecting subsequent drawings
+        painter.setBrush(Qt.BrushStyle.NoBrush)
             
     def _draw_connections(self, painter: QPainter):
         """Draw all connections between nodes"""
@@ -1727,7 +1779,7 @@ class CustomWorkflowCanvas(QWidget):
             painter.setPen(QPen(QColor(255, 255, 255) if action_point.is_hovered else QColor(0, 0, 0), 2))
             
             radius = action_point.radius * self.zoom_factor
-            painter.drawEllipse(screen_pos, radius, radius)
+            painter.drawEllipse(screen_pos, int(radius), int(radius))
             
             # Draw + symbol
             painter.setPen(QPen(QColor(255, 255, 255), 2))
@@ -1766,7 +1818,13 @@ class CustomWorkflowCanvas(QWidget):
                 action_point.is_visible = False
             
     def mousePressEvent(self, event: QMouseEvent):
-        """Handle mouse press events"""
+        """Handle mouse press events
+        
+        Drag behavior: When clicking on a node, we store the offset between the click
+        position and the node's position. This ensures the node doesn't jump during
+        dragging - the point under the cursor remains under the cursor throughout
+        the drag operation. Multiple selected nodes maintain their relative positions.
+        """
         if event.button() == Qt.MouseButton.LeftButton:
             world_pos = self.screen_to_world(QPointF(event.position()))
             
@@ -1826,6 +1884,17 @@ class CustomWorkflowCanvas(QWidget):
                 if not (event.modifiers() & Qt.KeyboardModifier.ControlModifier):
                     self.is_dragging_node = True
                     self.drag_start_pos = event.position().toPoint()
+                    
+                    # Calculate offset between click position and node position
+                    # This maintains the relative position during drag
+                    node_pos = QPointF(clicked_node.x, clicked_node.y)
+                    self.drag_offset = world_pos - node_pos
+                    
+                    # Store offsets for all selected nodes (for multi-node dragging)
+                    self.drag_node_offsets = {}
+                    for node in self.selected_nodes:
+                        node_world_pos = QPointF(node.x, node.y)
+                        self.drag_node_offsets[node] = world_pos - node_world_pos
                 
                 self.update()
             else:
@@ -1852,14 +1921,29 @@ class CustomWorkflowCanvas(QWidget):
             self._update_selection_preview()
             self.update()
             
-        elif self.is_dragging_node and self.selected_node:
-            # Drag selected node
-            world_delta = self.screen_to_world(QPointF(current_pos)) - self.screen_to_world(QPointF(self.last_mouse_pos))
-            self.selected_node.move_to(
-                self.selected_node.x + world_delta.x(),
-                self.selected_node.y + world_delta.y()
-            )
-            self.node_moved.emit(self.selected_node, QPointF(self.selected_node.x, self.selected_node.y))
+        elif self.is_dragging_node:
+            # Drag selected node(s) with grid snapping while maintaining offset
+            world_pos = self.screen_to_world(QPointF(current_pos))
+            
+            # Move all selected nodes while maintaining their relative positions
+            if self.selected_nodes and self.drag_node_offsets:
+                for node in self.selected_nodes:
+                    if node in self.drag_node_offsets:
+                        # Apply the specific offset for this node
+                        node_offset = self.drag_node_offsets[node]
+                        target_pos = world_pos - node_offset
+                        snapped_pos = self.snap_to_grid(target_pos)
+                        
+                        node.move_to(snapped_pos.x(), snapped_pos.y())
+                        self.node_moved.emit(node, QPointF(node.x, node.y))
+            elif self.selected_node:
+                # Fallback for single node (shouldn't normally happen)
+                target_pos = world_pos - self.drag_offset
+                snapped_pos = self.snap_to_grid(target_pos)
+                
+                self.selected_node.move_to(snapped_pos.x(), snapped_pos.y())
+                self.node_moved.emit(self.selected_node, QPointF(self.selected_node.x, self.selected_node.y))
+            
             self.update()
             
         elif self.is_panning:
@@ -1883,10 +1967,25 @@ class CustomWorkflowCanvas(QWidget):
                 self._finalize_selection()
                 self.is_selecting = False
                 self.update()
-                
+            elif self.is_dragging_node:
+                # Final grid snap to ensure perfect alignment for all selected nodes
+                if self.selected_nodes:
+                    for node in self.selected_nodes:
+                        current_pos = QPointF(node.x, node.y)
+                        snapped_pos = self.snap_to_grid(current_pos)
+                        node.move_to(snapped_pos.x(), snapped_pos.y())
+                        self.node_moved.emit(node, snapped_pos)
+                elif self.selected_node:
+                    current_pos = QPointF(self.selected_node.x, self.selected_node.y)
+                    snapped_pos = self.snap_to_grid(current_pos)
+                    self.selected_node.move_to(snapped_pos.x(), snapped_pos.y())
+                    self.node_moved.emit(self.selected_node, snapped_pos)
+                self.update()
                 
             self.is_dragging_node = False
             self.is_panning = False
+            self.drag_offset = QPointF()  # Reset drag offset
+            self.drag_node_offsets = {}  # Clear all node offsets
             self.setCursor(Qt.CursorShape.ArrowCursor)
             
     def _handle_action_point_click(self, node: WorkflowNode, action_point: ActionPoint):
