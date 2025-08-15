@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Custom high-performance workflow canvas using QPainter instead of QGraphicsView.
+Custom workflow canvas using QPainter instead of QGraphicsView.
 This implementation aims to provide much better panning and zooming performance.
 """
 
@@ -10,19 +10,10 @@ from PyQt6.QtWidgets import QWidget, QApplication
 from PyQt6.QtCore import Qt, QPoint, QPointF, QRectF, pyqtSignal, QObject
 from PyQt6.QtGui import QPainter, QPen, QBrush, QColor, QFont, QFontMetrics, QWheelEvent, QMouseEvent, QPaintEvent
 
-# Import workflow components
-try:
-    from services.workflows.node_compatibility import NodeCompatibilityManager, ConnectionType
-    from services.workflows.node_factory import NodeTemplateRegistry, NodeFactory, ConnectionContext
-    from services.workflows.connection_features import ConnectionFeatureManager
-    from services.workflows.performance_manager import WorkflowPerformanceManager
-    from services.workflows.workflow_service import WorkflowService, WorkflowNode as ServiceWorkflowNode, WorkflowConnection as ServiceWorkflowConnection
-    from services.workflows.workflow_engine import WorkflowEngine
-    WORKFLOW_COMPONENTS_AVAILABLE = True
-except ImportError as e:
-    pass
-    WORKFLOW_COMPONENTS_AVAILABLE = False
-
+from services.workflows.node_compatibility import NodeCompatibilityManager, ConnectionType
+from services.workflows.node_factory import NodeTemplateRegistry, NodeFactory, ConnectionContext
+from services.workflows.workflow_service import WorkflowService, WorkflowNode as ServiceWorkflowNode, WorkflowConnection as ServiceWorkflowConnection
+from services.workflows.workflow_engine import WorkflowEngine
 
 class ActionPoint:
     """Interactive action point for creating connections"""
@@ -497,11 +488,10 @@ class CustomWorkflowCanvas(QWidget):
         self.schema_service = schema_service
         
         # Initialize workflow components if available
-        if WORKFLOW_COMPONENTS_AVAILABLE and schema_service:
+        if schema_service:
             self.template_registry = NodeTemplateRegistry(schema_service)
             self.compatibility_manager = NodeCompatibilityManager(schema_service, self.template_registry)
             self.node_factory = NodeFactory(self.template_registry, schema_service)
-            self.connection_feature_manager = ConnectionFeatureManager()
             
             # Initialize workflow service integration
             self.workflow_service = None  # Will be set by parent editor
@@ -512,7 +502,6 @@ class CustomWorkflowCanvas(QWidget):
             self.template_registry = None
             self.compatibility_manager = None
             self.node_factory = None
-            self.connection_feature_manager = None
             self.workflow_service = None
             self.workflow_engine = None
             pass

@@ -187,8 +187,7 @@ class NodeTemplateRegistry:
             }
         ))
         
-        # Note: Action nodes are now dynamically loaded from schemas via _load_schema_action_templates()
-        
+
         
         
         
@@ -231,11 +230,6 @@ class NodeTemplateRegistry:
             }
         ))
         
-    def _ensure_schemas_loaded(self):
-        """Ensure schema-based action templates are loaded (lazy loading)"""
-        # Note: We now use a generic "action" template instead of loading specific schema templates
-        # Schema selection will be handled at the node configuration level
-        pass
         
     def _load_schema_action_templates(self):
         """Load Action node templates from selected beacon schemas"""
@@ -357,27 +351,24 @@ class NodeTemplateRegistry:
         
     def get_template(self, node_type: str) -> Optional[NodeTemplate]:
         """Get template for a node type"""
-        self._ensure_schemas_loaded()
+
         return self.templates.get(node_type)
         
     def get_templates_by_category(self, category: str) -> List[NodeTemplate]:
         """Get all templates in a category"""
-        self._ensure_schemas_loaded()
+
         return [template for template in self.templates.values() 
                 if template.category == category]
         
     def get_all_categories(self) -> List[str]:
         """Get list of all template categories"""
-        self._ensure_schemas_loaded()
+
         categories = set(template.category for template in self.templates.values())
         return sorted(list(categories))
         
     def get_compatible_templates(self, source_node_type: str, 
                                 connection_type: ConnectionType) -> List[NodeTemplate]:
         """Get templates compatible with a source node and connection type"""
-        self._ensure_schemas_loaded()
-        # This would integrate with NodeCompatibilityManager
-        # For now, return all templates (will be refined in integration)
         return list(self.templates.values())
     
     
@@ -437,7 +428,6 @@ class NodeTemplateRegistry:
     
     def get_templates_by_schema(self, schema_file: str) -> List[NodeTemplate]:
         """Get all templates from a specific schema"""
-        self._ensure_schemas_loaded()
         if schema_file not in self._schema_action_templates:
             return []
         
