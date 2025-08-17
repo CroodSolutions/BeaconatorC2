@@ -14,4 +14,4 @@ We need to level up. We need to continue our focus on AV/EDR to make sure we dep
 
 This means that when someone finds a way around an application control product, we should consider it a P1 issue, because it is one of our final lines of defense. And, if you are not using it, do not worry - soon you will be. 
 
-Credit/contributors (direct and indirect): Shammahwoods, bohops, NathanMcNulty,0xBoku, BushidoToken, TechSpence, Biniam Gebrehiwot, Christian Taillon, Cameron Kownack, James Biddle, Cyrus Duncan (and many others/see repo readme.md).
+Credit/contributors (direct and indirect), who have inspired or influenced how we are thinking about this: Shammahwoods, bohops, NathanMcNulty, 0xBoku, BushidoToken, TechSpence, Biniam Gebrehiwot, Christian Taillon, Cameron Kownack, James Biddle, Cyrus Duncan (and many others/see repo readme.md).
