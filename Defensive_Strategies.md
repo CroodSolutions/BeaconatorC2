@@ -24,5 +24,7 @@ Here are a few things to focus on from a defensive perspective:
  - If the arbitrary code cannot run you are in a better place, and if a beacon cannot connect out, this also helps much of the time (not always).
  - Test these methods and analyze the telemetry they generate in your environment.
  - Write custom IOAs for evasive scenarios, targeted at AV/EDR blind spots.
+ - Leverage network and identity monitoring tools, to spot malicious activity you are not seeing at a host level.
+ - Consider deception technology (see the work of TechSpence).
  - Purple team using BeaconatorC2 and other tools to train your SOC what the telemetry looks like in your environment.
  - Continuously iterate between testing, analysis, detection engineering, and control tuning.
