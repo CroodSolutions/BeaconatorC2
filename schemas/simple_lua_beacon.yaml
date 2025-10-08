@@ -1,0 +1,48 @@
+schema_version: "1.1"
+beacon_info:
+  beacon_type: "simple_lua_beacon"
+  version: "1.0.0"
+  description: "Simple Lua beacon using LuaSocket for TCP communication (portable deployment)"
+  supported_platforms: ["windows", "linux", "macos"]
+  encoding_strategy: "base64"
+  file_transfer_supported: false
+  keylogger_supported: false
+  communication_protocol: "tcp"
+
+categories:
+  basic_commands:
+    display_name: "Basic Commands"
+    description: "Essential command execution capabilities for encoding testing via Lua"
+    modules:
+      command_execution:
+        display_name: "Command Execution"
+        description: "Execute arbitrary system commands with configurable encoding"
+        command_template: "{command}"
+        parameters:
+          command:
+            type: "textarea"
+            display_name: "Command"
+            description: "Enter command to execute on the target system"
+            required: true
+            default: ""
+            validation:
+              min_length: 1
+              max_length: 4096
+        documentation:
+          content: "Execute system commands directly on the target machine. This beacon supports plaintext and base64 encoding strategies for testing receiver implementations. Commands are executed using io.popen with captured output. The beacon uses LuaSocket for TCP communication and can be deployed portably by placing socket/core.dll (Windows) or socket/core.so (Linux) in the same directory as the beacon script. The script automatically configures Lua's package paths to find the local socket library."
+          examples:
+            - "whoami"
+            - "dir (Windows)"
+            - "ls -la (Linux/macOS)"
+            - "systeminfo (Windows)"
+            - "uname -a (Linux/macOS)"
+            - "hostname"
+            - "ipconfig (Windows)"
+            - "ifconfig (Linux/macOS)"
+            - "netstat -an (Windows/Linux)"
+        execution:
+          timeout: 300
+          requires_admin: false
+        ui:
+          layout: "simple"
+
