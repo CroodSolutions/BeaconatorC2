@@ -7,16 +7,20 @@ without relying on outdated third-party libraries.
 Supports both MessagePack and JSON RPC protocols.
 """
 
-import json
-import time
 import base64
-import requests
-import msgpack
-from typing import Dict, Any, List, Optional, Tuple, Union
-from urllib.parse import urljoin
-from threading import Lock
+import json
+import socket
 import ssl
+import time
+from typing import Dict, Any, List, Optional, Tuple, Union
+from threading import Lock
+from urllib.parse import urljoin
+
+import msgpack
+import requests
+
 import utils
+from utils.helpers import is_text_format
 
 
 def normalize_response(data):
@@ -253,7 +257,6 @@ class MetasploitRpcClient:
         
         try:
             # Log RPC request for debugging
-            import utils
             if utils.logger:
                 utils.logger.log_message(f"RPC Call: {method} with params: {params}")
             
@@ -525,7 +528,6 @@ class ModuleHandler(BaseHandler):
     
     def execute(self, module_type: str, module_name: str, options: Dict[str, Any]) -> Dict[str, Any]:
         """Execute a module with specified options"""
-        import utils
         if utils.logger:
             utils.logger.log_message(f"ModuleHandler.execute: module_type={module_type}, module_name={module_name}, options={options}")
         
@@ -864,9 +866,6 @@ class PayloadGenerator:
             Tuple of (success, payload_data, error_message)
         """
         try:
-            # Import helper functions to determine format type
-            from utils.helpers import is_text_format
-            
             # Prepare payload options
             payload_options = dict(options)
             if format != 'raw':
@@ -969,7 +968,6 @@ class PayloadGenerator:
         Returns:
             IP address string
         """
-        import socket
         try:
             # Connect to a remote address to determine local IP
             s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)

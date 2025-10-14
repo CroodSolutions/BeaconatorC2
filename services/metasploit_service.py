@@ -8,12 +8,14 @@ Provides programmatic access to Metasploit Framework via RPC for:
 - Error handling and reconnection logic
 """
 
+import re
 import socket
 import time
 import threading
 from typing import Dict, Any, List, Optional, Tuple
 from dataclasses import dataclass
 from threading import Lock
+
 from config import ServerConfig
 from .custom_msf_rpc import (
     MetasploitRpcClient, MetasploitApiHandlers, PayloadGenerator,
@@ -412,7 +414,6 @@ class MetasploitService:
             console_id = console_result['id']
             
             # Wait for console initialization
-            import time
             time.sleep(1)
             
             # Clear any initial output (including ASCII art)
@@ -479,7 +480,6 @@ class MetasploitService:
                             utils.logger.log_message(f"Console output: {output[:200]}")
                     
                     # Parse accumulated output for job ID
-                    import re
                     patterns = [
                         r'Exploit\s+running\s+as\s+background\s+job\s+(\d+)',
                         r'\[\*\]\s+Exploit\s+running\s+as\s+background\s+job\s+(\d+)',
@@ -550,7 +550,6 @@ class MetasploitService:
             True if port is being listened on, False otherwise
         """
         try:
-            import socket
             # Try to connect to the port - if something is listening, we'll get a connection
             # For reverse handlers, they listen for incoming connections
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -634,8 +633,7 @@ class MetasploitService:
         Returns:
             True if handler is bound and listening, False otherwise
         """
-        import socket
-        import time
+        # Handler binding verification logic
         
         if utils.logger:
             utils.logger.log_message(f"MetasploitService: Verifying handler binding for job {job_id} on {host}:{port}")
@@ -746,7 +744,6 @@ class MetasploitService:
             result = self._handlers.job.stop(job_id)
             
             # Wait longer for job cleanup (handlers can be slow to stop)
-            import time
             time.sleep(2.0)  # Increased from 0.5s to 2s
             
             # Verify job is gone
@@ -804,7 +801,6 @@ class MetasploitService:
                         utils.logger.log_message(f"Error stopping session {session_id}: {str(e)}")
             
             if sessions_cleaned > 0:
-                import time
                 time.sleep(1)  # Give sessions time to clean up
                 
                 if utils.logger:
@@ -831,7 +827,6 @@ class MetasploitService:
             # Method 1: Try RPC stop again with longer wait
             try:
                 self._handlers.job.stop(job_id)
-                import time
                 time.sleep(3)  # Even longer wait
                 
                 jobs = self._handlers.job.list()
@@ -849,7 +844,6 @@ class MetasploitService:
                 if console_id:
                     # Kill job via console
                     self._handlers.console.write(console_id, f"jobs -k {job_id}")
-                    import time
                     time.sleep(1)
                     
                     # Read console output
@@ -914,7 +908,6 @@ class MetasploitService:
                             
                             if lport:
                                 # Quick check if port is actually in use
-                                import socket
                                 port_in_use = False
                                 try:
                                     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as test_sock:
@@ -1138,7 +1131,6 @@ class MetasploitService:
                             # Send session command
                             session_cmd = f"sessions -i {session_id}"
                             self._handlers.console.write(console_id, session_cmd + "\n")
-                            import time
                             time.sleep(0.5)
                             
                             # Clear the session start output
@@ -1180,7 +1172,6 @@ class MetasploitService:
                 # For shell sessions, write command and read output
                 write_result = self._handlers.session.shell_write(session_id, command + '\n')
                 # Small delay to allow command execution
-                import time
                 time.sleep(0.5)
                 read_result = self._handlers.session.shell_read(session_id)
                 output = read_result.get('data', '') if isinstance(read_result, dict) else str(read_result)

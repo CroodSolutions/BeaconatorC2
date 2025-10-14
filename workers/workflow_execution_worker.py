@@ -1,14 +1,19 @@
+import os
 import time
 from typing import Dict, Any, Optional, List
-from datetime import datetime
+from datetime import datetime, timedelta
+from pathlib import Path
+
 from PyQt6.QtCore import QThread, pyqtSignal
 
+from config.server_config import ServerConfig
+from database import BeaconRepository
 from services.workflows.workflow_service import Workflow, WorkflowNode, WorkflowConnection
 from services.workflows.execution_types import ExecutionContext, ExecutionStatus
 from services.workflows.parameter_template_engine import ParameterTemplateEngine
 from services.workflows.condition_processor import ConditionProcessor
 from services.workflows.variable_extractor import VariableExtractor
-from database import BeaconRepository
+from services.workflows.node_compatibility import ConnectionType
 
 
 class WorkflowExecutionWorker(QThread):
@@ -84,15 +89,15 @@ class WorkflowExecutionWorker(QThread):
             if beacon.status != 'online':
                 raise Exception(f"Beacon {self.beacon_id} is not online (status: {beacon.status})")
             
-            # Find start node and begin execution
-            start_node = self._find_start_node()
-            if not start_node:
-                raise Exception("No start node found in workflow")
+            # Find trigger/start node and begin execution
+            trigger_node = self._find_trigger_node()
+            if not trigger_node:
+                raise Exception("No trigger or start node found in workflow")
                 
-            self._log("info", f"Found start node: {start_node.node_id}")
+            self._log("info", f"Found trigger node: {trigger_node.node_id}")
             
-            # Execute workflow starting from start node
-            self._execute_workflow_from_node(start_node)
+            # Execute workflow starting from trigger node
+            self._execute_workflow_from_node(trigger_node)
             
             # If we reach here without stop request, workflow completed successfully
             if not self._stop_requested:
@@ -114,10 +119,10 @@ class WorkflowExecutionWorker(QThread):
                 self._context.end_time = datetime.now()
             self.execution_failed.emit(self.execution_id, error_msg)
             
-    def _find_start_node(self) -> Optional[WorkflowNode]:
-        """Find the start node in the workflow"""
+    def _find_trigger_node(self) -> Optional[WorkflowNode]:
+        """Find the trigger or start node in the workflow"""
         for node in self.workflow.nodes:
-            if node.node_type == 'start':
+            if node.node_type in ['trigger', 'start']:  # Support both for compatibility
                 return node
         return None
         
@@ -175,8 +180,13 @@ class WorkflowExecutionWorker(QThread):
             node.parameters = original_parameters
         
         # Execute node based on type
-        if node.node_type == 'start':
-            return {'status': 'started', 'output': 'Workflow started successfully'}
+        if node.node_type in ['trigger', 'start']:
+            # Handle trigger context if available
+            trigger_info = "Workflow triggered"
+            if hasattr(node, 'parameters'):
+                trigger_type = node.parameters.get('trigger_type', 'manual')
+                trigger_info = f"Workflow triggered ({trigger_type})"
+            return {'status': 'started', 'output': trigger_info}
             
         elif node.node_type == 'end':
             return {'status': 'ended', 'output': 'Workflow completed successfully'}
@@ -411,7 +421,6 @@ class WorkflowExecutionWorker(QThread):
             if len(parts) > 1:
                 filename = parts[1].strip()
                 # Get just the filename without path for log matching
-                import os
                 base_filename = os.path.basename(filename)
                 self._log("info", f"Monitoring file transfer for: {base_filename}")
             else:
@@ -457,10 +466,6 @@ class WorkflowExecutionWorker(QThread):
                     if elapsed_time >= 10:  # Wait at least 10 seconds before checking logs
                         # Check recent log messages for file transfer completion
                         try:
-                            from pathlib import Path
-                            from config.server_config import ServerConfig
-                            from datetime import datetime, timedelta
-                            
                             config = ServerConfig()
                             log_folder = Path(config.LOGS_FOLDER)
                             
@@ -525,9 +530,6 @@ class WorkflowExecutionWorker(QThread):
         try:
             # This would typically read from a file or database
             # Implementation depends on how beacon output is stored
-            from pathlib import Path
-            from config.server_config import ServerConfig
-            
             config = ServerConfig()
             output_file = Path(config.LOGS_FOLDER) / f"output_{self.beacon_id}.txt"
             
@@ -567,8 +569,6 @@ class WorkflowExecutionWorker(QThread):
     def _find_condition_branch(self, condition_node: WorkflowNode, result: Dict[str, Any], 
                               outgoing_connections: List[WorkflowConnection]) -> Optional[WorkflowNode]:
         """Find the next node based on condition evaluation result"""
-        from services.workflows.node_compatibility import ConnectionType
-        
         # Get condition result
         condition_result = result.get('condition_result', False)
         

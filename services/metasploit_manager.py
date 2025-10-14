@@ -5,6 +5,7 @@ Handles automatic startup, monitoring, and shutdown of Metasploit RPC daemon
 """
 
 import os
+import shutil
 import signal
 import socket
 import subprocess
@@ -71,7 +72,6 @@ class MetasploitManager:
             daemon_path = self.config.MSF_DAEMON_PATH
             if not os.path.isabs(daemon_path):
                 # Try to find in PATH
-                import shutil
                 found_path = shutil.which(daemon_path)
                 if found_path:
                     daemon_path = found_path
@@ -94,7 +94,6 @@ class MetasploitManager:
                 return False, f"msfrpcd not executable: {daemon_path}. Check file permissions."
             
             # Additional check: verify msfconsole is also available (full installation)
-            import shutil
             if not shutil.which('msfconsole'):
                 return False, (
                     f"msfrpcd found at {daemon_path}, but msfconsole is missing.\n"

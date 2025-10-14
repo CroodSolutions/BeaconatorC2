@@ -9,6 +9,18 @@ Provides an interactive interface for:
 - Live connection status
 """
 
+import json
+import os
+import platform
+import random
+import re
+import socket
+import subprocess
+import time
+import traceback
+from pathlib import Path
+from typing import Dict, Any, List, Optional, Tuple
+
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QTabWidget, QGroupBox, 
     QLineEdit, QPushButton, QComboBox, QTreeWidget, QTreeWidgetItem,
@@ -19,17 +31,12 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QTimer, QSize
 from PyQt6.QtGui import QFont, QIcon, QPixmap, QColor, QPalette
-from typing import Dict, Any, List, Optional, Tuple
-import json
-import time
-import subprocess
-import platform
-import os
-from services import MetasploitManager, MetasploitService, PayloadConfig, ListenerConfig
-from database import BeaconRepository
+
 from config import ServerConfig
+from database import BeaconRepository
+from services import MetasploitManager, MetasploitService, PayloadConfig, ListenerConfig
 from ui.dialogs import SessionTerminalDialog
-from utils.helpers import save_payload_to_disk
+from utils.helpers import save_payload_to_disk, get_file_extension_for_format
 import utils
 
 
@@ -1166,8 +1173,7 @@ class PayloadGeneratorTab(QWidget):
             success, payload_data, error = self.metasploit_service.generate_payload(config)
             
             if success:
-                # Import helper to get proper file extension
-                from utils.helpers import get_file_extension_for_format
+                # Get proper file extension
                 extension = get_file_extension_for_format(config.format)
                 filename = f"{config.payload_type.replace('/', '_')}{extension}"
                 
@@ -1247,7 +1253,6 @@ class PayloadGeneratorTab(QWidget):
     def open_payloads_folder(self):
         """Open the payloads folder in the system file manager"""
         try:
-            from pathlib import Path
             payloads_path = Path(self.config.PAYLOADS_FOLDER)
             
             # Create directory if it doesn't exist
@@ -1467,7 +1472,6 @@ class ListenersTab(QWidget):
                         utils.logger.log_message(f"ListenersTab: Listener started successfully with job ID: {job_id}")
                     
                     # Cache the listener information for better display
-                    import time
                     self._listener_cache[str(job_id)] = {
                         'payload': payload_type,
                         'host': lhost,
@@ -1926,7 +1930,6 @@ class ListenersTab(QWidget):
             return "LHOST cannot be empty. Please enter a valid IP address or hostname."
         
         # Enhanced IP validation
-        import re
         ip_pattern = r'^(\d{1,3}\.){3}\d{1,3}$'
         if re.match(ip_pattern, lhost):
             # Validate IP octets
@@ -2019,7 +2022,6 @@ class ListenersTab(QWidget):
             suggested_port += 1
             
         # If we can't find a port, suggest a random high port
-        import random
         return random.randint(49152, 65535)
     
     def _check_port_binding(self, host: str, port: int) -> str:
@@ -2033,9 +2035,6 @@ class ListenersTab(QWidget):
             String describing the port status
         """
         try:
-            import socket
-            import time
-            
             # Use the same retry logic as the backend verification
             # This is now handled by the backend verification in MetasploitService
             # Here we just do a quick check after the backend has verified
@@ -2506,7 +2505,6 @@ class ListenersTab(QWidget):
                     
                 # Check recent activity
                 if hasattr(self.metasploit_service, '_last_activity'):
-                    import time
                     last_activity = getattr(self.metasploit_service, '_last_activity', None)
                     if last_activity:
                         diagnostics['last_activity'] = time.time() - last_activity
@@ -2825,7 +2823,6 @@ class SessionsTab(QWidget):
                 else:
                     QMessageBox.warning(self, "Error", "Not connected to Metasploit")
             except Exception as e:
-                import traceback
                 traceback.print_exc()
                 QMessageBox.critical(self, "Error", f"Failed to open session terminal:\n{str(e)}")
     
