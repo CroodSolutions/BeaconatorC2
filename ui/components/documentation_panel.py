@@ -142,7 +142,7 @@ class DocumentationPanel(QWidget):
                 background-color: #1e1e1e;
                 border: 1px solid #404040;
                 color: #f8f8f2;
-                font-family: 'Consolas', 'Monaco', monospace;
+                font-family: 'Source Code Pro', 'Monaco', monospace;
                 font-size: 11px;
             }
         """)
@@ -274,7 +274,7 @@ class DocumentationPanel(QWidget):
                 cursor.setBlockFormat(block_format)
                 
                 code_format = QTextCharFormat()
-                code_format.setFontFamily('Consolas')
+                code_format.setFontFamily('Source Code Pro')
                 code_format.setFontPointSize(base_size)
                 code_format.setForeground(QColor('#E0E0E0'))
                 cursor.insertText(code_content, code_format)

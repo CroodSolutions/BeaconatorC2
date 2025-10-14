@@ -133,6 +133,7 @@ class DynamicParameterWidget(QWidget):
         
         # Style required fields
         if required:
+            # TODO: Add to styles.qss - Orange border for required input fields
             self.input_widget.setStyleSheet("border: 1px solid orange;")
             
         layout.addWidget(self.input_widget)
@@ -289,6 +290,7 @@ class StatusTab(QWidget):
         """Update connection status display"""
         if not self.metasploit_manager:
             self.status_indicator.setText("●")
+            # TODO: Add to styles.qss - Red status indicator for disconnected state
             self.status_indicator.setStyleSheet("color: red;")
             self.status_text.setText("No Metasploit manager")
             return
@@ -302,6 +304,7 @@ class StatusTab(QWidget):
         # Check installation status
         if not status.get('installation_found', False):
             self.status_indicator.setText("●")
+            # TODO: Add to styles.qss - Red status indicator for disconnected state
             self.status_indicator.setStyleSheet("color: red;")
             self.status_text.setText("Metasploit not installed")
             self.install_status_label.setText("Not Found")
@@ -314,6 +317,7 @@ class StatusTab(QWidget):
         # Update connection status
         if status['is_running']:
             self.status_indicator.setText("●")
+            # TODO: Add to styles.qss - Green status indicator for connected state
             self.status_indicator.setStyleSheet("color: green;")
             # Show if it's external or managed
             if status.get('is_managed', False):
@@ -322,6 +326,7 @@ class StatusTab(QWidget):
                 self.status_text.setText("Connected (External)")
         else:
             self.status_indicator.setText("●")
+            # TODO: Add to styles.qss - Red status indicator for disconnected state
             self.status_indicator.setStyleSheet("color: red;")
             self.status_text.setText("Disconnected")
         
@@ -989,6 +994,7 @@ class PayloadGeneratorTab(QWidget):
             error_text = f"Error loading options: {error}"
         
         self.module_desc_label.setText(error_text)
+        # TODO: Add to styles.qss - Light red error text (#ff6b6b) with italic style
         self.module_desc_label.setStyleSheet("color: #ff6b6b; font-style: italic;")
         
     def clear_configuration(self):
@@ -2552,8 +2558,10 @@ class ListenersTab(QWidget):
         
         status_label = QLabel(status_msg)
         if is_connected:
+            # TODO: Add to styles.qss - Green bold status for connected state
             status_label.setStyleSheet("color: green; font-weight: bold;")
         else:
+            # TODO: Add to styles.qss - Red bold status for disconnected state
             status_label.setStyleSheet("color: red; font-weight: bold;")
         status_layout.addWidget(status_label)
         status_group.setLayout(status_layout)

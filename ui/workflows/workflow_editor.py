@@ -1,7 +1,7 @@
-from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QSplitter, 
+from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QSplitter,
                             QLabel, QPushButton, QToolBar, QFrame, QInputDialog,
                             QFileDialog, QMessageBox, QListWidget, QDialog, QDialogButtonBox,
-                            QTextEdit)
+                            QTextEdit, QStackedWidget)
 from PyQt6.QtCore import Qt, pyqtSignal, QPointF
 from PyQt6.QtGui import QIcon, QAction, QFont
 import time
@@ -337,31 +337,41 @@ class WorkflowEditor(QWidget):
         """Create the center canvas panel for workflow design"""
         self.canvas_panel = QFrame()
         self.canvas_panel.setFrameStyle(QFrame.Shape.StyledPanel)
-        
-        layout = QVBoxLayout()
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(0)
-        
+
+        # Create main layout for canvas panel
+        main_layout = QVBoxLayout()
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(0)
+
+        # Create stacked widget to switch between canvas and active workflows views
+        self.view_stack = QStackedWidget()
+
+        # Create canvas view widget (index 0)
+        canvas_view_widget = QWidget()
+        canvas_view_layout = QVBoxLayout()
+        canvas_view_layout.setContentsMargins(0, 0, 0, 0)
+        canvas_view_layout.setSpacing(0)
+
         # Canvas header
-        header = QLabel("Workflow Canvas")
-        header.setStyleSheet("""
-            font-weight: bold; 
-            padding: 8px; 
+        self.canvas_header = QLabel("Workflow Canvas")
+        self.canvas_header.setStyleSheet("""
+            font-weight: bold;
+            padding: 8px;
             background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #424242, stop:1 #303030);
             color: white;
             border-radius: 4px;
         """)
-        layout.addWidget(header)
-        
+        canvas_view_layout.addWidget(self.canvas_header)
+
         # Create canvas and validation splitter
         canvas_splitter = QSplitter(Qt.Orientation.Vertical)
-        
+
         # Create the actual workflow canvas
         self.canvas = CustomWorkflowCanvas(self, self.schema_service)
-        
+
         # Set workflow service references for integration
         self.canvas.set_workflow_services(self.workflow_service, self.workflow_engine)
-        
+
         # Connect canvas signals
         self.canvas.node_selected.connect(self.on_node_selected)
         # Don't connect to node_parameters_updated to avoid circular updates
@@ -370,16 +380,23 @@ class WorkflowEditor(QWidget):
         self.canvas.connection_created.connect(self.on_connection_created)
         self.canvas.node_deletion_requested.connect(self.on_node_deleted)
         self.canvas.node_moved.connect(self.on_node_moved)
-        
+
         canvas_splitter.addWidget(self.canvas)
-        
-        layout.addWidget(canvas_splitter)
-        
+        canvas_view_layout.addWidget(canvas_splitter)
+
+        canvas_view_widget.setLayout(canvas_view_layout)
+
+        # Add canvas view to stack (index 0)
+        self.view_stack.addWidget(canvas_view_widget)
+
+        # Add stacked widget to main layout
+        main_layout.addWidget(self.view_stack)
+
+        self.canvas_panel.setLayout(main_layout)
+
         # Create a default workflow and add a start node
         self.create_default_workflow()
         self.add_start_node()
-        
-        self.canvas_panel.setLayout(layout)
         
         
     def create_default_workflow(self):
@@ -1109,26 +1126,24 @@ class WorkflowEditor(QWidget):
     def show_active_workflows(self):
         """Show the active workflows management view"""
         if self.trigger_service:
-            # Hide canvas and show active workflows view
-            self.canvas.setVisible(False)
-            
-            # Create or show the active workflows widget
+            # Create the active workflows widget if it doesn't exist
             if not hasattr(self, 'active_workflows_widget'):
                 from .active_workflows_widget import ActiveWorkflowsWidget
                 self.active_workflows_widget = ActiveWorkflowsWidget(
                     self.trigger_service,
                     self.workflow_service,
-                    self
+                    self  # Pass WorkflowEditor reference
                 )
-                # Add to the canvas panel layout
-                self.canvas_panel.layout().addWidget(self.active_workflows_widget)
-                
+                # Add to the view stack (index 1)
+                self.view_stack.addWidget(self.active_workflows_widget)
+
                 # Connect signal to return to canvas view
                 self.active_workflows_widget.return_to_canvas.connect(self.show_canvas_view)
-            
-            self.active_workflows_widget.setVisible(True)
+
+            # Switch to active workflows view (index 1)
+            self.view_stack.setCurrentIndex(1)
             self.active_workflows_widget.load_workflows()
-            
+
             # Update button state
             self.active_workflows_action.setCheckable(True)
             self.active_workflows_action.setChecked(True)
@@ -1141,10 +1156,9 @@ class WorkflowEditor(QWidget):
     
     def show_canvas_view(self):
         """Return to the canvas view from active workflows"""
-        if hasattr(self, 'active_workflows_widget'):
-            self.active_workflows_widget.setVisible(False)
-        self.canvas.setVisible(True)
-        
+        # Switch to canvas view (index 0)
+        self.view_stack.setCurrentIndex(0)
+
         # Update button state
         self.active_workflows_action.setChecked(False)
     
@@ -1158,22 +1172,21 @@ class WorkflowEditor(QWidget):
     
     def load_workflow_by_id(self, workflow_id: str):
         """Load a specific workflow by its ID"""
+        # First, ensure we're on the canvas view
+        self.show_canvas_view()
+
         workflow = self.workflow_service.load_workflow(workflow_id)
         if workflow:
-            # Clear current canvas
-            self.canvas.clear_canvas()
-            
-            # Load the workflow
+            # Set as current workflow
             self.current_workflow = workflow
-            
-            # Recreate nodes and connections on canvas
-            # This would need implementation based on your workflow format
-            # For now, just show a message
-            QMessageBox.information(
-                self,
-                "Load Workflow",
-                f"Loading workflow: {workflow.name}"
-            )
+
+            # Load the workflow to canvas (this clears and recreates nodes/connections)
+            self.load_workflow_to_canvas(workflow)
+
+            # Update window title
+            self.update_window_title()
+
+            print(f"Loaded workflow from Active Workflows: {workflow.name}")
     
     def register_workflow_triggers(self):
         """Register workflow triggers with the trigger service"""

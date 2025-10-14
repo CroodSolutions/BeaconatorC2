@@ -15,7 +15,7 @@ class LogWidget(QTextEdit):
         self.setMinimumHeight(100)
         
         # Set monospace font for better log readability
-        font = QFont("Consolas", 9)
+        font = QFont("Source Code Pro", 9)
         FontManager().add_relative_font_widget(self, 0)
         font.setStyleHint(QFont.StyleHint.TypeWriter)
         self.setFont(font)
@@ -75,7 +75,7 @@ class LogHighlighter(QSyntaxHighlighter):
         # Timestamp
         timestamp_format = QTextCharFormat()
         timestamp_format.setForeground(QColor(self.colors['timestamp']))
-        font = QFont("Consolas", 8)
+        font = QFont("Source Code Pro", 8)
         timestamp_format.setFont(font)
         self.highlighting_rules.append(
             (re.compile(r'\[\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2}\]'),
@@ -147,7 +147,7 @@ class LogHighlighter(QSyntaxHighlighter):
         )
                 # Store the command output format separately since we'll handle it differently
         self.command_output_format = QTextCharFormat()
-        self.command_output_format.setFont(QFont("Consolas", 6))
+        self.command_output_format.setFont(QFont("Source Code Pro", 6))
 
     def highlightBlock(self, text):
         # Check if this block is a command output line or continuation

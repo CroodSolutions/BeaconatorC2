@@ -1,11 +1,11 @@
 from datetime import datetime, timedelta
-from typing import List, Optional
+from typing import Dict, List, Optional, Tuple
 
 from PyQt6.QtCore import QObject, pyqtSignal
 from sqlalchemy.orm import Session
 
 import utils
-from .models import Beacon
+from .models import Beacon, BeaconMetadata
 
 class BeaconRepository(QObject):
     """Repository pattern for Beacon database operations with proper session management"""
@@ -26,7 +26,7 @@ class BeaconRepository(QObject):
         with self._get_session() as session:
             return session.query(Beacon).filter_by(beacon_id=beacon_id).first()
 
-    def update_beacon_status(self, beacon_id: str, status: str, computer_name: Optional[str] = None, receiver_id: Optional[str] = None):
+    def update_beacon_status(self, beacon_id: str, status: str, computer_name: Optional[str] = None, receiver_id: Optional[str] = None, ip_address: Optional[str] = None):
         previous_status = None
         with self._get_session() as session:
             beacon = session.query(Beacon).filter_by(beacon_id=beacon_id).first()
@@ -36,7 +36,8 @@ class BeaconRepository(QObject):
                     computer_name=computer_name or "Unknown",
                     status=status,
                     last_checkin=datetime.now(),
-                    receiver_id=receiver_id
+                    receiver_id=receiver_id,
+                    ip_address=ip_address
                 )
                 session.add(beacon)
             else:
@@ -47,8 +48,10 @@ class BeaconRepository(QObject):
                     beacon.computer_name = computer_name
                 if receiver_id:
                     beacon.receiver_id = receiver_id
+                if ip_address:
+                    beacon.ip_address = ip_address
             session.commit()
-            
+
             # Emit signal if status actually changed
             if previous_status != status:
                 beacon_info = {
@@ -56,7 +59,8 @@ class BeaconRepository(QObject):
                     'computer_name': beacon.computer_name,
                     'status': status,
                     'previous_status': previous_status,
-                    'receiver_id': beacon.receiver_id
+                    'receiver_id': beacon.receiver_id,
+                    'ip_address': beacon.ip_address
                 }
                 self.beacon_status_changed.emit(beacon_info)
                 print(f"[TRIGGER DEBUG] Emitted beacon_status_changed signal: {beacon_id} ({beacon.computer_name}) {previous_status} -> {status}")
@@ -100,7 +104,8 @@ class BeaconRepository(QObject):
                     'computer_name': beacon.computer_name,
                     'status': 'offline',
                     'previous_status': previous_status,
-                    'receiver_id': beacon.receiver_id
+                    'receiver_id': beacon.receiver_id,
+                    'ip_address': beacon.ip_address
                 }
                 self.beacon_status_changed.emit(beacon_info)
                 print(f"[TRIGGER DEBUG] Emitted beacon_status_changed signal (timeout): {beacon.beacon_id} ({beacon.computer_name}) {previous_status} -> offline")
@@ -138,3 +143,136 @@ class BeaconRepository(QObject):
         """Get count of online beacons for a specific receiver"""
         with self._get_session() as session:
             return session.query(Beacon).filter_by(status='online', receiver_id=receiver_id).count()
+
+    def update_last_executed_command(self, beacon_id: str, command: str) -> bool:
+        """Update the last executed command for a beacon (used for output parsing)"""
+        with self._get_session() as session:
+            if beacon := session.query(Beacon).filter_by(beacon_id=beacon_id).first():
+                beacon.last_executed_command = command
+                session.commit()
+                return True
+            return False
+
+    def get_last_executed_command(self, beacon_id: str) -> Optional[str]:
+        """Get the last executed command for a beacon"""
+        with self._get_session() as session:
+            if beacon := session.query(Beacon).filter_by(beacon_id=beacon_id).first():
+                return beacon.last_executed_command
+            return None
+
+    def store_beacon_metadata(self, beacon_id: str, metadata: List[Tuple[str, str]], source_command: Optional[str] = None):
+        """
+        Store metadata for a beacon
+
+        Args:
+            beacon_id: The beacon ID
+            metadata: List of (key, value) tuples
+            source_command: Optional command that produced this metadata
+        """
+        with self._get_session() as session:
+            for key, value in metadata:
+                # Check if metadata already exists for this beacon and key
+                existing = session.query(BeaconMetadata).filter_by(
+                    beacon_id=beacon_id,
+                    key=key
+                ).first()
+
+                if existing:
+                    # Update existing metadata
+                    existing.value = value
+                    existing.source_command = source_command
+                    existing.collected_at = datetime.now()
+                else:
+                    # Create new metadata entry
+                    metadata_entry = BeaconMetadata(
+                        beacon_id=beacon_id,
+                        key=key,
+                        value=value,
+                        source_command=source_command,
+                        collected_at=datetime.now()
+                    )
+                    session.add(metadata_entry)
+
+            session.commit()
+
+    def get_beacon_metadata(self, beacon_id: str, key: Optional[str] = None) -> Dict[str, str]:
+        """
+        Get metadata for a beacon, optionally filtered by key
+
+        Args:
+            beacon_id: The beacon ID
+            key: Optional specific key to retrieve
+
+        Returns:
+            Dictionary of key-value pairs
+        """
+        with self._get_session() as session:
+            query = session.query(BeaconMetadata).filter_by(beacon_id=beacon_id)
+
+            if key:
+                query = query.filter_by(key=key)
+
+            results = query.all()
+            return {item.key: item.value for item in results}
+
+    def get_beacon_metadata_with_details(self, beacon_id: str) -> List[Dict[str, any]]:
+        """
+        Get metadata for a beacon with full details (timestamp, source command)
+
+        Args:
+            beacon_id: The beacon ID
+
+        Returns:
+            List of dictionaries with metadata details
+        """
+        with self._get_session() as session:
+            results = session.query(BeaconMetadata).filter_by(beacon_id=beacon_id).all()
+            return [{
+                'key': item.key,
+                'value': item.value,
+                'source_command': item.source_command,
+                'collected_at': item.collected_at
+            } for item in results]
+
+    def delete_beacon_metadata(self, beacon_id: str, key: Optional[str] = None) -> bool:
+        """
+        Delete metadata for a beacon
+
+        Args:
+            beacon_id: The beacon ID
+            key: Optional specific key to delete (if None, deletes all metadata for beacon)
+
+        Returns:
+            True if metadata was deleted
+        """
+        with self._get_session() as session:
+            query = session.query(BeaconMetadata).filter_by(beacon_id=beacon_id)
+
+            if key:
+                query = query.filter_by(key=key)
+
+            deleted_count = query.delete()
+            session.commit()
+            return deleted_count > 0
+
+    def search_beacons_by_metadata(self, metadata_filter: Dict[str, str]) -> List[Beacon]:
+        """
+        Search for beacons that match specific metadata criteria
+
+        Args:
+            metadata_filter: Dictionary of key-value pairs to match
+
+        Returns:
+            List of beacons matching all criteria
+        """
+        with self._get_session() as session:
+            query = session.query(Beacon)
+
+            for key, value in metadata_filter.items():
+                # Join with metadata table for each filter
+                query = query.join(BeaconMetadata, Beacon.beacon_id == BeaconMetadata.beacon_id).filter(
+                    BeaconMetadata.key == key,
+                    BeaconMetadata.value == value
+                )
+
+            return query.all()

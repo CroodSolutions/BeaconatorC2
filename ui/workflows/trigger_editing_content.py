@@ -163,25 +163,28 @@ class TriggerEditingContent(QWidget):
         """Create the main content area"""
         self.content_area = QWidget()
         layout = QVBoxLayout()
-        layout.setContentsMargins(15, 20, 15, 30)
-        layout.setSpacing(15)
-        
+        layout.setContentsMargins(15, 0, 15, 15)
+        layout.setSpacing(0)
+
         # Trigger Type Section
-        type_layout = QVBoxLayout()
-        type_layout.setSpacing(8)
-        
         type_label = QLabel("Trigger Type")
         type_label.setStyleSheet("""
-            color: #ffffff;
-            font-weight: bold;
-            font-size: 12px;
+            QLabel {
+                color: #ffffff;
+                font-weight: bold;
+                font-size: 12px;
+                margin: 10px 0px 2px 0px;
+                padding: 0px;
+                border: none;
+                background-color: transparent;
+            }
         """)
-        type_layout.addWidget(type_label)
-        
+        layout.addWidget(type_label)
+
         self.trigger_type_combo = QComboBox()
         self.trigger_type_combo.addItems([
             "Manual",
-            "Beacon Connection", 
+            "Beacon Connection",
             "Beacon Status Change",
             "Scheduled"
         ])
@@ -193,6 +196,7 @@ class TriggerEditingContent(QWidget):
                 padding: 8px;
                 border-radius: 4px;
                 font-size: 12px;
+                margin: 0px 0px 8px 0px;
             }
             QComboBox:focus {
                 border-color: #4a90e2;
@@ -210,8 +214,8 @@ class TriggerEditingContent(QWidget):
             }
         """)
         self.trigger_type_combo.currentTextChanged.connect(self._on_trigger_type_changed)
-        type_layout.addWidget(self.trigger_type_combo)
-        
+        layout.addWidget(self.trigger_type_combo)
+
         # Enable checkbox
         self.enabled_checkbox = QCheckBox("Enable Automatic Execution")
         self.enabled_checkbox.setChecked(True)
@@ -219,11 +223,11 @@ class TriggerEditingContent(QWidget):
             QCheckBox {
                 color: white;
                 font-size: 12px;
+                margin: 0px 0px 0px 0px;
+                padding: 0px;
             }
         """)
-        type_layout.addWidget(self.enabled_checkbox)
-        
-        layout.addLayout(type_layout)
+        layout.addWidget(self.enabled_checkbox)
         
         # Dynamic configuration section
         self.config_group = QGroupBox("Trigger Settings")
@@ -232,7 +236,8 @@ class TriggerEditingContent(QWidget):
                 font-weight: bold;
                 border: 1px solid #555555;
                 border-radius: 5px;
-                margin-top: 0.5em;
+                margin: 12px 0px 0px 0px;
+                padding-top: 1em;
                 color: white;
             }
             QGroupBox::title {
@@ -242,13 +247,13 @@ class TriggerEditingContent(QWidget):
             }
         """)
         self.config_layout = QVBoxLayout(self.config_group)
-        self.config_layout.setContentsMargins(10, 15, 10, 20)
-        self.config_layout.setSpacing(12)
+        self.config_layout.setContentsMargins(10, 10, 10, 10)
+        self.config_layout.setSpacing(0)
 
         layout.addWidget(self.config_group)
-        
+
         # Don't add stretch - let content align to top naturally
-        
+
         self.content_area.setLayout(layout)
     
     def create_footer(self):
@@ -377,7 +382,16 @@ class TriggerEditingContent(QWidget):
         """Setup manual trigger configuration (minimal)"""
         info_label = QLabel("Manual triggers require user interaction to execute workflows.")
         info_label.setWordWrap(True)
-        info_label.setStyleSheet("color: #cccccc; font-style: italic; padding: 10px;")
+        info_label.setStyleSheet("""
+            QLabel {
+                color: #cccccc;
+                font-style: italic;
+                margin: 0px;
+                padding: 0px;
+                border: none;
+                background-color: transparent;
+            }
+        """)
         self.config_layout.addWidget(info_label)
     
     def _setup_beacon_connection_config(self):
@@ -473,26 +487,62 @@ class TriggerEditingContent(QWidget):
         
         # Create labels with consistent styling
         cidr_label = QLabel("CIDR Ranges")
-        cidr_label.setStyleSheet("color: white; font-weight: bold;")
-        
+        cidr_label.setStyleSheet("""
+            QLabel {
+                color: white;
+                font-weight: bold;
+                margin: 0px 0px 2px 0px;
+                padding: 0px;
+                border: none;
+                background-color: transparent;
+            }
+        """)
+
         pattern_label = QLabel("Computer Name Pattern")
-        pattern_label.setStyleSheet("color: white; font-weight: bold;")
-        
+        pattern_label.setStyleSheet("""
+            QLabel {
+                color: white;
+                font-weight: bold;
+                margin: 0px 0px 2px 0px;
+                padding: 0px;
+                border: none;
+                background-color: transparent;
+            }
+        """)
+
         receiver_label = QLabel("Receiver Types")
-        receiver_label.setStyleSheet("color: white; font-weight: bold;")
-        
+        receiver_label.setStyleSheet("""
+            QLabel {
+                color: white;
+                font-weight: bold;
+                margin: 0px 0px 2px 0px;
+                padding: 0px;
+                border: none;
+                background-color: transparent;
+            }
+        """)
+
         exclude_label = QLabel("Exclude Computer Names")
-        exclude_label.setStyleSheet("color: white; font-weight: bold;")
+        exclude_label.setStyleSheet("""
+            QLabel {
+                color: white;
+                font-weight: bold;
+                margin: 0px 0px 2px 0px;
+                padding: 0px;
+                border: none;
+                background-color: transparent;
+            }
+        """)
         
         form_layout.addRow(cidr_label, self.cidr_ranges_edit)
         form_layout.addRow(pattern_label, self.beacon_pattern_edit)
         form_layout.addRow(receiver_label, receiver_group)
         form_layout.addRow(exclude_label, self.exclude_patterns_edit)
-        
-        # Add some bottom spacing after the form
-        form_layout.setSpacing(15)
-        form_layout.setVerticalSpacing(15)
-        
+
+        # Control spacing via widget margins, not layout spacing
+        form_layout.setSpacing(0)
+        form_layout.setVerticalSpacing(12)
+
         self.config_layout.addLayout(form_layout)
     
     def _setup_beacon_status_config(self):
@@ -554,18 +604,36 @@ class TriggerEditingContent(QWidget):
         
         # Create labels with consistent styling
         status_label = QLabel("Status Change")
-        status_label.setStyleSheet("color: white; font-weight: bold;")
-        
+        status_label.setStyleSheet("""
+            QLabel {
+                color: white;
+                font-weight: bold;
+                margin: 0px 0px 2px 0px;
+                padding: 0px;
+                border: none;
+                background-color: transparent;
+            }
+        """)
+
         pattern_label = QLabel("Computer Name Pattern")
-        pattern_label.setStyleSheet("color: white; font-weight: bold;")
+        pattern_label.setStyleSheet("""
+            QLabel {
+                color: white;
+                font-weight: bold;
+                margin: 0px 0px 2px 0px;
+                padding: 0px;
+                border: none;
+                background-color: transparent;
+            }
+        """)
         
         form_layout.addRow(status_label, self.status_type_combo)
         form_layout.addRow(pattern_label, self.status_beacon_pattern_edit)
-        
-        # Add proper spacing
-        form_layout.setSpacing(15)
-        form_layout.setVerticalSpacing(15)
-        
+
+        # Control spacing via widget margins
+        form_layout.setSpacing(0)
+        form_layout.setVerticalSpacing(12)
+
         self.config_layout.addLayout(form_layout)
     
     def _setup_scheduled_config(self):
@@ -669,16 +737,25 @@ class TriggerEditingContent(QWidget):
         
         # Create labels with consistent styling
         schedule_label = QLabel("Schedule Type")
-        schedule_label.setStyleSheet("color: white; font-weight: bold;")
+        schedule_label.setStyleSheet("""
+            QLabel {
+                color: white;
+                font-weight: bold;
+                margin: 0px 0px 2px 0px;
+                padding: 0px;
+                border: none;
+                background-color: transparent;
+            }
+        """)
         
         form_layout.addRow(schedule_label, schedule_group)
         form_layout.addRow("", interval_widget)
         form_layout.addRow("", cron_widget)
-        
-        # Add proper spacing
-        form_layout.setSpacing(15)
-        form_layout.setVerticalSpacing(15)
-        
+
+        # Control spacing via widget margins
+        form_layout.setSpacing(0)
+        form_layout.setVerticalSpacing(12)
+
         self.config_layout.addLayout(form_layout)
     
     def on_panel_shown(self, node=None, workflow_context=None):
@@ -722,7 +799,8 @@ class TriggerEditingContent(QWidget):
                     font-weight: bold;
                     border: 1px solid #555555;
                     border-radius: 5px;
-                    margin-top: 0.5em;
+                    margin: 12px 0px 0px 0px;
+                    padding-top: 1em;
                     color: white;
                 }
                 QGroupBox::title {
@@ -737,7 +815,8 @@ class TriggerEditingContent(QWidget):
                     font-weight: bold;
                     border: 1px solid #555555;
                     border-radius: 5px;
-                    margin-top: 0.5em;
+                    margin: 12px 0px 0px 0px;
+                    padding-top: 1em;
                     color: #888;
                 }
                 QGroupBox::title {

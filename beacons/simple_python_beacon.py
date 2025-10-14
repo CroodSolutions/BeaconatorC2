@@ -18,21 +18,23 @@ import uuid
 
 
 class SimplePythonBeacon:
-    def __init__(self, server_ip="127.0.0.1", server_port=5074, encoding="plaintext"):
+    def __init__(self, server_ip="127.0.0.1", server_port=5074, encoding="plaintext", schema_file="simple_python_beacon.yaml"):
         self.server_ip = server_ip
         self.server_port = server_port
         self.encoding = encoding.lower()
-        
+        self.schema_file = schema_file
+
         self.beacon_id = self.generate_beacon_id()
         self.computer_name = platform.node()
         self.check_in_interval = 15  # seconds
         self.is_running = False
-        
+
         print(f"[+] Simple Python Beacon initialized")
         print(f"    Beacon ID: {self.beacon_id}")
         print(f"    Computer: {self.computer_name}")
         print(f"    Server: {self.server_ip}:{self.server_port}")
         print(f"    Encoding: {self.encoding.upper()}")
+        print(f"    Schema: {self.schema_file}")
 
     def generate_beacon_id(self):
         """Generate unique beacon ID based on system information"""
@@ -127,7 +129,7 @@ class SimplePythonBeacon:
 
     def register(self):
         """Register beacon with server"""
-        message = f"register|{self.beacon_id}|{self.computer_name}"
+        message = f"register|{self.beacon_id}|{self.computer_name}|{self.schema_file}"
         self.log(f"Registering with message: {message}")
         if self.encoding == "base64":
             self.log(f"Encoded message: {self.encode_message(message)}")
@@ -257,24 +259,26 @@ def main():
     parser = argparse.ArgumentParser(description="Simple Python Beacon for BeaconatorC2 Encoding Testing")
     parser.add_argument("--server", default="127.0.0.1", help="Server IP address")
     parser.add_argument("--port", type=int, default=5074, help="Server port")
-    parser.add_argument("--encoding", choices=["plaintext", "base64"], default="plaintext", 
+    parser.add_argument("--encoding", choices=["plaintext", "base64"], default="plaintext",
                        help="Encoding strategy (plaintext or base64)")
     parser.add_argument("--interval", type=int, default=15, help="Check-in interval in seconds")
-    
+    parser.add_argument("--schema", default="simple_python_beacon.yaml", help="Schema file for auto-assignment")
+
     args = parser.parse_args()
-    
+
     # Validate encoding
     if args.encoding not in ["plaintext", "base64"]:
         print(f"[!] Invalid encoding: {args.encoding}. Must be 'plaintext' or 'base64'")
         sys.exit(1)
-    
+
     # Create and run beacon
     beacon = SimplePythonBeacon(
         server_ip=args.server,
         server_port=args.port,
-        encoding=args.encoding
+        encoding=args.encoding,
+        schema_file=args.schema
     )
-    
+
     beacon.check_in_interval = args.interval
     
     try:
