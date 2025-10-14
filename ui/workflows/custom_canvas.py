@@ -223,11 +223,33 @@ class WorkflowNode:
     
     def _set_node_colors(self):
         """Set colors based on node type for better visual differentiation"""
-        if self.node_type == "start":
-            # Green theme for start nodes
-            self.fill_color = QColor(40, 80, 40)  # Dark green
-            self.border_color = QColor(60, 120, 60)  # Medium green
-            self.selected_color = QColor(80, 160, 80)  # Light green
+        if self.node_type in ["trigger", "start"]:
+            # Purple/violet theme for trigger nodes (automatic capable)
+            # Check if this is an automatic trigger
+            if hasattr(self, 'parameters') and self.parameters:
+                trigger_type = self.parameters.get('trigger_type', 'manual')
+                enabled = self.parameters.get('enabled', True)
+                
+                if trigger_type == 'manual':
+                    # Green theme for manual triggers
+                    self.fill_color = QColor(40, 80, 40)  # Dark green
+                    self.border_color = QColor(60, 120, 60)  # Medium green
+                    self.selected_color = QColor(80, 160, 80)  # Light green
+                elif enabled:
+                    # Purple theme for active automatic triggers
+                    self.fill_color = QColor(60, 40, 80)  # Dark purple
+                    self.border_color = QColor(90, 60, 120)  # Medium purple
+                    self.selected_color = QColor(120, 80, 160)  # Light purple
+                else:
+                    # Gray theme for disabled automatic triggers
+                    self.fill_color = QColor(50, 50, 50)  # Dark gray
+                    self.border_color = QColor(80, 80, 80)  # Medium gray
+                    self.selected_color = QColor(110, 110, 110)  # Light gray
+            else:
+                # Default green theme for backward compatibility
+                self.fill_color = QColor(40, 80, 40)  # Dark green
+                self.border_color = QColor(60, 120, 60)  # Medium green
+                self.selected_color = QColor(80, 160, 80)  # Light green
         elif self.node_type == "action":
             # Blue theme for action nodes 
             self.fill_color = QColor(40, 60, 80)  # Dark blue
@@ -792,8 +814,9 @@ class CustomWorkflowCanvas(QWidget):
         if node:
             node.selected = True
             node.show_action_points()
-            # Only emit node_selected signal for editable nodes (not Start/End nodes)
-            if node.node_type not in ['start', 'end']:
+            # Only emit node_selected signal for editable nodes (not End nodes)
+            # Trigger/Start nodes are now editable, End nodes are not
+            if node.node_type != 'end':
                 self.node_selected.emit(node)
         else:
             self.node_deselected.emit()
@@ -1864,8 +1887,9 @@ class CustomWorkflowCanvas(QWidget):
                     self.selected_node = self.selected_nodes[-1] if self.selected_nodes else None
                     if self.selected_node:
                         self.selected_node.show_action_points()
-                        # Only emit node_selected signal for editable nodes (not Start/End nodes)
-                        if self.selected_node.node_type not in ['start', 'end']:
+                        # Only emit node_selected signal for editable nodes (not End nodes)
+                        # Trigger/Start nodes are now editable, End nodes are not
+                        if self.selected_node.node_type != 'end':
                             self.node_selected.emit(self.selected_node)
                     else:
                         self.node_deselected.emit()
@@ -1876,8 +1900,9 @@ class CustomWorkflowCanvas(QWidget):
                     self.selected_nodes = [clicked_node]
                     clicked_node.selected = True
                     clicked_node.show_action_points()
-                    # Only emit node_selected signal for editable nodes (not Start/End nodes)
-                    if clicked_node.node_type not in ['start', 'end']:
+                    # Only emit node_selected signal for editable nodes (not End nodes)
+                    # Trigger/Start nodes are now editable, End nodes are not
+                    if clicked_node.node_type != 'end':
                         self.node_selected.emit(clicked_node)
                 
                 # Start dragging if not using Ctrl
@@ -2142,8 +2167,8 @@ class CustomWorkflowCanvas(QWidget):
             # Set primary node for editing (first in selection) without clearing multi-selection
             self.selected_node = newly_selected[0]
             self.selected_node.show_action_points()
-            # Only emit node_selected signal for editable nodes (not Start/End nodes)
-            if self.selected_node.node_type not in ['start', 'end']:
+            # Only emit node_selected signal for editable nodes (not End nodes)
+            if self.selected_node.node_type != 'end':
                 self.node_selected.emit(self.selected_node)
             
             # Mark all selected nodes as selected for visual feedback

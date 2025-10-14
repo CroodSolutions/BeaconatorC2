@@ -18,6 +18,7 @@ from .node_editing_content import NodeEditingContent
 from .conditional_editing_content import ConditionalEditingContent
 from .set_variable_content import SetVariableEditingContent
 from .file_transfer_content import FileTransferEditingContent
+from .trigger_editing_content import TriggerEditingContent
 from .variables_content import VariablesContent
 
 
@@ -39,11 +40,81 @@ class WorkflowEditor(QWidget):
         self.workflow_engine = WorkflowEngine(self.workflow_service, schema_service, beacon_repository, command_processor)
         self.workflow_validator = WorkflowValidator(schema_service=schema_service)
         
+        self.trigger_service = None  # Will be set by main window
         self.current_workflow = None
         self.selected_beacon = None
         self.current_execution_id = None
         
         self.setup_ui()
+        
+    def set_trigger_service(self, trigger_service):
+        """Set the trigger service instance (called by main window)"""
+        self.trigger_service = trigger_service
+        # Update button if it exists
+        if hasattr(self, 'active_workflows_action'):
+            self.update_active_workflows_count()
+        
+        # Auto-load and register active workflows on startup
+        self._auto_load_active_workflows()
+    
+    def _auto_load_active_workflows(self):
+        """Auto-load and register all saved workflows with enabled triggers on startup"""
+        if not self.trigger_service:
+            return
+        
+        print("[TRIGGER DEBUG] Auto-loading active workflows on startup...")
+        
+        # Get list of all saved workflows
+        try:
+            workflows = self.workflow_service.list_workflows()
+            active_count = 0
+            
+            for workflow_info in workflows:
+                workflow_id = workflow_info.get('workflow_id')
+                if not workflow_id:
+                    continue
+                
+                # Load the full workflow
+                workflow = self.workflow_service.load_workflow(workflow_id)
+                if not workflow:
+                    continue
+                
+                # Check if workflow has any enabled triggers
+                has_enabled_trigger = False
+                for node in workflow.nodes:
+                    if node.node_type in ['trigger', 'start'] and node.parameters:
+                        if node.parameters.get('enabled', False):
+                            has_enabled_trigger = True
+                            break
+                
+                # Register the workflow if it has enabled triggers
+                if has_enabled_trigger:
+                    # Register all trigger nodes in this workflow
+                    for node in workflow.nodes:
+                        if node.node_type in ['trigger', 'start'] and node.parameters:
+                            if node.parameters.get('enabled', False):
+                                trigger_type = node.parameters.get('trigger_type', 'manual')
+                                
+                                # Register with trigger service
+                                self.trigger_service.register_trigger(
+                                    workflow_id=workflow_id,
+                                    trigger_node_id=node.node_id,
+                                    trigger_config=node.parameters
+                                )
+                                
+                                print(f"[TRIGGER DEBUG] Auto-registered trigger for workflow '{workflow.name}' ({workflow_id}): {node.node_id} (type: {trigger_type})")
+                                active_count += 1
+            
+            print(f"[TRIGGER DEBUG] Auto-loaded {active_count} active workflow triggers from {len(workflows)} total workflows")
+            
+            # Update the active workflows count display
+            if hasattr(self, 'active_workflows_action'):
+                self.update_active_workflows_count()
+                
+        except Exception as e:
+            print(f"[TRIGGER DEBUG] Error auto-loading active workflows: {e}")
+            import traceback
+            traceback.print_exc()
         
     def setup_ui(self):
         """Set up the main workflow editor interface"""
@@ -82,6 +153,7 @@ class WorkflowEditor(QWidget):
         self.conditional_editing_content = ConditionalEditingContent()
         self.set_variable_editing_content = SetVariableEditingContent()
         self.file_transfer_editing_content = FileTransferEditingContent()
+        self.trigger_editing_content = TriggerEditingContent()
         self.variables_content = VariablesContent()
         
         # Connect content widget signals to side panel
@@ -104,6 +176,8 @@ class WorkflowEditor(QWidget):
         self.file_transfer_editing_content.node_deleted.connect(self.side_panel.node_deleted.emit)
         self.file_transfer_editing_content.node_execution_requested.connect(self.side_panel.node_execution_requested.emit)
         self.file_transfer_editing_content.close_requested.connect(self.side_panel.close_panel)
+        
+        self.trigger_editing_content.node_updated.connect(self.side_panel.node_updated.emit)
         
         self.variables_content.variables_updated.connect(self.side_panel.variables_updated.emit)
         self.variables_content.close_requested.connect(self.side_panel.close_panel)
@@ -132,6 +206,12 @@ class WorkflowEditor(QWidget):
             self.file_transfer_editing_content, 
             "File Transfer Editor",
             "Configure file upload/download operations with template support"
+        )
+        self.side_panel.register_content_widget(
+            SidePanelMode.TRIGGER_EDITING, 
+            self.trigger_editing_content, 
+            "Trigger Editor",
+            "Configure workflow triggers for automatic execution"
         )
         self.side_panel.register_content_widget(
             SidePanelMode.VARIABLES, 
@@ -229,6 +309,15 @@ class WorkflowEditor(QWidget):
         self.variables_action.setCheckable(True)
         self.variables_action.triggered.connect(self.toggle_variables_panel)
         self.toolbar.addAction(self.variables_action)
+        
+        self.toolbar.addSeparator()
+        
+        # Active Workflows button (toggle)
+        self.active_workflows_action = QAction("Active Workflows (0)", self)
+        self.active_workflows_action.setIcon(QIcon("resources/activity.svg"))
+        self.active_workflows_action.setCheckable(True)
+        self.active_workflows_action.triggered.connect(self.toggle_active_workflows)
+        self.toolbar.addAction(self.active_workflows_action)
         
         self.toolbar.addSeparator()
         
@@ -417,9 +506,16 @@ class WorkflowEditor(QWidget):
             # Save workflow
             success = self.workflow_service.save_workflow(self.current_workflow)
             if success:
+                # Register triggers if available
+                self.register_workflow_triggers()
+                
                 QMessageBox.information(self, "Success", f"Workflow '{self.current_workflow.name}' saved successfully")
                 print(f"Saved workflow: {self.current_workflow.name}")
                 self.update_window_title()
+                
+                # Update active workflows count
+                self.update_active_workflows_count()
+                
                 return True
             else:
                 QMessageBox.warning(self, "Error", "Failed to save workflow")
@@ -626,7 +722,9 @@ class WorkflowEditor(QWidget):
             }
             
             # Route to appropriate editing panel based on node type
-            if node.node_type == 'condition':
+            if node.node_type in ['trigger', 'start']:
+                self.side_panel.show_trigger_editing(node, workflow_context)
+            elif node.node_type == 'condition':
                 self.side_panel.show_conditional_editing(node, workflow_context)
             elif node.node_type == 'set_variable':
                 self.side_panel.show_set_variable_editing(node, workflow_context)
@@ -646,7 +744,7 @@ class WorkflowEditor(QWidget):
         print("Node deselected")
         # Close the side panel when no node is selected
         current_mode = self.side_panel.get_current_mode()
-        if current_mode in [SidePanelMode.NODE_EDITING, SidePanelMode.CONDITIONAL_EDITING, SidePanelMode.SET_VARIABLE_EDITING, SidePanelMode.FILE_TRANSFER_EDITING]:
+        if current_mode in [SidePanelMode.NODE_EDITING, SidePanelMode.CONDITIONAL_EDITING, SidePanelMode.SET_VARIABLE_EDITING, SidePanelMode.FILE_TRANSFER_EDITING, SidePanelMode.TRIGGER_EDITING]:
             self.side_panel.close_panel()
             
     def on_node_deleted(self, node):
@@ -999,6 +1097,101 @@ class WorkflowEditor(QWidget):
                 count = len(variables)
                 self.variables_action.setText(f"Variables ({count})")
     
+
+    
+    def toggle_active_workflows(self, checked):
+        """Toggle between canvas and active workflows view"""
+        if checked:
+            self.show_active_workflows()
+        else:
+            self.show_canvas_view()
+    
+    def show_active_workflows(self):
+        """Show the active workflows management view"""
+        if self.trigger_service:
+            # Hide canvas and show active workflows view
+            self.canvas.setVisible(False)
+            
+            # Create or show the active workflows widget
+            if not hasattr(self, 'active_workflows_widget'):
+                from .active_workflows_widget import ActiveWorkflowsWidget
+                self.active_workflows_widget = ActiveWorkflowsWidget(
+                    self.trigger_service,
+                    self.workflow_service,
+                    self
+                )
+                # Add to the canvas panel layout
+                self.canvas_panel.layout().addWidget(self.active_workflows_widget)
+                
+                # Connect signal to return to canvas view
+                self.active_workflows_widget.return_to_canvas.connect(self.show_canvas_view)
+            
+            self.active_workflows_widget.setVisible(True)
+            self.active_workflows_widget.load_workflows()
+            
+            # Update button state
+            self.active_workflows_action.setCheckable(True)
+            self.active_workflows_action.setChecked(True)
+        else:
+            QMessageBox.warning(
+                self,
+                "Trigger Service Not Available",
+                "The trigger service is not initialized. Please restart the application."
+            )
+    
+    def show_canvas_view(self):
+        """Return to the canvas view from active workflows"""
+        if hasattr(self, 'active_workflows_widget'):
+            self.active_workflows_widget.setVisible(False)
+        self.canvas.setVisible(True)
+        
+        # Update button state
+        self.active_workflows_action.setChecked(False)
+    
+    def update_active_workflows_count(self):
+        """Update the count of active workflows in the toolbar button"""
+        if self.trigger_service:
+            active_count = len(self.trigger_service.active_triggers)
+            self.active_workflows_action.setText(f"Active Workflows ({active_count})")
+        else:
+            self.active_workflows_action.setText("Active Workflows (0)")
+    
+    def load_workflow_by_id(self, workflow_id: str):
+        """Load a specific workflow by its ID"""
+        workflow = self.workflow_service.load_workflow(workflow_id)
+        if workflow:
+            # Clear current canvas
+            self.canvas.clear_canvas()
+            
+            # Load the workflow
+            self.current_workflow = workflow
+            
+            # Recreate nodes and connections on canvas
+            # This would need implementation based on your workflow format
+            # For now, just show a message
+            QMessageBox.information(
+                self,
+                "Load Workflow",
+                f"Loading workflow: {workflow.name}"
+            )
+    
+    def register_workflow_triggers(self):
+        """Register workflow triggers with the trigger service"""
+        if not self.trigger_service or not self.current_workflow:
+            return
+            
+        # Find all trigger/start nodes in the workflow
+        for node in self.current_workflow.nodes:
+            if node.node_type in ['trigger', 'start'] and node.parameters:
+                # Check if trigger is enabled
+                if node.parameters.get('enabled', False):
+                    # Register the trigger
+                    self.trigger_service.register_trigger(
+                        self.current_workflow.workflow_id,
+                        node.node_id,
+                        node.parameters
+                    )
+                    print(f"Registered trigger for workflow {self.current_workflow.name}: {node.node_id}")
 
 
 class BeaconSelectionDialog(QDialog):

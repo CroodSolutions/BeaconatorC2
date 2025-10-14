@@ -97,13 +97,36 @@ class NodeTemplateRegistry:
         
         # Control flow nodes
         self.register_template(NodeTemplate(
-            node_type="start",
-            display_name="Start",
-            description="Beginning of workflow execution",
+            node_type="trigger",
+            display_name="Trigger",
+            description="Workflow execution trigger - manual or automatic",
             category="Control Flow",
-            icon="start",
-            output_capabilities=["workflow_start"],
-            auto_configure_rules={"position": "workflow_start"}
+            icon="trigger",
+            output_capabilities=["workflow_trigger"],
+            auto_configure_rules={"position": "workflow_start"},
+            default_parameters={
+                "trigger_type": "manual",
+                "enabled": True,
+                "filters": {},
+                "schedule": {}
+            }
+        ))
+        
+        # Backward compatibility alias for "start" nodes
+        self.register_template(NodeTemplate(
+            node_type="start",  # Keep for compatibility
+            display_name="Trigger",
+            description="Workflow execution trigger - manual or automatic",
+            category="Control Flow",
+            icon="trigger",
+            output_capabilities=["workflow_trigger"],
+            auto_configure_rules={"position": "workflow_start"},
+            default_parameters={
+                "trigger_type": "manual",
+                "enabled": True,
+                "filters": {},
+                "schedule": {}
+            }
         ))
         
         self.register_template(NodeTemplate(
