@@ -218,18 +218,18 @@ class ConnectivityValidator(BaseValidator):
                         suggested_fix="Connect this node to the workflow or remove it"
                     ))
                     
-        # Check for missing start/end nodes
-        start_nodes = [n for n in nodes if hasattr(n, 'node_type') and n.node_type == 'start']
+        # Check for missing trigger/start nodes (support both for compatibility)
+        trigger_nodes = [n for n in nodes if hasattr(n, 'node_type') and n.node_type in ['trigger', 'start']]
         end_nodes = [n for n in nodes if hasattr(n, 'node_type') and n.node_type == 'end']
         
-        if not start_nodes and len(nodes) > 0:
+        if not trigger_nodes and len(nodes) > 0:
             issues.append(ValidationIssue(
-                id="missing_start_node",
+                id="missing_trigger_node",
                 level=ValidationLevel.ERROR,
                 category=ValidationCategory.CONNECTIVITY,
-                title="Missing Start Node",
-                description="Workflow has no start node",
-                suggested_fix="Add a start node to define the workflow entry point"
+                title="Missing Trigger Node",
+                description="Workflow has no trigger node",
+                suggested_fix="Add a trigger node to define the workflow entry point"
             ))
             
         if not end_nodes and len(nodes) > 1:

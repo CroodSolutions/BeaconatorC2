@@ -1154,7 +1154,6 @@ class NodeEditingContent(QWidget):
                 self._add_info_message("This module has no configurable parameters.")
             
             # Add stretch at the bottom to keep parameters at the top
-            from PyQt6.QtWidgets import QSpacerItem
             spacer = QSpacerItem(0, 0, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding)
             self.param_form_layout.addItem(spacer)
                 
@@ -1178,7 +1177,7 @@ class NodeEditingContent(QWidget):
     def _create_parameter_widget(self, param_name, param_config):
         """Create appropriate widget for parameter type with original styling"""
         try:
-            from services.schema_service import ParameterType
+
             
             if hasattr(param_config, 'type'):
                 param_type = param_config.type
@@ -1227,7 +1226,7 @@ class NodeEditingContent(QWidget):
                 # Add template variable button
                 if self.workflow_context:
                     try:
-                        from ui.workflows.template_variable_picker import TemplateInsertButton
+
                         template_button = TemplateInsertButton(
                             self.workflow_context.get('context'),
                             self.workflow_context.get('current_node'),
@@ -1492,7 +1491,7 @@ class NodeEditingContent(QWidget):
             
     def _create_simple_widget_creator(self, widget, param_type):
         """Create a simple widget creator for value retrieval"""
-        from services.schema_service import ParameterType
+
         
         class WidgetCreator:
             def __init__(self, widget, param_type):
@@ -1525,8 +1524,7 @@ class NodeEditingContent(QWidget):
         
     def _browse_file_directory(self, text_widget, param_type, param_config):
         """Handle file/directory browsing for parameter inputs"""
-        from PyQt6.QtWidgets import QFileDialog
-        from services.schema_service import ParameterType
+
         
         if param_type == ParameterType.FILE:
             file_filter = "All Files (*.*)"
@@ -1550,7 +1548,7 @@ class NodeEditingContent(QWidget):
                 
     def _connect_widget_change_signals(self, widget, param_type):
         """Connect widget change signals to enable save button"""
-        from services.schema_service import ParameterType
+
         
         def on_parameter_changed():
             if hasattr(self, 'save_button'):
@@ -1588,7 +1586,7 @@ class NodeEditingContent(QWidget):
     def _insert_template_variable(self, widget, template_var: str):
         """Insert a template variable into the widget at cursor position"""
         try:
-            from PyQt6.QtWidgets import QTextEdit, QLineEdit
+
             
             if isinstance(widget, QTextEdit):
                 cursor = widget.textCursor()

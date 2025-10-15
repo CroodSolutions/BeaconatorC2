@@ -1,13 +1,29 @@
+import os
+import platform
 import socket
 import threading
 import time
-import os
 from typing import Dict, Any, Optional
 from pathlib import Path
+
 from .base_receiver import BaseReceiver, ReceiverStatus
 from .encoding_strategies import EncodingStrategy
 from .receiver_config import ReceiverConfig
+from config import ServerConfig
+from werkzeug.utils import secure_filename
 import utils
+
+# Platform-specific imports for Windows
+_platform_imports_available = False
+if platform.system().lower() == 'windows':
+    try:
+        import win32file
+        import win32pipe
+        import win32api
+        import pywintypes
+        _platform_imports_available = True
+    except ImportError:
+        pass
 
 class SMBNamedPipeHandler:
     """Handles SMB named pipe connections using BaseReceiver functionality"""
@@ -95,9 +111,7 @@ class SMBNamedPipeHandler:
     def _read_from_pipe(self, pipe_handle, buffer_size: int) -> bytes:
         """Read data from named pipe (platform-specific implementation)"""
         try:
-            if os.name == 'nt':  # Windows
-                import win32file
-                import win32pipe
+            if os.name == 'nt' and _platform_imports_available:  # Windows
                 result, data = win32file.ReadFile(pipe_handle, buffer_size)
                 return data
             else:  # Unix-like (using FIFO)
@@ -112,8 +126,7 @@ class SMBNamedPipeHandler:
     def _write_to_pipe(self, pipe_handle, data: bytes) -> bool:
         """Write data to named pipe (platform-specific implementation)"""
         try:
-            if os.name == 'nt':  # Windows
-                import win32file
+            if os.name == 'nt' and _platform_imports_available:  # Windows
                 win32file.WriteFile(pipe_handle, data)
                 return True
             else:  # Unix-like (using FIFO)
@@ -128,8 +141,7 @@ class SMBNamedPipeHandler:
     def _close_pipe(self, pipe_handle):
         """Close named pipe handle"""
         try:
-            if os.name == 'nt':  # Windows
-                import win32file
+            if os.name == 'nt' and _platform_imports_available:  # Windows
                 win32file.CloseHandle(pipe_handle)
             else:  # Unix-like
                 # For FIFO, handle is a path string, no explicit close needed

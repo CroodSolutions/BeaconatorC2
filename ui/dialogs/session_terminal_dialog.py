@@ -6,6 +6,7 @@ Supports both Meterpreter and shell sessions with command history and proper for
 """
 
 import time
+import traceback
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 
@@ -47,7 +48,6 @@ class CommandExecutor(QThread):
                 
         except Exception as e:
             print(f"CommandExecutor: Exception: {str(e)}")
-            import traceback
             traceback.print_exc()
             self.output_received.emit("", f"Error executing command: {str(e)}")
         

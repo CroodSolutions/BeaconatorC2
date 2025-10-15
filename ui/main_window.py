@@ -17,6 +17,7 @@ from .components import (BeaconTableWidget, CommandWidget, NavigationMenu,
                         FileTransferWidget, SettingsPage, DocumentationPanel, BeaconSettingsWidget, ReceiversWidget, MetasploitWidget)
 from .widgets import LogWidget, OutputDisplay, KeyLoggerDisplay
 from services import SchemaService
+from services.workflows.trigger_service import TriggerService
 import utils
 
 class MainWindow(QMainWindow):
@@ -33,6 +34,9 @@ class MainWindow(QMainWindow):
         self.beacon_update_worker = None
         self.receiver_update_worker = None
         self.schema_service = SchemaService()
+        
+        # Initialize trigger service (will be passed to workflow editor)
+        self.trigger_service = None  # Will be initialized after workflow components
         
         # Store tab widget references for dynamic management
         self.tab_widgets = {}
@@ -325,6 +329,51 @@ class MainWindow(QMainWindow):
             beacon_repository=self.beacon_repository,
             command_processor=self.command_processor
         )
+        
+        # Initialize trigger service now that workflow components are created
+        from services.workflows.workflow_service import WorkflowService
+        from services.workflows.workflow_engine import WorkflowEngine
+        
+        workflow_service = WorkflowService(
+            self.schema_service,
+            self.beacon_repository,
+            self.command_processor
+        )
+        workflow_engine = WorkflowEngine(
+            workflow_service,
+            self.schema_service,
+            self.beacon_repository,
+            self.command_processor
+        )
+        
+        self.trigger_service = TriggerService(
+            self.beacon_repository,
+            workflow_service,
+            workflow_engine
+        )
+        
+        # Pass trigger service to workflow editor
+        self.workflows_page.set_trigger_service(self.trigger_service)
+        
+        # Connect beacon events to trigger evaluation
+        if hasattr(self.beacon_repository, 'beacon_connected'):
+            self.beacon_repository.beacon_connected.connect(
+                lambda beacon_info: self.trigger_service.evaluate_beacon_event(beacon_info, 'connection')
+            )
+            print("[TRIGGER DEBUG] Connected beacon_connected signal to trigger service")
+        
+        # Also connect status change events
+        if hasattr(self.beacon_repository, 'beacon_status_changed'):
+            self.beacon_repository.beacon_status_changed.connect(
+                lambda beacon_info: self.trigger_service.evaluate_beacon_event(beacon_info, 'status')
+            )
+            print("[TRIGGER DEBUG] Connected beacon_status_changed signal to trigger service")
+        else:
+            print("[TRIGGER DEBUG] WARNING: beacon_repository doesn't have beacon_status_changed signal")
+        
+        # Start trigger monitoring
+        self.trigger_service.start_monitoring()
+        
         self.content_stack.addWidget(self.workflows_page)
 
     def setup_settings_page(self):

@@ -24,6 +24,7 @@ class SidePanelMode(Enum):
     CONDITIONAL_EDITING = "conditional_editing"
     SET_VARIABLE_EDITING = "set_variable_editing"
     FILE_TRANSFER_EDITING = "file_transfer_editing"
+    TRIGGER_EDITING = "trigger_editing"
     VARIABLES = "variables"
 
 
@@ -169,6 +170,10 @@ class SidePanel(QWidget):
     def show_file_transfer_editing(self, node, workflow_context):
         """Show file transfer editing content"""
         self.show_mode(SidePanelMode.FILE_TRANSFER_EDITING, node=node, workflow_context=workflow_context)
+        
+    def show_trigger_editing(self, node, workflow_context):
+        """Show trigger editing content"""
+        self.show_mode(SidePanelMode.TRIGGER_EDITING, node=node, workflow_context=workflow_context)
         
     def show_variables(self):
         """Show variables content"""

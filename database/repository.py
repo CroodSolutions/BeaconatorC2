@@ -1,15 +1,21 @@
 from datetime import datetime, timedelta
 from typing import List, Optional
 
+from PyQt6.QtCore import QObject, pyqtSignal
 from sqlalchemy.orm import Session
 
 import utils
 from .models import Beacon
 
-class BeaconRepository:
+class BeaconRepository(QObject):
     """Repository pattern for Beacon database operations with proper session management"""
+    
+    # Signals
+    beacon_status_changed = pyqtSignal(dict)  # Emits beacon info dict when status changes
+    
     def __init__(self, session_factory):
         """Initialize with session factory instead of single session"""
+        super().__init__()
         self.session_factory = session_factory
 
     def _get_session(self) -> Session:
@@ -21,6 +27,7 @@ class BeaconRepository:
             return session.query(Beacon).filter_by(beacon_id=beacon_id).first()
 
     def update_beacon_status(self, beacon_id: str, status: str, computer_name: Optional[str] = None, receiver_id: Optional[str] = None):
+        previous_status = None
         with self._get_session() as session:
             beacon = session.query(Beacon).filter_by(beacon_id=beacon_id).first()
             if not beacon:
@@ -33,6 +40,7 @@ class BeaconRepository:
                 )
                 session.add(beacon)
             else:
+                previous_status = beacon.status
                 beacon.status = status
                 beacon.last_checkin = datetime.now()
                 if computer_name:
@@ -40,6 +48,18 @@ class BeaconRepository:
                 if receiver_id:
                     beacon.receiver_id = receiver_id
             session.commit()
+            
+            # Emit signal if status actually changed
+            if previous_status != status:
+                beacon_info = {
+                    'beacon_id': beacon_id,
+                    'computer_name': beacon.computer_name,
+                    'status': status,
+                    'previous_status': previous_status,
+                    'receiver_id': beacon.receiver_id
+                }
+                self.beacon_status_changed.emit(beacon_info)
+                print(f"[TRIGGER DEBUG] Emitted beacon_status_changed signal: {beacon_id} ({beacon.computer_name}) {previous_status} -> {status}")
 
     def update_beacon_command(self, beacon_id: str, command: Optional[str]):
         with self._get_session() as session:
@@ -72,7 +92,18 @@ class BeaconRepository:
                 Beacon.last_checkin < timeout
             ).all()
             for beacon in beacons:
+                previous_status = beacon.status
                 beacon.status = 'offline'
+                # Emit signal for each beacon that timed out
+                beacon_info = {
+                    'beacon_id': beacon.beacon_id,
+                    'computer_name': beacon.computer_name,
+                    'status': 'offline',
+                    'previous_status': previous_status,
+                    'receiver_id': beacon.receiver_id
+                }
+                self.beacon_status_changed.emit(beacon_info)
+                print(f"[TRIGGER DEBUG] Emitted beacon_status_changed signal (timeout): {beacon.beacon_id} ({beacon.computer_name}) {previous_status} -> offline")
             session.commit()
 
     def delete_beacon(self, beacon_id: str) -> bool:
