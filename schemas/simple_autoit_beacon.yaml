@@ -2,7 +2,7 @@ schema_version: "1.1"
 beacon_info:
   beacon_type: "Simple AutoIt Beacon"
   version: "1.0.0"
-  description: "Simple TCP AutoIt beacon"
+  description: "Simple TCP AutoIt beacon with only RCE functionality"
   supported_platforms: ["windows"]
   file_transfer_supported: false
   keylogger_supported: false
