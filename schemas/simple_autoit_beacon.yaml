@@ -1,0 +1,63 @@
+schema_version: "1.1"
+beacon_info:
+  beacon_type: "Simple AutoIt Beacon"
+  version: "1.0.0"
+  description: "Simple TCP AutoIt beacon with only RCE functionality"
+  supported_platforms: ["windows"]
+  file_transfer_supported: false
+  keylogger_supported: false
+
+categories:
+  basic_commands:
+    display_name: "Basic Commands"
+    description: "Command execution"
+    modules:
+      command_execution:
+        display_name: "Command Execution"
+        description: "Execute arbitrary system commands"
+        command_template: "{command}"
+        parameters:
+          command:
+            type: "textarea"
+            display_name: "Command"
+            description: "Command to run on the target"
+            required: true
+            default: ""
+            validation:
+              min_length: 1
+              max_length: 8192
+        execution:
+          timeout: 300
+          requires_admin: false
+        ui:
+          layout: "simple"
+
+  management:
+    display_name: "Beacon Control"
+    description: "Lifecycle controls for this beacon"
+    modules:
+      shutdown_self:
+        display_name: "Shutdown Beacon"
+        description: "Ask the beacon to stop itself"
+        command_template: "shutdown"
+        documentation:
+          content: "Sends a final shutdown notice to the C2 (via command_output) and exits. The server will log the message and the beacon will transition to offline after its normal timeout."
+        parameters: {}
+        execution:
+          timeout: 0
+          requires_admin: false
+        ui:
+          layout: "simple"
+
+      force_kill_self:
+        display_name: "Force Kill Beacon"
+        description: "Forcefully terminate this beacon process"
+        command_template: "KILL_SELF"
+        documentation:
+          content: "Requests an immediate termination. The beacon sends the same shutdown notice before exiting if possible."
+        parameters: {}
+        execution:
+          timeout: 0
+          requires_admin: false
+        ui:
+          layout: "simple"
