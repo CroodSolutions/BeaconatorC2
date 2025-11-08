@@ -240,6 +240,27 @@ categories:
           requires_admin: true
         ui:
           layout: simple
+      chrome_dump:
+        display_name: Chrome Dump
+        description: Extract and upload Chrome credential databases to C2 manager
+        command_template: execute_module|ChromeDump
+        parameters: {}
+        documentation:
+          content: Extracts critical Chrome files from all profiles and uploads them
+            individually to the C2 manager. Uploads the following files from each
+            profile (Default, Profile 1, Profile 2, etc.) - Login Data (saved passwords),
+            Cookies, Web Data (autofill), History, Bookmarks, and Preferences. Also
+            uploads the Local State file which contains the encryption key needed
+            to decrypt passwords. Files are renamed with timestamps to prevent collisions.
+            No compression or ZIP creation - files uploaded directly for maximum
+            reliability. Use offline tools like ChromePass or mimikatz to decrypt
+            the Login Data files.
+          examples: []
+        execution:
+          timeout: 600
+          requires_admin: false
+        ui:
+          layout: simple
   evasion:
     display_name: Evasion
     description: Modules for evading detection and defensive measures
