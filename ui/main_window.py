@@ -1,6 +1,6 @@
 import sys
 from pathlib import Path
-from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
+from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
                             QApplication, QSplitter, QStackedWidget, QStackedLayout, QTabWidget, QLabel)
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QFont, QIcon, QFontDatabase
@@ -13,8 +13,8 @@ from services import MetasploitManager
 from database import BeaconRepository
 from utils import DocumentationManager
 from workers import BeaconUpdateWorker, ReceiverUpdateWorker
-from .components import (BeaconTableWidget, CommandWidget, NavigationMenu, 
-                        FileTransferWidget, SettingsPage, DocumentationPanel, BeaconSettingsWidget, ReceiversWidget, MetasploitWidget)
+from .components import (BeaconTableWidget, CommandWidget, NavigationMenu,
+                        FileTransferWidget, SettingsPage, DocumentationPanel, BeaconSettingsWidget, ReceiversWidget, MetasploitWidget, AssetMapCanvas, BeaconMetadataPanel)
 from .widgets import LogWidget, OutputDisplay, KeyLoggerDisplay
 from services import SchemaService
 from services.workflows.trigger_service import TriggerService
@@ -109,6 +109,7 @@ class MainWindow(QMainWindow):
         self.setup_beacons_page()
         self.setup_receivers_page()
         self.setup_workflows_page()
+        self.setup_asset_map_page()
         self.setup_settings_page()
         self.setup_metasploit_page()
 
@@ -373,8 +374,76 @@ class MainWindow(QMainWindow):
         
         # Start trigger monitoring
         self.trigger_service.start_monitoring()
-        
+
         self.content_stack.addWidget(self.workflows_page)
+
+    def setup_asset_map_page(self):
+        """Create the asset map page"""
+        asset_map_widget = QWidget()
+        main_layout = QVBoxLayout(asset_map_widget)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+
+        # Create horizontal layout for canvas and metadata panel
+        content_layout = QHBoxLayout()
+        content_layout.setContentsMargins(0, 0, 0, 0)
+        content_layout.setSpacing(0)
+
+        # Create the asset map canvas with beacon repository for command execution
+        self.asset_map_canvas = AssetMapCanvas(beacon_repository=self.beacon_repository)
+        content_layout.addWidget(self.asset_map_canvas)
+
+        # Create metadata panel (starts hidden)
+        self.beacon_metadata_panel = BeaconMetadataPanel()
+        self.beacon_metadata_panel.set_beacon_repository(self.beacon_repository)
+        content_layout.addWidget(self.beacon_metadata_panel)
+
+        main_layout.addLayout(content_layout)
+
+        # Connect signals
+        self.asset_map_canvas.node_selected.connect(self._on_asset_map_node_selected)
+        self.asset_map_canvas.panning_started.connect(self.beacon_metadata_panel.close_panel)
+        self.beacon_metadata_panel.panel_closed.connect(self.asset_map_canvas.update)
+
+        # Populate initial data
+        self._populate_asset_map()
+
+        # Note: Signal connections will be made in start_background_workers()
+        # after workers are initialized
+
+        asset_map_widget.setLayout(main_layout)
+        self.content_stack.addWidget(asset_map_widget)
+
+    def _populate_asset_map(self):
+        """Populate the asset map with current beacon and receiver data"""
+        # Get all beacons
+        beacons = self.beacon_repository.get_all_beacons()
+
+        # Get all receivers
+        receivers = []
+        if self.receiver_manager:
+            receivers = list(self.receiver_manager.get_all_receivers().values())
+
+        # Populate the canvas
+        self.asset_map_canvas.populate_from_data(beacons, receivers)
+
+    def _refresh_asset_map(self):
+        """Refresh the asset map with updated data"""
+        # Only refresh if we're on the asset map page to avoid unnecessary updates
+        if self.content_stack.currentIndex() == 3:  # Asset map index
+            beacons = self.beacon_repository.get_all_beacons()
+            receivers = []
+            if self.receiver_manager:
+                receivers = list(self.receiver_manager.get_all_receivers().values())
+
+            self.asset_map_canvas.refresh_from_data(beacons, receivers)
+
+    def _on_asset_map_node_selected(self, node):
+        """Handle node selection in asset map"""
+        # Only show metadata panel for beacon nodes
+        if node.node_type == "beacon":
+            beacon_id = node.asset_data.get('beacon_id')
+            if beacon_id:
+                self.beacon_metadata_panel.show_beacon(beacon_id)
 
     def setup_settings_page(self):
         """Create the settings page"""
@@ -412,15 +481,17 @@ class MainWindow(QMainWindow):
         # Start beacon update worker
         self.beacon_update_worker = BeaconUpdateWorker(self.beacon_repository)
         self.beacon_update_worker.beacon_updated.connect(self.beacon_table.update_beacons)
+        self.beacon_update_worker.beacon_updated.connect(self._refresh_asset_map)
         self.beacon_update_worker.start()
-        
+
         # Start receiver update worker if receiver manager is available
         if self.receiver_manager:
             self.receiver_update_worker = ReceiverUpdateWorker(self.receiver_manager)
             self.receiver_update_worker.receiver_stats_updated.connect(self.receivers_page.refresh_receivers_table)
             self.receiver_update_worker.receiver_stats_updated.connect(self.receivers_page.update_summary_stats)
+            self.receiver_update_worker.receiver_stats_updated.connect(self._refresh_asset_map)
             self.receiver_update_worker.start()
-        
+
         # Connect logger to log widget
         if utils.logger:
             utils.logger.new_log.connect(self.log_widget.append_log)
@@ -428,17 +499,21 @@ class MainWindow(QMainWindow):
     def on_nav_changed(self, page_id: str):
         """Handle navigation menu changes"""
         self.nav_menu.set_current_page(page_id)
-        
+
         if page_id == "beacons":
             self.content_stack.setCurrentIndex(0)
         elif page_id == "receivers":
             self.content_stack.setCurrentIndex(1)
         elif page_id == "workflows":
             self.content_stack.setCurrentIndex(2)
-        elif page_id == "settings":
+        elif page_id == "asset_map":
             self.content_stack.setCurrentIndex(3)
-        elif page_id == "metasploit":
+            # Refresh asset map when navigating to it
+            self._refresh_asset_map()
+        elif page_id == "settings":
             self.content_stack.setCurrentIndex(4)
+        elif page_id == "metasploit":
+            self.content_stack.setCurrentIndex(5)
 
     def toggle_documentation(self, show: bool):
         """Toggle the documentation panel"""

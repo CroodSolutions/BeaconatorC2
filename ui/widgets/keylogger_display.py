@@ -55,7 +55,7 @@ class KeyLoggerDisplay(QWidget):
         
         if self.font_manager:
             self.font_manager.add_relative_font_widget(self.output_display, -2)
-        self.output_display.setFont(QFont("Consolas"))
+        self.output_display.setFont(QFont("Source Code Pro"))
         layout.addWidget(self.output_display)
         self.setLayout(layout)
 

@@ -96,26 +96,28 @@ class BeaconTableWidget(QTableView):
     def setup_table(self):
         # Font is already set by FontManager in __init__, no need to override it
         # If FontManager wasn't available, Qt will use system default which is fine
-            
+
         self.setSelectionBehavior(QTableView.SelectionBehavior.SelectRows)
         self.setSelectionMode(QTableView.SelectionMode.SingleSelection)
         self.setEditTriggers(QTableView.EditTrigger.NoEditTriggers)
-        
+
         # Configure headers
         self.horizontalHeader().setStretchLastSection(True)
         self.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
         self.horizontalHeader().setDefaultAlignment(Qt.AlignmentFlag.AlignCenter)
         self.verticalHeader().setVisible(False)
-        
+
         # Connect selection signal
         self.selectionModel().selectionChanged.connect(self.on_selection_changed)
-        
-        # Preserve original styling with bold headers
+
+        # TODO: Add to styles.qss - QTableView with custom selection and header styles
+        # This styling is specific to beacon table selection behavior
+        # Consider adding a beaconTable object name style in styles.qss
         base_style = self.styleSheet()
         style = """
             QTableView::item:selected {
                 background-color: #e3f2fd;
-                color: black;  
+                color: black;
             }
             QTableView::item:selected:focus {
                 background-color: #e3f2fd;

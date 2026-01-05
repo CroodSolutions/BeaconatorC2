@@ -98,7 +98,7 @@ class SessionTerminalDialog(QDialog):
         # Terminal output area
         self.output_display = QPlainTextEdit()
         self.output_display.setReadOnly(True)
-        self.output_display.setFont(QFont("Consolas", 10))
+        self.output_display.setFont(QFont("Source Code Pro", 10))
         self.output_display.setLineWrapMode(QPlainTextEdit.LineWrapMode.WidgetWidth)
         layout.addWidget(self.output_display)
         
@@ -108,12 +108,12 @@ class SessionTerminalDialog(QDialog):
         # Prompt label
         prompt_text = "meterpreter> " if 'meterpreter' in self.session_type else "shell> "
         self.prompt_label = QLabel(prompt_text)
-        self.prompt_label.setFont(QFont("Consolas", 10))
+        self.prompt_label.setFont(QFont("Source Code Pro", 10))
         input_layout.addWidget(self.prompt_label)
         
         # Command input
         self.command_input = QLineEdit()
-        self.command_input.setFont(QFont("Consolas", 10))
+        self.command_input.setFont(QFont("Source Code Pro", 10))
         self.command_input.returnPressed.connect(self.execute_command)
         input_layout.addWidget(self.command_input)
         

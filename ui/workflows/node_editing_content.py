@@ -1226,7 +1226,7 @@ class NodeEditingContent(QWidget):
                 # Add template variable button
                 if self.workflow_context:
                     try:
-
+                        from ui.workflows.template_variable_picker import TemplateInsertButton
                         template_button = TemplateInsertButton(
                             self.workflow_context.get('context'),
                             self.workflow_context.get('current_node'),
@@ -1236,7 +1236,7 @@ class NodeEditingContent(QWidget):
                         # Connect to the actual input widget, not the container
                         template_button.variable_selected.connect(lambda var, w=actual_input_widget: self._insert_template_variable(w, var))
                         layout.addWidget(template_button)
-                    except ImportError:
+                    except (ImportError, NameError):
                         pass  # Template button not available
                 
                 container.setLayout(layout)
@@ -1405,7 +1405,7 @@ class NodeEditingContent(QWidget):
                         border-color: #4a90e2;
                     }
                 """)
-                browse_btn.clicked.connect(lambda: self._browse_file_directory(text_widget, param_type, param_config))
+                browse_btn.clicked.connect(lambda checked: self._browse_file_directory(text_widget, param_type, param_config))
                 
                 layout.addWidget(text_widget)
                 layout.addWidget(browse_btn)
@@ -1483,8 +1483,8 @@ class NodeEditingContent(QWidget):
             
             # Store simple widget for fallback value retrieval
             self.parameter_widgets[param_name] = type('SimpleWidget', (), {
-                'get_value': lambda: widget.text(),
-                'set_value': lambda value: widget.setText(str(value))
+                'get_value': lambda self: widget.text(),
+                'set_value': lambda self, value: widget.setText(str(value))
             })()
             
             return widget

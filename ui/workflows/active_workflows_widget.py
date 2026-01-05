@@ -24,11 +24,12 @@ class ActiveWorkflowsWidget(QWidget):
     workflow_disabled = pyqtSignal(str)  # workflow_id
     return_to_canvas = pyqtSignal()  # Signal to return to canvas view
     
-    def __init__(self, trigger_service, workflow_service, parent=None):
+    def __init__(self, trigger_service, workflow_service, workflow_editor, parent=None):
         super().__init__(parent)
         self.trigger_service = trigger_service
         self.workflow_service = workflow_service
-        
+        self.workflow_editor = workflow_editor  # Store reference to WorkflowEditor
+
         self.setup_ui()
         
         # Connect to trigger service signals for live updates
@@ -157,15 +158,18 @@ class ActiveWorkflowsWidget(QWidget):
         self.workflow_table = QTableWidget()
         self.workflow_table.setColumnCount(7)
         self.workflow_table.setHorizontalHeaderLabels([
-            "Status", "Workflow Name", "Trigger Type", "Configuration",
+            "Enabled", "Workflow Name", "Trigger Type", "Configuration",
             "Last Triggered", "Trigger Count", "Actions"
         ])
         
         # Configure table
-        self.workflow_table.setAlternatingRowColors(True)
+        self.workflow_table.setAlternatingRowColors(False)
         self.workflow_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.workflow_table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
-        
+
+        # Set minimum row height to prevent button cutoff
+        self.workflow_table.verticalHeader().setDefaultSectionSize(35)
+
         # Style the table
         self.workflow_table.setStyleSheet("""
             QTableWidget {
@@ -175,6 +179,7 @@ class ActiveWorkflowsWidget(QWidget):
             }
             QTableWidget::item {
                 padding: 5px;
+                background-color: #2b2b2b;
             }
             QTableWidget::item:selected {
                 background-color: #4a90e2;
@@ -190,15 +195,14 @@ class ActiveWorkflowsWidget(QWidget):
         
         # Set column widths
         header = self.workflow_table.horizontalHeader()
-        header.setSectionResizeMode(0, QHeaderView.ResizeMode.Fixed)
+        header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
         header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         header.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
         header.setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
         header.setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)
         header.setSectionResizeMode(5, QHeaderView.ResizeMode.ResizeToContents)
         header.setSectionResizeMode(6, QHeaderView.ResizeMode.Fixed)
-        
-        self.workflow_table.setColumnWidth(0, 70)
+
         self.workflow_table.setColumnWidth(6, 100)
         
         # Enable context menu
@@ -406,12 +410,9 @@ class ActiveWorkflowsWidget(QWidget):
         
     def edit_workflow(self, workflow_id: str):
         """Open workflow for editing"""
-        # Return to canvas and load the workflow
-        self.return_to_canvas.emit()
-        if self.parent():
-            # Load the workflow in the editor
-            if hasattr(self.parent(), 'load_workflow_by_id'):
-                self.parent().load_workflow_by_id(workflow_id)
+        # Load the workflow in the editor (which will also switch to canvas view)
+        if self.workflow_editor and hasattr(self.workflow_editor, 'load_workflow_by_id'):
+            self.workflow_editor.load_workflow_by_id(workflow_id)
             
     def show_context_menu(self, position):
         """Show context menu for workflow actions"""

@@ -1,0 +1,87 @@
+schema_version: "1.1"
+beacon_info:
+  beacon_type: "simple_ahk_beacon_bof"
+  version: "1.0.0"
+  description: "Simple AHK beacon with BOF (Beacon Object File) execution capability"
+  supported_platforms: "windows"
+  encoding_strategy: "base64"
+  file_transfer_supported: true
+  keylogger_supported: false
+
+categories:
+  basic_commands:
+    display_name: "Basic Commands"
+    description: "Essential command execution capabilities"
+    modules:
+      command_execution:
+        display_name: "Command Execution"
+        description: "Execute arbitrary system commands"
+        command_template: "{command}"
+        parameters:
+          command:
+            type: "textarea"
+            display_name: "Command"
+            description: "Enter command to execute on the target system"
+            required: true
+            default: ""
+            validation:
+              min_length: 1
+              max_length: 8192
+        documentation:
+          content: "Execute system commands directly on the target machine. Commands are executed using WScript.Shell with output capture."
+          examples:
+            - "whoami"
+            - "dir"
+            - "systeminfo"
+        execution:
+          timeout: 300
+          requires_admin: false
+        ui:
+          layout: "simple"
+
+  bof_execution:
+    display_name: "BOF Execution"
+    description: "Execute Beacon Object Files (COFF loaders)"
+    modules:
+      execute_bof:
+        display_name: "Execute BOF"
+        description: "Execute a compiled Beacon Object File"
+        command_template: "bof|{bof_data}|{arguments}"
+        parameters:
+          bof_data:
+            type: "file"
+            display_name: "BOF File"
+            description: "Select the compiled BOF (.o) file to execute"
+            required: true
+            file_filters:
+              - "BOF Files (*.o *.obj)"
+              - "All Files (*)"
+            encoding: "base64"
+          arguments:
+            type: "text"
+            display_name: "Arguments"
+            description: "Arguments to pass to the BOF (pipe-separated)"
+            required: false
+            default: ""
+        documentation:
+          content: |
+            Execute a Beacon Object File (BOF) on the target system.
+
+            BOFs are compiled C programs in COFF format that execute in-memory without
+            touching disk. They can call Windows APIs and Beacon API functions.
+
+            Supported Beacon API functions:
+            - BeaconPrintf, BeaconOutput (output)
+            - BeaconDataParse, BeaconDataInt, BeaconDataShort, BeaconDataExtract (argument parsing)
+            - BeaconFormatAlloc, BeaconFormatAppend, BeaconFormatPrintf (formatting)
+            - BeaconIsAdmin, BeaconUseToken, BeaconRevertToken (token operations)
+
+            Arguments are passed in Cobalt Strike format (length-prefixed binary data).
+          examples:
+            - "whoami.x64.o (no arguments)"
+            - "dir.x64.o with path argument"
+        execution:
+          timeout: 300
+          requires_admin: false
+        ui:
+          layout: "advanced"

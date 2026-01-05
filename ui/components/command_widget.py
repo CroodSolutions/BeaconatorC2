@@ -3,8 +3,8 @@ Command Widget - Schema-driven module interface
 Generates UI dynamically based on beacon module schemas
 """
 
-from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLineEdit, QPushButton, 
-                            QTextEdit, QLabel, QComboBox, QTreeWidget, QTreeWidgetItem, 
+from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLineEdit, QPushButton,
+                            QTextEdit, QLabel, QComboBox, QTreeWidget, QTreeWidgetItem,
                             QStackedWidget, QSplitter, QSpinBox, QDoubleSpinBox, QCheckBox,
                             QGridLayout, QMessageBox, QFileDialog, QGroupBox, QTabWidget,
                             QScrollArea, QFrame, QSizePolicy)
@@ -12,6 +12,8 @@ from PyQt6.QtCore import pyqtSignal, Qt, QPoint
 from PyQt6.QtGui import QFont, QIcon
 from PyQt6.QtWidgets import QStyle
 from typing import Dict, Any, Optional, List, Tuple
+from pathlib import Path
+import base64
 
 from database import BeaconRepository
 from services import SchemaService, BeaconSchema, Module, Category, ParameterType
@@ -332,7 +334,7 @@ class ModuleInterface(QWidget):
         if not self.current_beacon_id:
             QMessageBox.warning(self, "Warning", "No agent selected!")
             return
-        
+
         # Validate all parameters
         parameter_values = {}
         for param_name, param_widget in self.parameter_widgets.items():
@@ -341,22 +343,65 @@ class ModuleInterface(QWidget):
                 QMessageBox.warning(self, "Validation Error", error)
                 return
             parameter_values[param_name] = param_widget.get_value()
-        
+
         try:
+            # Process file parameters with encoding (e.g., base64)
+            is_module_command = False
+            for param_name, param_def in self.module.parameters.items():
+                if param_def.type == ParameterType.FILE and param_def.encoding == "base64":
+                    file_path = parameter_values.get(param_name, "")
+                    if file_path:
+                        # Read file and base64 encode it
+                        encoded_data = self._encode_file_base64(file_path)
+                        if encoded_data is None:
+                            QMessageBox.warning(self, "Error", f"Failed to read file: {file_path}")
+                            return
+                        parameter_values[param_name] = encoded_data
+                        is_module_command = True  # File-based modules use execute_module
+
             # Format command using module template
             command = self.module.format_command(parameter_values)
-            
+
+            # Prefix with execute_module| if this is a module command (not a simple shell command)
+            # Module commands include file-encoded parameters or specific module types
+            if is_module_command:
+                command = f"execute_module|{command}"
+
             # Send command to agent via repository
-            self.beacon_repository.update_beacon_command(self.current_beacon_id, command)            
-            
+            self.beacon_repository.update_beacon_command(self.current_beacon_id, command)
+
             # Show success message with a tooltip-style notification
             self.show_success_notification(f"Module '{self.module.display_name}' queued for agent {self.current_beacon_id}")
-            
+
         except Exception as e:
             # Log the error
             if utils.logger:
                 utils.logger.log_message(f"Failed to send command to {self.current_beacon_id}: {e}")
             QMessageBox.warning(self, "Error", f"Failed to execute module: {str(e)}")
+
+    def _encode_file_base64(self, file_path: str) -> Optional[str]:
+        """Read a file and return its contents as base64-encoded string"""
+        try:
+            path = Path(file_path)
+            if not path.exists():
+                if utils.logger:
+                    utils.logger.log_message(f"File not found: {file_path}")
+                return None
+
+            with open(path, 'rb') as f:
+                file_data = f.read()
+
+            encoded = base64.b64encode(file_data).decode('ascii')
+
+            if utils.logger:
+                utils.logger.log_message(f"Encoded file {path.name}: {len(file_data)} bytes -> {len(encoded)} chars base64")
+
+            return encoded
+
+        except Exception as e:
+            if utils.logger:
+                utils.logger.log_message(f"Failed to encode file {file_path}: {e}")
+            return None
     
     def show_success_notification(self, message: str):
         """Show a brief success notification"""
