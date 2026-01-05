@@ -22,12 +22,13 @@ from pathlib import Path
 
 
 class PythonBeacon:
-    def __init__(self, server_ip="127.0.0.1", server_port=5074, protocol="tcp", pipe_name=None, http_endpoint="/"):
+    def __init__(self, server_ip="127.0.0.1", server_port=5074, protocol="tcp", pipe_name=None, http_endpoint="/", schema_file="python_beacon.yaml"):
         self.server_ip = server_ip
         self.server_port = server_port
         self.protocol = protocol.lower()
         self.pipe_name = pipe_name or f"BeaconatorC2_{server_port}"
         self.http_endpoint = http_endpoint
+        self.schema_file = schema_file
         
         self.agent_id = self.generate_agent_id()
         self.computer_name = platform.node()
@@ -39,6 +40,7 @@ class PythonBeacon:
         print(f"    Computer: {self.computer_name}")
         print(f"    Protocol: {self.protocol.upper()}")
         print(f"    Server: {self.server_ip}:{self.server_port}")
+        print(f"    Schema: {self.schema_file}")
         if self.protocol == "smb":
             print(f"    Pipe: {self.pipe_name}")
         elif self.protocol == "http":
@@ -302,7 +304,7 @@ class PythonBeacon:
 
     def register(self):
         """Register beacon with server"""
-        message = f"register|{self.agent_id}|{self.computer_name}"
+        message = f"register|{self.agent_id}|{self.computer_name}|{self.schema_file}"
         self.log(f"Attempting registration with message: {message}")
         response = self.send_message(message)
         self.log(f"Registration response: {response}")
@@ -589,6 +591,7 @@ def main():
     parser.add_argument("--pipe", help="SMB pipe name (for SMB protocol)")
     parser.add_argument("--endpoint", default="/", help="HTTP endpoint path (for HTTP protocol)")
     parser.add_argument("--interval", type=int, default=15, help="Check-in interval in seconds")
+    parser.add_argument("--schema", default="python_beacon.yaml", help="Schema file for auto-assignment")
     
     args = parser.parse_args()
     
@@ -598,7 +601,8 @@ def main():
         server_port=args.port,
         protocol=args.protocol,
         pipe_name=args.pipe,
-        http_endpoint=args.endpoint
+        http_endpoint=args.endpoint,
+        schema_file=args.schema
     )
     
     beacon.check_in_interval = args.interval

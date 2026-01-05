@@ -52,6 +52,7 @@ class BeaconMetadataPanel(QWidget):
         title_font.setPointSize(12)
         title_font.setBold(True)
         self.title_label.setFont(title_font)
+        self.title_label.setStyleSheet("background-color: transparent;")
         header_layout.addWidget(self.title_label)
 
         header_layout.addStretch()

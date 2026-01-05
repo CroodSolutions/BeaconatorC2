@@ -252,7 +252,7 @@ class TriggerEditingContent(QWidget):
 
         layout.addWidget(self.config_group)
 
-        # Don't add stretch - let content align to top naturally
+        layout.addStretch()  # Push content to top
 
         self.content_area.setLayout(layout)
     

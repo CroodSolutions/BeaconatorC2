@@ -401,6 +401,7 @@ class MainWindow(QMainWindow):
 
         # Connect signals
         self.asset_map_canvas.node_selected.connect(self._on_asset_map_node_selected)
+        self.asset_map_canvas.panning_started.connect(self.beacon_metadata_panel.close_panel)
         self.beacon_metadata_panel.panel_closed.connect(self.asset_map_canvas.update)
 
         # Populate initial data

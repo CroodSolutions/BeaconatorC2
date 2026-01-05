@@ -242,6 +242,7 @@ class AssetMapCanvas(QWidget):
     # Signals
     node_selected = pyqtSignal(object)  # Signal when a node is selected (emits node object)
     node_moved = pyqtSignal(object, QPointF)  # Signal when a node is moved
+    panning_started = pyqtSignal()  # Signal when canvas panning begins
 
     def __init__(self, beacon_repository: Optional[BeaconRepository] = None, parent=None):
         super().__init__(parent)
@@ -377,13 +378,7 @@ class AssetMapCanvas(QWidget):
     # Mouse event handlers
     def mousePressEvent(self, event: QMouseEvent):
         """Handle mouse press"""
-        if event.button() == Qt.MouseButton.MiddleButton:
-            # Start panning
-            self.is_panning = True
-            self.last_mouse_pos = event.pos()
-            self.setCursor(Qt.CursorShape.ClosedHandCursor)
-
-        elif event.button() == Qt.MouseButton.LeftButton:
+        if event.button() == Qt.MouseButton.LeftButton:
             # Check if clicking on a node
             world_pos = self.screen_to_world(QPointF(event.pos()))
             clicked_node = self.get_node_at(world_pos.x(), world_pos.y())
@@ -400,7 +395,13 @@ class AssetMapCanvas(QWidget):
                 self.node_selected.emit(clicked_node)
                 self.update()
             else:
-                # Deselect
+                # Left-click on empty canvas: start panning
+                self.is_panning = True
+                self.last_mouse_pos = event.pos()
+                self.setCursor(Qt.CursorShape.ClosedHandCursor)
+                # Emit signal to close any open panels
+                self.panning_started.emit()
+                # Deselect current node
                 if self.selected_node:
                     self.selected_node.selected = False
                     self.selected_node = None
@@ -444,11 +445,10 @@ class AssetMapCanvas(QWidget):
 
     def mouseReleaseEvent(self, event: QMouseEvent):
         """Handle mouse release"""
-        if event.button() == Qt.MouseButton.MiddleButton:
-            self.is_panning = False
-            self.setCursor(Qt.CursorShape.ArrowCursor)
-
-        elif event.button() == Qt.MouseButton.LeftButton:
+        if event.button() == Qt.MouseButton.LeftButton:
+            if self.is_panning:
+                self.is_panning = False
+                self.setCursor(Qt.CursorShape.ArrowCursor)
             if self.is_dragging_node:
                 self.is_dragging_node = False
 
