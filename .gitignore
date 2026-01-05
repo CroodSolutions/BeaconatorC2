@@ -36,3 +36,5 @@ workflows/workflow_1754467573.json
 configs/receivers.json
 ui/dialogs/__pycache__/__init__.cpython-311.pyc
 ui/dialogs/__pycache__/session_terminal_dialog.cpython-311.pyc
+configs/receivers.json
+/beacons/BOF

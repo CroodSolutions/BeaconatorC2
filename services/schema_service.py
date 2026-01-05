@@ -159,6 +159,7 @@ class ModuleParameter:
     validation: Optional[ParameterValidation] = None
     choices: Optional[List[str]] = None
     file_filters: Optional[List[str]] = None
+    encoding: Optional[str] = None  # e.g., "base64" for file parameters
 
 @dataclass
 class ModuleDocumentation:
@@ -355,7 +356,8 @@ class SchemaService:
                 default=param_data.get('default'),
                 validation=validation,
                 choices=param_data.get('choices'),
-                file_filters=param_data.get('file_filters')
+                file_filters=param_data.get('file_filters'),
+                encoding=param_data.get('encoding')
             )
             parameters[param_name] = parameter
         
