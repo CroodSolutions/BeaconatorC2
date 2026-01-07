@@ -1,0 +1,36 @@
+module:
+  id: domain_trust_recon
+  version: "1.0.0"
+  display_name: "Domain Trust Reconnaissance"
+  description: "Enumerate trusted domains in the Active Directory"
+
+  requires: []
+
+  provides:
+    - DomainTrustRecon
+
+  files:
+    - code.ahk
+
+  dispatch:
+    DomainTrustRecon: DomainTrustRecon
+
+  schema:
+    category_id: discovery
+    category_name: "Discovery"
+    modules:
+      domain_trust_recon:
+        display_name: "Domain Trusts"
+        description: "Enumerate trusted domains in the current Active Directory environment"
+        command_template: "execute_module|DomainTrustRecon"
+        parameters: {}
+        documentation:
+          content: "Enumerates all trust relationships for the current domain."
+          examples: []
+        execution:
+          timeout: 120
+          requires_admin: false
+        ui:
+          layout: simple
+
+  config_options: {}

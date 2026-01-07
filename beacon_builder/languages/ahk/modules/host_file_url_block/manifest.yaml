@@ -1,0 +1,47 @@
+module:
+  id: host_file_url_block
+  version: "1.0.0"
+  display_name: "Host File URL Block"
+  description: "Block domains by modifying the hosts file (requires Admin)"
+
+  requires: []
+
+  provides:
+    - HostFileURLBlock
+
+  files:
+    - code.ahk
+
+  dispatch:
+    HostFileURLBlock: HostFileURLBlock
+
+  schema:
+    category_id: evasion
+    category_name: "Evasion"
+    modules:
+      host_file_url_block:
+        display_name: "Host File URL Block"
+        description: "Block outbound traffic through the host file by setting target URL IPs to 127.0.0.1"
+        command_template: "execute_module|HostFileURLBlock|{target_urls}"
+        parameters:
+          target_urls:
+            type: textarea
+            display_name: "Target URLs"
+            description: "Not case sensitive, comma separated list only"
+            required: true
+            default: "example1.com, example2.com"
+            validation:
+              min_length: 1
+              max_length: 1024
+        documentation:
+          content: "Blocks outbound traffic through the host file by setting target URL IPs to 127.0.0.1."
+          examples:
+            - "example1.com, example2.com"
+            - "malicious-site.com, tracking-domain.net"
+        execution:
+          timeout: 120
+          requires_admin: true
+        ui:
+          layout: simple
+
+  config_options: {}

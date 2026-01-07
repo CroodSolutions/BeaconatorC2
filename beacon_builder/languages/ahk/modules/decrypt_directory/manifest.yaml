@@ -1,0 +1,57 @@
+module:
+  id: decrypt_directory
+  version: "1.0.0"
+  display_name: "Decrypt Directory"
+  description: "Decrypt previously encrypted files using Windows CryptoAPI"
+
+  requires: []
+
+  provides:
+    - DecryptDirectory
+
+  files:
+    - code.ahk
+
+  dispatch:
+    DecryptDirectory: DecryptDirectory
+
+  schema:
+    category_id: impact
+    category_name: "Impact"
+    modules:
+      decrypt_directory:
+        display_name: "Decrypt Directory"
+        description: "Decrypt previously encrypted files using Windows CryptoAPI"
+        command_template: "execute_module|DecryptDirectory|{target_folder},{password}"
+        parameters:
+          target_folder:
+            type: directory
+            display_name: "Target Folder"
+            description: "Directory containing encrypted files"
+            required: true
+            default: ""
+            validation:
+              pattern: "^[A-Za-z]:\\\\.*"
+          password:
+            type: text
+            display_name: "Password"
+            description: "Decryption password (same as used for encryption)"
+            required: true
+            default: ""
+            validation:
+              min_length: 8
+              max_length: 128
+        documentation:
+          content: "Decrypts all .encrypted files in the specified directory using Windows CryptoAPI. Files are restored to their original names and content."
+          examples:
+            - "C:\\Users\\target\\Documents\\ with original password"
+        execution:
+          timeout: 1800
+          requires_admin: false
+        ui:
+          layout: simple
+          grouping:
+            - - target_folder
+            - - password
+
+  config_options: {}

@@ -1,0 +1,58 @@
+module:
+  id: discover_pii
+  version: "1.0.0"
+  display_name: "Discover PII"
+  description: "Scan documents for personally identifiable information (phone numbers, SSN, dates)"
+
+  requires: []
+
+  provides:
+    - DiscoverPII
+
+  files:
+    - code.ahk
+
+  dispatch:
+    DiscoverPII: DiscoverPII
+
+  schema:
+    category_id: discovery
+    category_name: "Discovery"
+    modules:
+      discover_pii:
+        display_name: "Discover PII"
+        description: "Recursively scan text files in a directory to identify potential PII"
+        command_template: "execute_module|DiscoverPII|{directory_path},{context_length}"
+        parameters:
+          directory_path:
+            type: directory
+            display_name: "Directory Path"
+            description: "Enter the directory path as it appears on the target system"
+            required: true
+            default: ""
+            validation:
+              pattern: "^[A-Za-z]:\\\\.*"
+          context_length:
+            type: integer
+            display_name: "Context Length"
+            description: "Number of characters to capture around PII matches"
+            required: true
+            default: 30
+            validation:
+              min_value: 1
+              max_value: 1000
+        documentation:
+          content: "Scans text files recursively in the specified directory to identify potential personally identifiable information such as phone numbers, SSNs, and dates."
+          examples:
+            - "C:\\Users\\Administrator\\Documents\\"
+            - "C:\\temp\\"
+        execution:
+          timeout: 600
+          requires_admin: false
+        ui:
+          layout: simple
+          grouping:
+            - - directory_path
+            - - context_length
+
+  config_options: {}

@@ -1,0 +1,36 @@
+module:
+  id: active_user_membership
+  version: "1.0.0"
+  display_name: "Active User Membership"
+  description: "Get group membership for the current user"
+
+  requires: []
+
+  provides:
+    - ActiveUserMembership
+
+  files:
+    - code.ahk
+
+  dispatch:
+    ActiveUserMembership: ActiveUserMembership
+
+  schema:
+    category_id: discovery
+    category_name: "Discovery"
+    modules:
+      active_user_membership:
+        display_name: "Active User Membership"
+        description: "Enumerate all group memberships for the currently active user"
+        command_template: "execute_module|ActiveUserMembership"
+        parameters: {}
+        documentation:
+          content: "Enumerates all group memberships for the currently active user, providing a comprehensive view of the user's permissions and access levels within the domain."
+          examples: []
+        execution:
+          timeout: 120
+          requires_admin: false
+        ui:
+          layout: simple
+
+  config_options: {}

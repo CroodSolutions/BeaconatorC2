@@ -1,0 +1,62 @@
+module:
+  id: run_as_user
+  version: "1.0.0"
+  display_name: "Run As User"
+  description: "Execute the beacon as a different user with provided credentials"
+
+  requires: []
+
+  provides:
+    - RunAsUser
+
+  files:
+    - code.ahk
+
+  dispatch:
+    RunAsUser: RunAsUser
+
+  schema:
+    category_id: privilege_escalation
+    category_name: "Privilege Escalation"
+    modules:
+      run_as_user:
+        display_name: "Run As User"
+        description: "Execute commands in the context of a different user"
+        command_template: "execute_module|RunAsUser|{username},{password},{command}"
+        parameters:
+          username:
+            type: text
+            display_name: "Username"
+            description: "Username to execute command as"
+            required: true
+            default: ""
+          password:
+            type: text
+            display_name: "Password"
+            description: "Password for the specified user"
+            required: true
+            default: ""
+          command:
+            type: text
+            display_name: "Command"
+            description: "Command to execute as the specified user"
+            required: true
+            default: "whoami"
+            validation:
+              min_length: 1
+              max_length: 1024
+        documentation:
+          content: "Execute commands in the context of a different user account using provided credentials."
+          examples:
+            - "Administrator / P@ssw0rd / net user"
+        execution:
+          timeout: 300
+          requires_admin: true
+        ui:
+          layout: simple
+          grouping:
+            - - username
+              - password
+            - - command
+
+  config_options: {}

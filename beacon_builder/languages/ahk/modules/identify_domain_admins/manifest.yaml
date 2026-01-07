@@ -1,0 +1,36 @@
+module:
+  id: identify_domain_admins
+  version: "1.0.0"
+  display_name: "Identify Domain Admins"
+  description: "List members of the Domain Admins group"
+
+  requires: []
+
+  provides:
+    - IdentifyDomainAdmins
+
+  files:
+    - code.ahk
+
+  dispatch:
+    IdentifyDomainAdmins: IdentifyDomainAdmins
+
+  schema:
+    category_id: discovery
+    category_name: "Discovery"
+    modules:
+      identify_domain_admins:
+        display_name: "Domain Admins"
+        description: "Enumerate all members of the Domain Admins group"
+        command_template: "execute_module|IdentifyDomainAdmins"
+        parameters: {}
+        documentation:
+          content: "Enumerates all members of the Domain Admins group, providing visibility into high-privilege account holders in the domain."
+          examples: []
+        execution:
+          timeout: 120
+          requires_admin: false
+        ui:
+          layout: simple
+
+  config_options: {}

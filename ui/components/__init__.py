@@ -10,8 +10,9 @@ from .receiver_config_dialog import ReceiverConfigDialog
 from .metasploit_widget import MetasploitWidget
 from .asset_map_canvas import AssetMapCanvas
 from .beacon_metadata_panel import BeaconMetadataPanel
+from .beacon_builder_widget import BeaconBuilderWidget
 
 __all__ = ['BeaconTableWidget', 'CommandWidget', 'DynamicCommandWidget', 'NavigationMenu',
            'FileTransferWidget', 'SettingsPage', 'DocumentationPanel', 'BeaconSettingsWidget',
            'ReceiversWidget', 'ReceiverConfigDialog', 'MetasploitWidget', 'AssetMapCanvas',
-           'BeaconMetadataPanel']
+           'BeaconMetadataPanel', 'BeaconBuilderWidget']

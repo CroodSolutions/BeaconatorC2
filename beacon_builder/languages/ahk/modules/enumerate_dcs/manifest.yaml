@@ -1,0 +1,36 @@
+module:
+  id: enumerate_dcs
+  version: "1.0.0"
+  display_name: "Enumerate Domain Controllers"
+  description: "List all domain controllers in the current domain"
+
+  requires: []
+
+  provides:
+    - EnumerateDCs
+
+  files:
+    - code.ahk
+
+  dispatch:
+    EnumerateDCs: EnumerateDCs
+
+  schema:
+    category_id: discovery
+    category_name: "Discovery"
+    modules:
+      enumerate_dcs:
+        display_name: "Enumerate DCs"
+        description: "Identify all Domain Controllers in the current domain"
+        command_template: "execute_module|EnumerateDCs"
+        parameters: {}
+        documentation:
+          content: "Enumerates all Domain Controllers in the current Active Directory domain."
+          examples: []
+        execution:
+          timeout: 120
+          requires_admin: false
+        ui:
+          layout: simple
+
+  config_options: {}

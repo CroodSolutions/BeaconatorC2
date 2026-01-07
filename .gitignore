@@ -38,3 +38,7 @@ ui/dialogs/__pycache__/__init__.cpython-311.pyc
 ui/dialogs/__pycache__/session_terminal_dialog.cpython-311.pyc
 configs/receivers.json
 /beacons/BOF
+beacon_builder/__pycache__/__init__.cpython-311.pyc
+beacon_builder/__pycache__/builder.cpython-311.pyc
+beacons/logfile.txt
+custom_beacon.ahk

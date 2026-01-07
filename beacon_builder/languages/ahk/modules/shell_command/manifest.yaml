@@ -1,0 +1,55 @@
+module:
+  id: shell_command
+  version: "1.0.0"
+  display_name: "Shell Command"
+  description: "Execute shell commands via cmd.exe and return output"
+
+  # Dependencies
+  requires: []
+
+  # What this module provides
+  provides:
+    - HandleCommand
+    - ExecuteModule
+
+  # Code files in inclusion order
+  files:
+    - code.ahk
+
+  # Command dispatch additions
+  dispatch:
+    execute_command: HandleCommand
+
+  # Schema contribution
+  schema:
+    category_id: basic_commands
+    category_name: "Basic Commands"
+    modules:
+      command_execution:
+        display_name: "Command Execution"
+        description: "Execute arbitrary system commands"
+        command_template: "{command}"
+        parameters:
+          command:
+            type: textarea
+            display_name: "Command"
+            description: "Enter command to execute on the target system"
+            required: true
+            default: ""
+            validation:
+              min_length: 1
+              max_length: 8192
+        documentation:
+          content: "Execute system commands directly on the target machine. Use with caution as commands are executed with the privileges of the beacon process."
+          examples:
+            - "whoami"
+            - "systeminfo"
+            - "dir C:\\"
+        execution:
+          timeout: 300
+          requires_admin: false
+        ui:
+          layout: simple
+
+  # Builder UI options
+  config_options: {}

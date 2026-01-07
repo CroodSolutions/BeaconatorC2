@@ -1,0 +1,57 @@
+module:
+  id: encrypt_directory
+  version: "1.0.0"
+  display_name: "Encrypt Directory"
+  description: "Encrypt all files in a directory using Windows CryptoAPI"
+
+  requires: []
+
+  provides:
+    - EncryptDirectory
+
+  files:
+    - code.ahk
+
+  dispatch:
+    EncryptDirectory: EncryptDirectory
+
+  schema:
+    category_id: impact
+    category_name: "Impact"
+    modules:
+      encrypt_directory:
+        display_name: "Encrypt Directory"
+        description: "Encrypt all files in a directory using Windows CryptoAPI"
+        command_template: "execute_module|EncryptDirectory|{target_folder},{password}"
+        parameters:
+          target_folder:
+            type: directory
+            display_name: "Target Folder"
+            description: "Directory containing files to encrypt"
+            required: true
+            default: ""
+            validation:
+              pattern: "^[A-Za-z]:\\\\.*"
+          password:
+            type: text
+            display_name: "Password"
+            description: "Encryption password (save this for decryption)"
+            required: true
+            default: ""
+            validation:
+              min_length: 8
+              max_length: 128
+        documentation:
+          content: "Encrypts all files in the specified directory using Windows CryptoAPI. Files are encrypted with the provided password and renamed with .encrypted extension."
+          examples:
+            - "C:\\Users\\target\\Documents\\ with password"
+        execution:
+          timeout: 1800
+          requires_admin: false
+        ui:
+          layout: simple
+          grouping:
+            - - target_folder
+            - - password
+
+  config_options: {}
