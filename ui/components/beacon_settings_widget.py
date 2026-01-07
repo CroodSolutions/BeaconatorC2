@@ -5,7 +5,7 @@ from PyQt6.QtCore import pyqtSignal
 from database import BeaconRepository
 from services import SchemaService
 from utils import FontManager
-from config import config
+from config import ServerConfig
 
 class BeaconSettingsWidget(QWidget):
     """Widget for managing beacon settings and lifecycle"""
@@ -355,7 +355,7 @@ class BeaconSettingsWidget(QWidget):
 
             try:
                 # Delete log files first
-                logs_folder = Path(config.LOGS_FOLDER)
+                logs_folder = Path(ServerConfig.LOGS_FOLDER)
 
                 # Delete command output log
                 output_log = logs_folder / f"output_{beacon_id}.txt"
