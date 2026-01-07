@@ -592,7 +592,16 @@ class BeaconBuilder:
         # Resolve modules and add their schema contributions
         resolved = self.resolve_dependencies()
 
+        # Modules that have dedicated tabs and should NOT appear in the command widget modules list
+        # - keylogger: handled by Keylogger tab when keylogger_supported=true
+        # - file_transfer: handled by File Transfer tab when file_transfer_supported=true
+        tab_handled_modules = {'keylogger', 'file_transfer'}
+
         for manifest in resolved:
+            # Skip modules that are handled by dedicated tabs
+            if manifest.id in tab_handled_modules:
+                continue
+
             if manifest.schema and manifest.schema.get('modules'):
                 category_id = manifest.schema.get('category_id', manifest.id)
                 category_name = manifest.schema.get('category_name', manifest.display_name)
