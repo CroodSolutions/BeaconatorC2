@@ -1,0 +1,36 @@
+module:
+  id: system_info
+  version: "1.0.0"
+  display_name: "System Information"
+  description: "Gather basic system information"
+
+  requires: []
+
+  provides:
+    - system_info
+
+  files:
+    - code.py
+
+  dispatch:
+    system_info: system_info
+
+  schema:
+    category_id: discovery
+    category_name: "Discovery"
+    modules:
+      system_info:
+        display_name: "System Information"
+        description: "Gather basic system information"
+        command_template: "execute_module|system_info"
+        parameters: {}
+        documentation:
+          content: "Collects basic system information including OS details, hostname, platform, architecture, and Python version. Cross-platform compatible."
+          examples: []
+        execution:
+          timeout: 60
+          requires_admin: false
+        ui:
+          layout: simple
+
+  config_options: {}
