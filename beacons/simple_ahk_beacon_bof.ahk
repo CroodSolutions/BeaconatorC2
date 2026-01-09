@@ -823,7 +823,9 @@ class BeaconAPI {
     ; Create all native callbacks for Beacon API functions
     CreateCallbacks() {
         ; Output functions
-        this.Callbacks["BeaconPrintf"] := CallbackCreate(ObjBindMethod(this, "_BeaconPrintf"), "C", 2)
+        ; BeaconPrintf is variadic: void BeaconPrintf(int type, char* fmt, ...)
+        ; We accept up to 10 params total (type, fmt, + 8 format args) to handle most BOF use cases
+        this.Callbacks["BeaconPrintf"] := CallbackCreate(ObjBindMethod(this, "_BeaconPrintf"), "C", 10)
         this.Callbacks["BeaconOutput"] := CallbackCreate(ObjBindMethod(this, "_BeaconOutput"), "C", 3)
 
         ; Data parsing functions
@@ -883,14 +885,63 @@ class BeaconAPI {
     ; ========================================================================
 
     ; void BeaconPrintf(int type, char* fmt, ...)
-    _BeaconPrintf(type, fmtPtr) {
+    _BeaconPrintf(type, fmtPtr, arg1:=0, arg2:=0, arg3:=0, arg4:=0, arg5:=0, arg6:=0, arg7:=0, arg8:=0) {
+        ; BeaconPrintf is variadic: void BeaconPrintf(int type, char* fmt, ...)
+        ; We use wsprintfA to format the string with the provided arguments
         BOFLog(">>> BeaconPrintf CALLED <<<", "API")
         try {
-            ; Read the format string
             if (fmtPtr) {
-                text := StrGet(fmtPtr, "UTF-8")
+                fmtStr := StrGet(fmtPtr, "UTF-8")
+
+                ; Allocate output buffer (max 1024 chars for wsprintf)
+                outBuf := Buffer(1024, 0)
+
+                ; Count format specifiers to determine how many args to pass
+                ; Common specifiers: %s, %d, %i, %u, %x, %X, %p, %c, %ld, %lu, %lx, %lld, %llu
+                numSpecs := 0
+                pos := 1
+                while (pos := InStr(fmtStr, "%", , pos)) {
+                    nextChar := SubStr(fmtStr, pos + 1, 1)
+                    ; Skip %% (literal percent)
+                    if (nextChar != "%") {
+                        numSpecs++
+                    }
+                    pos++
+                }
+
+                ; Call wsprintfA with the appropriate number of arguments
+                if (numSpecs = 0) {
+                    ; No format specifiers, just copy the string
+                    text := fmtStr
+                } else if (numSpecs = 1) {
+                    DllCall("user32\wsprintfA", "Ptr", outBuf.Ptr, "AStr", fmtStr, "Ptr", arg1, "Int")
+                    text := StrGet(outBuf.Ptr, "UTF-8")
+                } else if (numSpecs = 2) {
+                    DllCall("user32\wsprintfA", "Ptr", outBuf.Ptr, "AStr", fmtStr, "Ptr", arg1, "Ptr", arg2, "Int")
+                    text := StrGet(outBuf.Ptr, "UTF-8")
+                } else if (numSpecs = 3) {
+                    DllCall("user32\wsprintfA", "Ptr", outBuf.Ptr, "AStr", fmtStr, "Ptr", arg1, "Ptr", arg2, "Ptr", arg3, "Int")
+                    text := StrGet(outBuf.Ptr, "UTF-8")
+                } else if (numSpecs = 4) {
+                    DllCall("user32\wsprintfA", "Ptr", outBuf.Ptr, "AStr", fmtStr, "Ptr", arg1, "Ptr", arg2, "Ptr", arg3, "Ptr", arg4, "Int")
+                    text := StrGet(outBuf.Ptr, "UTF-8")
+                } else if (numSpecs = 5) {
+                    DllCall("user32\wsprintfA", "Ptr", outBuf.Ptr, "AStr", fmtStr, "Ptr", arg1, "Ptr", arg2, "Ptr", arg3, "Ptr", arg4, "Ptr", arg5, "Int")
+                    text := StrGet(outBuf.Ptr, "UTF-8")
+                } else if (numSpecs = 6) {
+                    DllCall("user32\wsprintfA", "Ptr", outBuf.Ptr, "AStr", fmtStr, "Ptr", arg1, "Ptr", arg2, "Ptr", arg3, "Ptr", arg4, "Ptr", arg5, "Ptr", arg6, "Int")
+                    text := StrGet(outBuf.Ptr, "UTF-8")
+                } else if (numSpecs = 7) {
+                    DllCall("user32\wsprintfA", "Ptr", outBuf.Ptr, "AStr", fmtStr, "Ptr", arg1, "Ptr", arg2, "Ptr", arg3, "Ptr", arg4, "Ptr", arg5, "Ptr", arg6, "Ptr", arg7, "Int")
+                    text := StrGet(outBuf.Ptr, "UTF-8")
+                } else {
+                    ; 8 or more specifiers
+                    DllCall("user32\wsprintfA", "Ptr", outBuf.Ptr, "AStr", fmtStr, "Ptr", arg1, "Ptr", arg2, "Ptr", arg3, "Ptr", arg4, "Ptr", arg5, "Ptr", arg6, "Ptr", arg7, "Ptr", arg8, "Int")
+                    text := StrGet(outBuf.Ptr, "UTF-8")
+                }
+
                 this.OutputBuffer .= text . "`n"
-                BOFLog(Format("BeaconPrintf(type={}) -> '{}'", type, text), "API")
+                BOFLog(Format("BeaconPrintf(type={}) -> '{}'", type, SubStr(text, 1, 200)), "API")
             }
         } catch as err {
             BOFLog(Format("BeaconPrintf ERROR: {}", err.Message), "API")
@@ -1901,21 +1952,6 @@ class BOFLoader {
                 }
             }
 
-            if (beaconOutputIAT != 0) {
-                ; Test: Try calling our BeaconOutput callback directly to verify it works
-                BOFLog("Testing direct callback invocation...", "LOADER")
-                testStr := "CALLBACK_TEST"
-                testBuf := Buffer(StrPut(testStr, "UTF-8"))
-                StrPut(testStr, testBuf, "UTF-8")
-                try {
-                    DllCall(beaconOutputIAT, "Int", 0, "Ptr", testBuf.Ptr, "Int", StrLen(testStr))
-                    BOFLog("Direct callback test SUCCEEDED", "LOADER")
-                } catch as err {
-                    BOFLog(Format("Direct callback test FAILED: {}", err.Message), "LOADER")
-                }
-            } else {
-                BOFLog("BeaconOutput not found in BOF imports - skipping callback test", "LOADER")
-            }
         }
 
         ; Call the entry point
