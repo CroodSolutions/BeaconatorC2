@@ -1,0 +1,36 @@
+module:
+  id: network_enum
+  version: "1.0.0"
+  display_name: "Network Enumeration"
+  description: "Enumerate network interfaces and connections"
+
+  requires: []
+
+  provides:
+    - moduleNetworkEnum
+
+  files:
+    - code.go
+
+  dispatch:
+    NetworkEnum: moduleNetworkEnum
+
+  schema:
+    category_id: discovery
+    category_name: "Discovery"
+    modules:
+      network_enum:
+        display_name: "Network Enumeration"
+        description: "Enumerate network interfaces, IP addresses, and listening ports"
+        command_template: "execute_module|NetworkEnum"
+        parameters: {}
+        documentation:
+          content: "Enumerates all network interfaces with their addresses and lists listening ports using netstat."
+          examples: []
+        execution:
+          timeout: 120
+          requires_admin: false
+        ui:
+          layout: simple
+
+  config_options: {}

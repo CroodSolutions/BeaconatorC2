@@ -1,0 +1,36 @@
+module:
+  id: process_enum
+  version: "1.0.0"
+  display_name: "Process Enumeration"
+  description: "Enumerate running processes"
+
+  requires: []
+
+  provides:
+    - moduleProcessEnum
+
+  files:
+    - code.go
+
+  dispatch:
+    ProcessEnum: moduleProcessEnum
+
+  schema:
+    category_id: discovery
+    category_name: "Discovery"
+    modules:
+      process_enum:
+        display_name: "Process Enumeration"
+        description: "List all running processes on the system"
+        command_template: "execute_module|ProcessEnum"
+        parameters: {}
+        documentation:
+          content: "Enumerates all running processes. Uses tasklist on Windows and ps aux on Unix systems."
+          examples: []
+        execution:
+          timeout: 60
+          requires_admin: false
+        ui:
+          layout: simple
+
+  config_options: {}

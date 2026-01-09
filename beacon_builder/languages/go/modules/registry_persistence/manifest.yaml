@@ -1,0 +1,72 @@
+module:
+  id: registry_persistence
+  version: "1.0.0"
+  display_name: "Registry Persistence"
+  description: "Windows registry-based persistence"
+
+  requires: []
+
+  provides:
+    - moduleRegistryPersistence
+    - getRegistryPersistenceMethods
+    - getRegistryPath
+
+  files:
+    - code.go
+
+  dispatch:
+    RegistryPersistence: moduleRegistryPersistence
+
+  schema:
+    category_id: persistence
+    category_name: "Persistence"
+    modules:
+      registry_persistence:
+        display_name: "Registry Persistence"
+        description: "Create persistence via Windows registry Run keys"
+        command_template: "execute_module|RegistryPersistence|{{method}},{{key_name}},{{command}}"
+        parameters:
+          method:
+            type: choice
+            display_name: "Method"
+            description: "Registry persistence method"
+            required: true
+            default: "run"
+            choices:
+              - value: "run"
+                label: "HKCU Run Key"
+              - value: "runonce"
+                label: "HKCU RunOnce Key"
+              - value: "runall"
+                label: "HKLM Run Key (Admin)"
+              - value: "winlogon"
+                label: "Winlogon Shell"
+          key_name:
+            type: text
+            display_name: "Key Name"
+            description: "Name for the registry value"
+            required: true
+            default: ""
+            validation:
+              min_length: 1
+              max_length: 128
+          command:
+            type: text
+            display_name: "Command"
+            description: "Command to execute on startup"
+            required: true
+            default: ""
+            validation:
+              min_length: 1
+              max_length: 1024
+        documentation:
+          content: "Creates Windows registry entries for persistence. Windows-only. Use AutostartPersistence for Unix systems."
+          examples:
+            - "run,MyApp,C:\\path\\to\\app.exe"
+        execution:
+          timeout: 30
+          requires_admin: false
+        ui:
+          layout: simple
+
+  config_options: {}

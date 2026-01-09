@@ -1,0 +1,48 @@
+module:
+  id: shell_command
+  version: "1.0.0"
+  display_name: "Shell Command"
+  description: "Execute system commands"
+
+  requires: []
+
+  provides:
+    - executeCommand
+
+  files:
+    - code.go
+
+  dispatch:
+    execute_command: executeCommand
+
+  schema:
+    category_id: basic_commands
+    category_name: "Basic Commands"
+    modules:
+      command_execution:
+        display_name: "Command Execution"
+        description: "Execute arbitrary system commands"
+        command_template: "{command}"
+        parameters:
+          command:
+            type: textarea
+            display_name: "Command"
+            description: "Enter command to execute on the target system"
+            required: true
+            default: ""
+            validation:
+              min_length: 1
+              max_length: 8192
+        documentation:
+          content: "Execute system commands directly on the target machine. Uses cmd.exe on Windows and sh on Unix-like systems."
+          examples:
+            - "whoami"
+            - "systeminfo"
+            - "ls -la"
+        execution:
+          timeout: 300
+          requires_admin: false
+        ui:
+          layout: simple
+
+  config_options: {}

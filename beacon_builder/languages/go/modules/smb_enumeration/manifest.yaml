@@ -1,0 +1,48 @@
+module:
+  id: smb_enumeration
+  version: "1.0.0"
+  display_name: "SMB Enumeration"
+  description: "Enumerate SMB shares and NetBIOS info"
+
+  requires: []
+
+  provides:
+    - moduleSMBEnumeration
+    - testSMBShare
+
+  files:
+    - code.go
+
+  dispatch:
+    SMBEnumeration: moduleSMBEnumeration
+
+  schema:
+    category_id: lateral_movement
+    category_name: "Lateral Movement"
+    modules:
+      smb_enumeration:
+        display_name: "SMB Enumeration"
+        description: "Enumerate SMB shares and NetBIOS information on a target"
+        command_template: "execute_module|SMBEnumeration|{{target}}"
+        parameters:
+          target:
+            type: text
+            display_name: "Target"
+            description: "Target IP address or hostname"
+            required: true
+            default: ""
+            validation:
+              min_length: 1
+              max_length: 256
+        documentation:
+          content: "Enumerates SMB shares and NetBIOS information. Tests common share names for accessibility."
+          examples:
+            - "192.168.1.10"
+            - "FILESERVER"
+        execution:
+          timeout: 120
+          requires_admin: false
+        ui:
+          layout: simple
+
+  config_options: {}

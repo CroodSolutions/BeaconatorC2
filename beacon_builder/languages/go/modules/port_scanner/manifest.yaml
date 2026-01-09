@@ -1,0 +1,56 @@
+module:
+  id: port_scanner
+  version: "1.0.0"
+  display_name: "Port Scanner"
+  description: "Scan target ports"
+
+  requires: []
+
+  provides:
+    - modulePortScan
+
+  files:
+    - code.go
+
+  dispatch:
+    PortScan: modulePortScan
+
+  schema:
+    category_id: network
+    category_name: "Network"
+    modules:
+      port_scanner:
+        display_name: "Port Scanner"
+        description: "Scan specified ports on a target host"
+        command_template: "execute_module|PortScan|{{target}},{{ports}}"
+        parameters:
+          target:
+            type: text
+            display_name: "Target"
+            description: "Target IP address or hostname"
+            required: true
+            default: ""
+            validation:
+              min_length: 1
+              max_length: 256
+          ports:
+            type: text
+            display_name: "Ports"
+            description: "Comma-separated list of ports to scan (e.g., 80,443,3389)"
+            required: true
+            default: "22,80,443,445,3389"
+            validation:
+              min_length: 1
+              max_length: 1024
+        documentation:
+          content: "Scans specified TCP ports on the target. Returns open and closed/filtered port status."
+          examples:
+            - "192.168.1.1,80,443,3389"
+            - "server.local,22,80,443"
+        execution:
+          timeout: 300
+          requires_admin: false
+        ui:
+          layout: simple
+
+  config_options: {}

@@ -1,0 +1,36 @@
+module:
+  id: system_info
+  version: "1.0.0"
+  display_name: "System Info"
+  description: "Gather system information"
+
+  requires: []
+
+  provides:
+    - moduleSystemInfo
+
+  files:
+    - code.go
+
+  dispatch:
+    SystemInfo: moduleSystemInfo
+
+  schema:
+    category_id: discovery
+    category_name: "Discovery"
+    modules:
+      system_info:
+        display_name: "System Info"
+        description: "Gather basic system information including OS, architecture, user, and paths"
+        command_template: "execute_module|SystemInfo"
+        parameters: {}
+        documentation:
+          content: "Collects system information including hostname, OS, architecture, Go version, CPU count, current user, working directory, executable path, and process IDs."
+          examples: []
+        execution:
+          timeout: 60
+          requires_admin: false
+        ui:
+          layout: simple
+
+  config_options: {}

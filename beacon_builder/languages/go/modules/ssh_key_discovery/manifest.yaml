@@ -1,0 +1,37 @@
+module:
+  id: ssh_key_discovery
+  version: "1.0.0"
+  display_name: "SSH Key Discovery"
+  description: "Discover SSH keys and configurations"
+
+  requires: []
+
+  provides:
+    - moduleSSHKeyDiscovery
+    - getSSHPaths
+
+  files:
+    - code.go
+
+  dispatch:
+    SSHKeyDiscovery: moduleSSHKeyDiscovery
+
+  schema:
+    category_id: credential_access
+    category_name: "Credential Access"
+    modules:
+      ssh_key_discovery:
+        display_name: "SSH Key Discovery"
+        description: "Find SSH private keys, public keys, and configurations"
+        command_template: "execute_module|SSHKeyDiscovery"
+        parameters: {}
+        documentation:
+          content: "Searches for SSH keys in standard locations (.ssh directory). Identifies encrypted vs unencrypted keys and parses SSH config for host count."
+          examples: []
+        execution:
+          timeout: 60
+          requires_admin: false
+        ui:
+          layout: simple
+
+  config_options: {}

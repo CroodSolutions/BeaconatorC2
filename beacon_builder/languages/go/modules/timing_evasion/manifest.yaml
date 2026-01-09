@@ -1,0 +1,47 @@
+module:
+  id: timing_evasion
+  version: "1.0.0"
+  display_name: "Timing Evasion"
+  description: "Apply timing delays for evasion"
+
+  requires: []
+
+  provides:
+    - moduleTimingEvasion
+
+  files:
+    - code.go
+
+  dispatch:
+    TimingEvasion: moduleTimingEvasion
+
+  schema:
+    category_id: evasion
+    category_name: "Evasion"
+    modules:
+      timing_evasion:
+        display_name: "Timing Evasion"
+        description: "Apply sleep delays to evade automated analysis"
+        command_template: "execute_module|TimingEvasion|{{sleep_time}}"
+        parameters:
+          sleep_time:
+            type: integer
+            display_name: "Sleep Time (seconds)"
+            description: "Sleep duration in seconds (1-300). Leave empty for random jitter."
+            required: false
+            default: ""
+            validation:
+              min: 1
+              max: 300
+        documentation:
+          content: "Applies a sleep delay to evade automated analysis. Use a specific time or leave empty for random 10-40 second jitter."
+          examples:
+            - "30"
+            - ""
+        execution:
+          timeout: 600
+          requires_admin: false
+        ui:
+          layout: simple
+
+  config_options: {}

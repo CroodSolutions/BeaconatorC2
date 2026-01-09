@@ -1,0 +1,36 @@
+module:
+  id: service_enum
+  version: "1.0.0"
+  display_name: "Service Enumeration"
+  description: "Enumerate system services"
+
+  requires: []
+
+  provides:
+    - moduleServiceEnum
+
+  files:
+    - code.go
+
+  dispatch:
+    ServiceEnum: moduleServiceEnum
+
+  schema:
+    category_id: discovery
+    category_name: "Discovery"
+    modules:
+      service_enum:
+        display_name: "Service Enumeration"
+        description: "List all system services and their status"
+        command_template: "execute_module|ServiceEnum"
+        parameters: {}
+        documentation:
+          content: "Enumerates system services. Uses sc query on Windows and systemctl/service on Unix systems."
+          examples: []
+        execution:
+          timeout: 120
+          requires_admin: false
+        ui:
+          layout: simple
+
+  config_options: {}
