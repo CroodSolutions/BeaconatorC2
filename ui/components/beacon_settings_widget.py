@@ -280,6 +280,9 @@ class BeaconSettingsWidget(QWidget):
 
     def send_UpdateCheckIn(self):
         """Update beacon check-in interval"""
+        # Debug: print current beacon ID
+        print(f"DEBUG send_UpdateCheckIn: current_beacon_id = '{self.current_beacon_id}' (type: {type(self.current_beacon_id)})")
+
         if not self.current_beacon_id:
             QMessageBox.warning(self, "Warning", "No beacon selected!")
             return
@@ -409,11 +412,16 @@ class BeaconSettingsWidget(QWidget):
 
     def set_beacon(self, beacon_id: str):
         """Set the current beacon ID and load its associated schema with caching"""
+        # Debug: print what's being set
+        print(f"DEBUG set_beacon called: beacon_id = '{beacon_id}' (type: {type(beacon_id)}), current = '{self.current_beacon_id}'")
+
         # Early exit if same beacon
         if beacon_id == self.current_beacon_id:
+            print(f"DEBUG set_beacon: Early exit - beacon already set")
             return
-            
+
         self.current_beacon_id = beacon_id
+        print(f"DEBUG set_beacon: Set current_beacon_id to '{self.current_beacon_id}'")
         
         # Load beacon's current schema if available
         if beacon_id:

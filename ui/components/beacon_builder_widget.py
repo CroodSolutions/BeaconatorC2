@@ -645,7 +645,7 @@ class BeaconBuilderWidget(QWidget):
         default_configs = [
             ('server_ip', 'Server IP', 'string', '127.0.0.1'),
             ('server_port', 'Server Port', 'integer', 5074),
-            ('checkin_interval', 'Check-in Interval (ms)', 'integer', 15000),
+            ('checkin_interval', 'Check-in Interval (seconds)', 'integer', 15),
         ]
 
         row = 0
@@ -686,6 +686,16 @@ class BeaconBuilderWidget(QWidget):
             elif opt_type == 'boolean':
                 widget = QCheckBox()
                 widget.setChecked(bool(default))
+            elif opt_type == 'choice':
+                widget = QComboBox()
+                choices = opt.get('choices', [])
+                for choice in choices:
+                    widget.addItem(str(choice).upper(), choice)
+                # Set default selection
+                if default:
+                    index = widget.findData(default)
+                    if index >= 0:
+                        widget.setCurrentIndex(index)
             else:
                 widget = QLineEdit()
                 widget.setText(str(default))
@@ -744,12 +754,25 @@ class BeaconBuilderWidget(QWidget):
 
         config = self.get_config()
 
-        # Get save path for beacon
-        file_filter = "AutoHotkey Script (*.ahk)" if self.service.current_language == 'ahk' else "All Files (*.*)"
+        # Get save path for beacon using language-specific extension
+        from beacon_builder.builder import get_language_config
+        lang_config = get_language_config(self.service.current_language)
+        file_ext = lang_config.file_extension  # e.g., '.py', '.ahk'
+        file_filter_map = {
+            'ahk': "AutoHotkey Script (*.ahk)",
+            'python': "Python Script (*.py)",
+            'javascript': "JavaScript File (*.js)",
+            'go': "Go Source (*.go)",
+            'lua': "Lua Script (*.lua)",
+            'vbs': "VBScript (*.vbs)",
+            'powershell': "PowerShell Script (*.ps1)",
+            'bash': "Shell Script (*.sh)",
+        }
+        file_filter = file_filter_map.get(self.service.current_language, f"All Files (*{file_ext})")
         file_path, _ = QFileDialog.getSaveFileName(
             self,
             "Save Beacon",
-            f"custom_beacon.{self.service.current_language}",
+            f"custom_beacon{file_ext}",
             file_filter
         )
 
