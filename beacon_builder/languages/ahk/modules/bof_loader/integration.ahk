@@ -32,8 +32,8 @@ ExecuteBOF(parameters) {
 
         BOFLog(Format("Base64 BOF data length: {} chars", StrLen(bofBase64)), "BEACON")
 
-        ; Decode BOF from base64
-        bofBytes := this.Base64Decode(bofBase64)
+        ; Decode BOF from base64 (call standalone helper function)
+        bofBytes := Base64Decode(bofBase64)
 
         if (!bofBytes || bofBytes.Size = 0) {
             throw Error("Failed to decode BOF data")

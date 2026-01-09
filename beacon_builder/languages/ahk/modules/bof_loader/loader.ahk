@@ -314,21 +314,6 @@ class BOFLoader {
                 }
             }
 
-            if (beaconOutputIAT != 0) {
-                ; Test: Try calling our BeaconOutput callback directly to verify it works
-                BOFLog("Testing direct callback invocation...", "LOADER")
-                testStr := "CALLBACK_TEST"
-                testBuf := Buffer(StrPut(testStr, "UTF-8"))
-                StrPut(testStr, testBuf, "UTF-8")
-                try {
-                    DllCall(beaconOutputIAT, "Int", 0, "Ptr", testBuf.Ptr, "Int", StrLen(testStr))
-                    BOFLog("Direct callback test SUCCEEDED", "LOADER")
-                } catch as err {
-                    BOFLog(Format("Direct callback test FAILED: {}", err.Message), "LOADER")
-                }
-            } else {
-                BOFLog("BeaconOutput not found in BOF imports - skipping callback test", "LOADER")
-            }
         }
 
         ; Call the entry point
