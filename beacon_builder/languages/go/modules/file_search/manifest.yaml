@@ -1,0 +1,56 @@
+module:
+  id: file_search
+  version: "1.0.0"
+  display_name: "File Search"
+  description: "Search for files by pattern"
+
+  requires: []
+
+  provides:
+    - moduleFileSearch
+
+  files:
+    - code.go
+
+  dispatch:
+    FileSearch: moduleFileSearch
+
+  schema:
+    category_id: collection
+    category_name: "Collection"
+    modules:
+      file_search:
+        display_name: "File Search"
+        description: "Search for files matching a pattern in a directory"
+        command_template: "execute_module|FileSearch|{{directory}},{{pattern}}"
+        parameters:
+          directory:
+            type: text
+            display_name: "Directory"
+            description: "Directory to search in"
+            required: true
+            default: ""
+            validation:
+              min_length: 1
+              max_length: 512
+          pattern:
+            type: text
+            display_name: "Pattern"
+            description: "Filename pattern to search for (case-insensitive)"
+            required: true
+            default: ""
+            validation:
+              min_length: 1
+              max_length: 256
+        documentation:
+          content: "Recursively searches a directory for files matching the pattern. Returns up to 100 results with file size and modification time."
+          examples:
+            - "C:\\Users,password"
+            - "/home,.ssh"
+        execution:
+          timeout: 300
+          requires_admin: false
+        ui:
+          layout: simple
+
+  config_options: {}

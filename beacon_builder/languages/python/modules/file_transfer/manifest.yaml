@@ -1,0 +1,74 @@
+module:
+  id: file_transfer
+  version: "1.0.0"
+  display_name: "File Transfer"
+  description: "Upload and download files between beacon and server"
+
+  requires: []
+
+  provides:
+    - download_file
+    - upload_file
+
+  files:
+    - code.py
+
+  dispatch:
+    file_download: download_file
+    file_upload: upload_file
+
+  schema:
+    category_id: basic_commands
+    category_name: "Basic Commands"
+    modules:
+      file_download:
+        display_name: "Download File"
+        description: "Download a file from the server to the beacon"
+        command_template: "download_file|{filename}"
+        parameters:
+          filename:
+            type: text
+            display_name: "Filename"
+            description: "Name of the file to download from the server"
+            required: true
+            default: ""
+            validation:
+              min_length: 1
+              max_length: 256
+        documentation:
+          content: "Downloads a file from the C2 server to the beacon's downloads directory. Not supported over UDP protocol."
+          examples:
+            - "payload.exe"
+            - "script.ps1"
+        execution:
+          timeout: 300
+          requires_admin: false
+        ui:
+          layout: simple
+
+      file_upload:
+        display_name: "Upload File"
+        description: "Upload a file from the beacon to the server"
+        command_template: "upload_file|{filepath}"
+        parameters:
+          filepath:
+            type: text
+            display_name: "File Path"
+            description: "Full path to the file to upload"
+            required: true
+            default: ""
+            validation:
+              min_length: 1
+              max_length: 1024
+        documentation:
+          content: "Uploads a file from the beacon to the C2 server. Not supported over UDP protocol."
+          examples:
+            - "C:\\Users\\victim\\Documents\\secrets.txt"
+            - "/home/user/data.db"
+        execution:
+          timeout: 300
+          requires_admin: false
+        ui:
+          layout: simple
+
+  config_options: {}

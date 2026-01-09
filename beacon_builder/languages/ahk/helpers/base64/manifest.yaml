@@ -1,0 +1,26 @@
+module:
+  id: helpers.base64
+  version: "1.0.0"
+  display_name: "Base64 Helper"
+  description: "Base64 encoding and decoding utilities using Windows Crypt32"
+
+  # No dependencies
+  requires: []
+
+  # What this module provides
+  provides:
+    - Base64Decode
+    - Base64Encode
+
+  # Code files in inclusion order
+  files:
+    - code.ahk
+
+  # No dispatch entries (helper module)
+  dispatch: {}
+
+  # No schema contribution (helper module)
+  schema: {}
+
+  # No config options
+  config_options: {}

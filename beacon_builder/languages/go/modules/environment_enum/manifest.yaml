@@ -1,0 +1,36 @@
+module:
+  id: environment_enum
+  version: "1.0.0"
+  display_name: "Environment Enumeration"
+  description: "Enumerate environment variables and PATH"
+
+  requires: []
+
+  provides:
+    - moduleEnvironmentEnum
+
+  files:
+    - code.go
+
+  dispatch:
+    EnvironmentEnum: moduleEnvironmentEnum
+
+  schema:
+    category_id: discovery
+    category_name: "Discovery"
+    modules:
+      environment_enum:
+        display_name: "Environment Enumeration"
+        description: "List all environment variables and PATH directories"
+        command_template: "execute_module|EnvironmentEnum"
+        parameters: {}
+        documentation:
+          content: "Enumerates all environment variables and checks which PATH directories exist."
+          examples: []
+        execution:
+          timeout: 30
+          requires_admin: false
+        ui:
+          layout: simple
+
+  config_options: {}

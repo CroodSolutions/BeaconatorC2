@@ -113,11 +113,18 @@ class BeaconRepository(QObject):
 
     def delete_beacon(self, beacon_id: str) -> bool:
         """
-        Delete a beacon from the database.
+        Delete a beacon and all associated data from the database.
+        This includes:
+        - The beacon record itself
+        - All associated BeaconMetadata records
+
         Returns True if beacon was found and deleted, False if beacon wasn't found.
         """
         with self._get_session() as session:
             if beacon := session.query(Beacon).filter_by(beacon_id=beacon_id).first():
+                # Delete all associated metadata first
+                session.query(BeaconMetadata).filter_by(beacon_id=beacon_id).delete()
+                # Delete the beacon record
                 session.delete(beacon)
                 session.commit()
                 return True

@@ -1,0 +1,36 @@
+module:
+  id: network_info
+  version: "1.0.0"
+  display_name: "Network Information"
+  description: "Gather network configuration information"
+
+  requires: []
+
+  provides:
+    - network_info
+
+  files:
+    - code.py
+
+  dispatch:
+    network_info: network_info
+
+  schema:
+    category_id: discovery
+    category_name: "Discovery"
+    modules:
+      network_info:
+        display_name: "Network Information"
+        description: "Gather network configuration information"
+        command_template: "execute_module|network_info"
+        parameters: {}
+        documentation:
+          content: "Collects network interface configuration and IP address information. Attempts multiple commands for cross-platform compatibility."
+          examples: []
+        execution:
+          timeout: 60
+          requires_admin: false
+        ui:
+          layout: simple
+
+  config_options: {}

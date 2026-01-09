@@ -1,0 +1,50 @@
+module:
+  id: shell_command
+  version: "1.0.0"
+  display_name: "Shell Command"
+  description: "Execute shell commands via subprocess and return output"
+
+  requires: []
+
+  provides:
+    - execute_command
+
+  files:
+    - code.py
+
+  dispatch:
+    execute_command: execute_command
+
+  schema:
+    category_id: basic_commands
+    category_name: "Basic Commands"
+    modules:
+      command_execution:
+        display_name: "Command Execution"
+        description: "Execute arbitrary system commands"
+        command_template: "{command}"
+        parameters:
+          command:
+            type: textarea
+            display_name: "Command"
+            description: "Enter command to execute on the target system"
+            required: true
+            default: ""
+            validation:
+              min_length: 1
+              max_length: 8192
+        documentation:
+          content: "Execute system commands directly on the target machine. Commands are executed using subprocess with a 300-second timeout. Works across all protocols (TCP, UDP, SMB, HTTP) and platforms (Windows, Linux, macOS)."
+          examples:
+            - "whoami"
+            - "ls -la (Linux/macOS)"
+            - "dir (Windows)"
+            - "systeminfo (Windows)"
+            - "uname -a (Linux/macOS)"
+        execution:
+          timeout: 300
+          requires_admin: false
+        ui:
+          layout: simple
+
+  config_options: {}

@@ -1,0 +1,82 @@
+module:
+  id: remote_service_management
+  version: "1.0.0"
+  display_name: "Remote Service Management"
+  description: "Manage services on remote Windows hosts"
+
+  requires: []
+
+  provides:
+    - moduleRemoteServiceManagement
+    - buildServiceCommand
+
+  files:
+    - code.go
+
+  dispatch:
+    RemoteServiceManagement: moduleRemoteServiceManagement
+
+  schema:
+    category_id: lateral_movement
+    category_name: "Lateral Movement"
+    modules:
+      remote_service_management:
+        display_name: "Remote Service Management"
+        description: "List, create, start, stop, or delete services on remote Windows hosts"
+        command_template: "execute_module|RemoteServiceManagement|{{target}},{{action}},{{service_name}},{{binary_path}}"
+        parameters:
+          target:
+            type: text
+            display_name: "Target"
+            description: "Target IP address or hostname"
+            required: true
+            default: ""
+            validation:
+              min_length: 1
+              max_length: 256
+          action:
+            type: choice
+            display_name: "Action"
+            description: "Service management action"
+            required: true
+            default: "list"
+            choices:
+              - value: "list"
+                label: "List Services"
+              - value: "create"
+                label: "Create Service"
+              - value: "start"
+                label: "Start Service"
+              - value: "stop"
+                label: "Stop Service"
+              - value: "delete"
+                label: "Delete Service"
+          service_name:
+            type: text
+            display_name: "Service Name"
+            description: "Name of the service (required for create/start/stop/delete)"
+            required: false
+            default: ""
+            validation:
+              max_length: 128
+          binary_path:
+            type: text
+            display_name: "Binary Path"
+            description: "Path to service binary (required for create)"
+            required: false
+            default: ""
+            validation:
+              max_length: 512
+        documentation:
+          content: "Manages Windows services on remote hosts using sc.exe. Windows-only. Requires appropriate permissions."
+          examples:
+            - "192.168.1.10,list"
+            - "192.168.1.10,create,MySvc,C:\\temp\\svc.exe"
+            - "192.168.1.10,start,MySvc"
+        execution:
+          timeout: 120
+          requires_admin: true
+        ui:
+          layout: simple
+
+  config_options: {}
