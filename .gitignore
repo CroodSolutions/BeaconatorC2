@@ -38,3 +38,13 @@ ui/dialogs/__pycache__/__init__.cpython-311.pyc
 ui/dialogs/__pycache__/session_terminal_dialog.cpython-311.pyc
 configs/receivers.json
 /beacons/BOF
+*.vs*
+beacons/C/*.obj
+/Lib/site-packages/*
+beacons/C/src/modules/external/execute_assembly/x64/*
+*.pyc
+pyvenv.cfg
+beacons/C/*.exe
+configs/receivers.json
+configs/receivers.json
+configs/receivers.json
