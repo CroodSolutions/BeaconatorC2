@@ -1,0 +1,79 @@
+module:
+  id: bof_loader
+  version: "1.0.0"
+  display_name: "BOF Execution"
+  description: "Execute Beacon Object Files (COFF format) with full relocation support"
+
+  # Dependencies
+  requires:
+    - helpers.base64
+
+  # What this module provides
+  provides:
+    - ExecuteBOF
+    - BOFLoader
+    - BeaconAPI
+    - COFFParser
+    - MemoryManager
+    - RelocationProcessor
+    - APIResolver
+
+  # Code files in inclusion order
+  files:
+    - classes.ahk
+    - memory.ahk
+    - api.ahk
+    - relocation.ahk
+    - loader.ahk
+    - integration.ahk
+
+  # Command dispatch additions (overrides shell_command's ExecuteModule)
+  dispatch:
+    execute_module: ExecuteModule
+    bof: ExecuteBOF
+
+  # Schema contribution
+  schema:
+    category_id: bof_execution
+    category_name: "BOF Execution"
+    modules:
+      execute_bof:
+        display_name: "Execute BOF"
+        description: "Execute a compiled Beacon Object File (.o/.obj)"
+        command_template: "bof|{bof_data}|{arguments}"
+        parameters:
+          bof_data:
+            type: file
+            display_name: "BOF File"
+            description: "Compiled BOF file (.o or .obj)"
+            file_filters:
+              - "*.o"
+              - "*.obj"
+            encoding: base64
+            required: true
+          arguments:
+            type: text
+            display_name: "Arguments"
+            description: "Optional arguments to pass to the BOF"
+            required: false
+            default: ""
+        documentation:
+          content: "Executes a compiled Beacon Object File (BOF) in memory. BOFs are COFF object files that run with the beacon's privileges. Full relocation support for x64 BOFs."
+          examples:
+            - "whoami.o - Execute whoami BOF"
+            - "dir.o with arguments - Execute with arguments"
+        execution:
+          timeout: 600
+          requires_admin: false
+        ui:
+          layout: simple
+          grouping:
+            - - bof_data
+            - - arguments
+
+  # Builder UI options
+  config_options:
+    output_buffer_size:
+      type: integer
+      default: 65536
+      label: "Output Buffer Size"

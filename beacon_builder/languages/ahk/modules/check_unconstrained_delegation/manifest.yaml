@@ -1,0 +1,36 @@
+module:
+  id: check_unconstrained_delegation
+  version: "1.0.0"
+  display_name: "Check Unconstrained Delegation"
+  description: "Find computers with unconstrained delegation in Active Directory"
+
+  requires: []
+
+  provides:
+    - CheckUnconstrainedDelegation
+
+  files:
+    - code.ahk
+
+  dispatch:
+    CheckUnconstrainedDelegation: CheckUnconstrainedDelegation
+
+  schema:
+    category_id: discovery
+    category_name: "Discovery"
+    modules:
+      check_unconstrained_delegation:
+        display_name: "Unconstrained Delegation"
+        description: "Identify computers with unconstrained delegation enabled"
+        command_template: "execute_module|CheckUnconstrainedDelegation"
+        parameters: {}
+        documentation:
+          content: "Identifies computers with unconstrained delegation enabled, which could represent potential security vulnerabilities in the domain."
+          examples: []
+        execution:
+          timeout: 120
+          requires_admin: false
+        ui:
+          layout: simple
+
+  config_options: {}

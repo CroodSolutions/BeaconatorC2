@@ -22,6 +22,34 @@ import utils
 from ..widgets import OutputDisplay
 from .documentation_panel import DocumentationPanel
 
+# Category display order based on MITRE ATT&CK / Cyber Kill Chain
+# Categories not in this list will appear at the end in alphabetical order
+CATEGORY_ORDER = [
+    'basic_commands',       # Foundational commands
+    'core',                 # Core functionality
+    'management',           # Beacon management
+    'discovery',            # Reconnaissance / Discovery
+    'collection',           # Data collection
+    'credential_access',    # Credential Access
+    'privilege_escalation', # Privilege Escalation
+    'evasion',              # Defense Evasion
+    'persistence',          # Persistence
+    'lateral_movement',     # Lateral Movement
+    'execution',            # Execution
+    'bof_execution',        # BOF Execution
+    'file_operations',      # File Operations
+    'network',              # Network utilities
+    'impact',               # Impact (last in kill chain)
+]
+
+def get_category_sort_key(cat_name: str) -> tuple:
+    """Return a sort key for category ordering"""
+    try:
+        index = CATEGORY_ORDER.index(cat_name)
+        return (0, index, cat_name)  # Known categories: sort by defined order
+    except ValueError:
+        return (1, 0, cat_name)  # Unknown categories: sort alphabetically at end
+
 class ParameterWidget:
     """Base class for parameter input widgets"""
     def __init__(self, parameter, parent=None):
@@ -88,11 +116,26 @@ class ParameterWidget:
         elif self.parameter.type == ParameterType.CHOICE:
             self.widget = QComboBox()
             if self.parameter.choices:
-                self.widget.addItems(self.parameter.choices)
+                # Handle both string choices and dict choices with value/label
+                for choice in self.parameter.choices:
+                    if isinstance(choice, dict):
+                        # Dict format: {value: "x", label: "X Label"}
+                        label = choice.get('label', choice.get('value', str(choice)))
+                        value = choice.get('value', label)
+                        self.widget.addItem(label, value)
+                    else:
+                        # Simple string format
+                        self.widget.addItem(str(choice), str(choice))
             if self.parameter.default:
-                index = self.widget.findText(str(self.parameter.default))
-                if index >= 0:
-                    self.widget.setCurrentIndex(index)
+                # Try to find by value first (userData), then by text
+                for i in range(self.widget.count()):
+                    if self.widget.itemData(i) == str(self.parameter.default):
+                        self.widget.setCurrentIndex(i)
+                        break
+                else:
+                    index = self.widget.findText(str(self.parameter.default))
+                    if index >= 0:
+                        self.widget.setCurrentIndex(index)
                     
         elif self.parameter.type in [ParameterType.FILE, ParameterType.DIRECTORY]:
             # Create a horizontal layout with text field and browse button
@@ -155,7 +198,9 @@ class ParameterWidget:
         elif self.parameter.type == ParameterType.BOOLEAN:
             return self.widget.isChecked()
         elif self.parameter.type == ParameterType.CHOICE:
-            return self.widget.currentText()
+            # Return the value (userData) if available, otherwise the text
+            data = self.widget.currentData()
+            return data if data is not None else self.widget.currentText()
         elif self.parameter.type in [ParameterType.FILE, ParameterType.DIRECTORY]:
             return self.text_widget.text()
         return None
@@ -576,15 +621,21 @@ class CommandWidget(QWidget):
             return
         
         # Build tree structure quickly without creating heavy module interfaces
-        for cat_name, category in self.current_schema.categories.items():
+        # Sort categories according to MITRE ATT&CK / Cyber Kill Chain order
+        sorted_categories = sorted(
+            self.current_schema.categories.items(),
+            key=lambda x: get_category_sort_key(x[0])
+        )
+
+        for cat_name, category in sorted_categories:
             cat_item = QTreeWidgetItem([category.display_name])
             cat_item.setData(0, Qt.ItemDataRole.UserRole, ("category", cat_name))
-            
+
             for mod_name, module in category.modules.items():
                 mod_item = QTreeWidgetItem([module.display_name])
                 mod_item.setData(0, Qt.ItemDataRole.UserRole, ("module", cat_name, mod_name))
                 cat_item.addChild(mod_item)
-            
+
             self.nav_tree.addTopLevelItem(cat_item)
         
         # Initialize empty interfaces dict - interfaces will be created on-demand

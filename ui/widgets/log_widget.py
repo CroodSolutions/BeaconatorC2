@@ -107,7 +107,7 @@ class LogHighlighter(QSyntaxHighlighter):
         event_format = QTextCharFormat()
         event_format.setForeground(QColor(self.colors['event_type']))
         self.highlighting_rules.append(
-            (re.compile(r'(?:Agent Registration|File Transfer|Command|Connection|Received|Check In|Command Scheduled)(?=:)'),
+            (re.compile(r'(?:Agent Registration|Beacon Registration|File Transfer|Command Output|Command Scheduled|Command|Connection|Received|Check In|Metadata Extracted|Encoded file)(?=:)'),
              event_format)
         )
 
@@ -179,9 +179,9 @@ class LogHighlighter(QSyntaxHighlighter):
             previous_block = self.currentBlock().previous()
             if previous_block.isValid():
                 previous_text = previous_block.text()
-                if (previous_text.startswith('command_output|') or 
-                    (not text.startswith('[') and  
-                     not any(text.startswith(cmd) for cmd in ['Agent', 'File', 'Command', 'Connection', 'Received', 'Check']))):
+                if (previous_text.startswith('command_output|') or
+                    (not text.startswith('[') and
+                     not any(text.startswith(cmd) for cmd in ['Agent', 'Beacon', 'File', 'Command', 'Connection', 'Received', 'Check', 'Metadata', 'Encoded']))):
                     self.setFormat(0, len(text), self.command_output_format)
                 else:
                     # Apply regular rules

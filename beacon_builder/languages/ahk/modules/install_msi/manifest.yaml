@@ -1,0 +1,68 @@
+module:
+  id: install_msi
+  version: "1.0.0"
+  display_name: "Install MSI"
+  description: "Download and install MSI package silently (requires Admin)"
+
+  requires: []
+
+  provides:
+    - InstallMSI
+
+  files:
+    - code.ahk
+
+  dispatch:
+    InstallMSI: InstallMSI
+
+  schema:
+    category_id: lateral_movement
+    category_name: "Lateral Movement"
+    modules:
+      install_msi:
+        display_name: "Install MSI"
+        description: "Download and silently install the specified MSI file"
+        command_template: "execute_module|InstallMSI|{download_url},{download_path},{install_dir}"
+        parameters:
+          download_url:
+            type: text
+            display_name: "Download URL"
+            description: "URL to download the MSI package from"
+            required: true
+            default: "https://the.earth.li/~sgtatham/putty/latest/w64/putty-64bit-0.82-installer.msi"
+            validation:
+              min_length: 1
+              max_length: 512
+          download_path:
+            type: text
+            display_name: "Download Path"
+            description: "Local filename to save the downloaded MSI"
+            required: true
+            default: "putty-install.msi"
+            validation:
+              min_length: 1
+              max_length: 256
+          install_dir:
+            type: text
+            display_name: "Install Directory"
+            description: "Directory to install the MSI package"
+            required: true
+            default: "C:\\Users\\user1\\AppData\\Local"
+            validation:
+              min_length: 1
+              max_length: 256
+        documentation:
+          content: "Attempts to download and silently install the specified MSI file. Installs PuTTY by default."
+          examples:
+            - "MSI URL / local-file.msi / C:\\temp"
+        execution:
+          timeout: 1800
+          requires_admin: false
+        ui:
+          layout: simple
+          grouping:
+            - - download_url
+            - - download_path
+              - install_dir
+
+  config_options: {}

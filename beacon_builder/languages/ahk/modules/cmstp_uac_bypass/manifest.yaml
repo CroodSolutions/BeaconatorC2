@@ -1,0 +1,47 @@
+module:
+  id: cmstp_uac_bypass
+  version: "1.0.0"
+  display_name: "CMSTP UAC Bypass"
+  description: "Bypass UAC using CMSTP.exe auto-elevation"
+
+  requires: []
+
+  provides:
+    - CMSTP_UAC_Bypass
+
+  files:
+    - code.ahk
+
+  dispatch:
+    CMSTP_UAC_Bypass: CMSTP_UAC_Bypass
+
+  schema:
+    category_id: privilege_escalation
+    category_name: "Privilege Escalation"
+    modules:
+      cmstp_uac_bypass:
+        display_name: "CMSTP UAC Bypass"
+        description: "Bypass UAC using CMSTP.exe technique"
+        command_template: "execute_module|CMSTP_UAC_Bypass|{command}"
+        parameters:
+          command:
+            type: text
+            display_name: "Command to Execute"
+            description: "Command to execute with elevated privileges"
+            required: true
+            default: "cmd.exe /c whoami > C:\\temp\\elevated.txt"
+            validation:
+              min_length: 1
+              max_length: 1024
+        documentation:
+          content: "Uses the CMSTP.exe UAC bypass technique to execute commands with elevated privileges without triggering UAC prompts."
+          examples:
+            - "cmd.exe /c net user backdoor P@ssw0rd /add"
+            - "powershell.exe -Command \"Get-Process\""
+        execution:
+          timeout: 300
+          requires_admin: false
+        ui:
+          layout: simple
+
+  config_options: {}

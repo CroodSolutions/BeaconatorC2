@@ -1,9 +1,11 @@
-from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QGroupBox, 
+from pathlib import Path
+from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QGroupBox,
                             QLineEdit, QPushButton, QLabel, QMessageBox, QComboBox)
 from PyQt6.QtCore import pyqtSignal
 from database import BeaconRepository
 from services import SchemaService
 from utils import FontManager
+from config import ServerConfig
 
 class BeaconSettingsWidget(QWidget):
     """Widget for managing beacon settings and lifecycle"""
@@ -278,6 +280,9 @@ class BeaconSettingsWidget(QWidget):
 
     def send_UpdateCheckIn(self):
         """Update beacon check-in interval"""
+        # Debug: print current beacon ID
+        print(f"DEBUG send_UpdateCheckIn: current_beacon_id = '{self.current_beacon_id}' (type: {type(self.current_beacon_id)})")
+
         if not self.current_beacon_id:
             QMessageBox.warning(self, "Warning", "No beacon selected!")
             return
@@ -328,7 +333,7 @@ class BeaconSettingsWidget(QWidget):
                 QMessageBox.warning(self, "Error", f"Shutdown error: {str(e)}")
 
     def delete_beacon(self):
-        """Delete the selected beacon"""
+        """Delete the selected beacon and all associated data"""
         if not self.current_beacon_id:
             QMessageBox.warning(self, "Warning", "No beacon selected!")
             return
@@ -336,34 +341,87 @@ class BeaconSettingsWidget(QWidget):
         reply = QMessageBox.question(
             self,
             "Confirm Delete",
-            f"Are you sure you want to delete beacon {self.current_beacon_id}?\nThis action cannot be undone.",
+            f"Are you sure you want to delete beacon {self.current_beacon_id}?\n\n"
+            f"This will permanently remove:\n"
+            f"  - Beacon database record\n"
+            f"  - All beacon metadata\n"
+            f"  - Command output logs\n"
+            f"  - Keylogger logs\n\n"
+            f"This action cannot be undone.",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
         )
-        
+
         if reply == QMessageBox.StandardButton.Yes:
+            beacon_id = self.current_beacon_id
+            deleted_files = []
+            errors = []
+
             try:
-                if self.beacon_repository.delete_beacon(self.current_beacon_id):
-                    QMessageBox.information(
-                        self,
-                        "Success",
-                        f"Beacon {self.current_beacon_id} has been deleted"
-                    )
+                # Delete log files first
+                logs_folder = Path(ServerConfig.LOGS_FOLDER)
+
+                # Delete command output log
+                output_log = logs_folder / f"output_{beacon_id}.txt"
+                if output_log.exists():
+                    try:
+                        output_log.unlink()
+                        deleted_files.append(f"output_{beacon_id}.txt")
+                    except Exception as e:
+                        errors.append(f"Failed to delete output log: {e}")
+
+                # Delete keylogger log
+                keylogger_log = logs_folder / f"keylogger_output_{beacon_id}.txt"
+                if keylogger_log.exists():
+                    try:
+                        keylogger_log.unlink()
+                        deleted_files.append(f"keylogger_output_{beacon_id}.txt")
+                    except Exception as e:
+                        errors.append(f"Failed to delete keylogger log: {e}")
+
+                # Delete from database (this also deletes BeaconMetadata)
+                if self.beacon_repository.delete_beacon(beacon_id):
+                    # Clear from schema cache
+                    self._schema_cache.pop(beacon_id, None)
+
+                    # Build success message
+                    message = f"Beacon {beacon_id} has been deleted.\n\n"
+                    message += "Removed:\n"
+                    message += "  - Database record\n"
+                    message += "  - All metadata entries\n"
+                    if deleted_files:
+                        for f in deleted_files:
+                            message += f"  - {f}\n"
+
+                    if errors:
+                        message += "\nWarnings:\n"
+                        for err in errors:
+                            message += f"  - {err}\n"
+
+                    QMessageBox.information(self, "Success", message)
+
+                    # Clear current beacon since it's been deleted
+                    self.current_beacon_id = None
                 else:
                     QMessageBox.warning(
                         self,
                         "Error",
-                        f"Beacon {self.current_beacon_id} not found"
+                        f"Beacon {beacon_id} not found in database"
                     )
             except Exception as e:
                 QMessageBox.warning(self, "Error", f"Delete error: {str(e)}")
 
     def set_beacon(self, beacon_id: str):
         """Set the current beacon ID and load its associated schema with caching"""
+        # Debug: print what's being set
+        print(f"DEBUG set_beacon called: beacon_id = '{beacon_id}' (type: {type(beacon_id)}), current = '{self.current_beacon_id}'")
+
         # Early exit if same beacon
         if beacon_id == self.current_beacon_id:
+            print(f"DEBUG set_beacon: Early exit - beacon already set")
             return
-            
+
         self.current_beacon_id = beacon_id
+        print(f"DEBUG set_beacon: Set current_beacon_id to '{self.current_beacon_id}'")
         
         # Load beacon's current schema if available
         if beacon_id:

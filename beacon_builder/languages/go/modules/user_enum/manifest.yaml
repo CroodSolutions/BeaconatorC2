@@ -1,0 +1,36 @@
+module:
+  id: user_enum
+  version: "1.0.0"
+  display_name: "User Enumeration"
+  description: "Enumerate system users and groups"
+
+  requires: []
+
+  provides:
+    - moduleUserEnum
+
+  files:
+    - code.go
+
+  dispatch:
+    UserEnum: moduleUserEnum
+
+  schema:
+    category_id: discovery
+    category_name: "Discovery"
+    modules:
+      user_enum:
+        display_name: "User Enumeration"
+        description: "List all system users and privileged groups"
+        command_template: "execute_module|UserEnum"
+        parameters: {}
+        documentation:
+          content: "Enumerates users and groups. Shows current user, all users, and administrator/sudo groups."
+          examples: []
+        execution:
+          timeout: 60
+          requires_admin: false
+        ui:
+          layout: simple
+
+  config_options: {}

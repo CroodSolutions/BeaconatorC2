@@ -14,7 +14,7 @@ from database import BeaconRepository
 from utils import DocumentationManager
 from workers import BeaconUpdateWorker, ReceiverUpdateWorker
 from .components import (BeaconTableWidget, CommandWidget, NavigationMenu,
-                        FileTransferWidget, SettingsPage, DocumentationPanel, BeaconSettingsWidget, ReceiversWidget, MetasploitWidget, AssetMapCanvas, BeaconMetadataPanel)
+                        FileTransferWidget, SettingsPage, DocumentationPanel, BeaconSettingsWidget, ReceiversWidget, MetasploitWidget, AssetMapCanvas, BeaconMetadataPanel, BeaconBuilderWidget)
 from .widgets import LogWidget, OutputDisplay, KeyLoggerDisplay
 from services import SchemaService
 from services.workflows.trigger_service import TriggerService
@@ -108,6 +108,7 @@ class MainWindow(QMainWindow):
         # Create content pages
         self.setup_beacons_page()
         self.setup_receivers_page()
+        self.setup_builder_page()
         self.setup_workflows_page()
         self.setup_asset_map_page()
         self.setup_settings_page()
@@ -321,6 +322,14 @@ class MainWindow(QMainWindow):
             self.receivers_page = ReceiversWidget(self.command_processor, self.file_transfer_service)
         self.content_stack.addWidget(self.receivers_page)
 
+    def setup_builder_page(self):
+        """Create the beacon builder page"""
+        self.builder_page = BeaconBuilderWidget()
+        self.content_stack.addWidget(self.builder_page)
+
+        # When a new schema is created, refresh the schema list in beacon settings
+        self.builder_page.schema_created.connect(self.on_schema_created)
+
     def setup_workflows_page(self):
         """Create the workflows page"""
         from .workflows import WorkflowEditor
@@ -429,7 +438,7 @@ class MainWindow(QMainWindow):
     def _refresh_asset_map(self):
         """Refresh the asset map with updated data"""
         # Only refresh if we're on the asset map page to avoid unnecessary updates
-        if self.content_stack.currentIndex() == 3:  # Asset map index
+        if self.content_stack.currentIndex() == 4:  # Asset map index
             beacons = self.beacon_repository.get_all_beacons()
             receivers = []
             if self.receiver_manager:
@@ -504,16 +513,18 @@ class MainWindow(QMainWindow):
             self.content_stack.setCurrentIndex(0)
         elif page_id == "receivers":
             self.content_stack.setCurrentIndex(1)
-        elif page_id == "workflows":
+        elif page_id == "builder":
             self.content_stack.setCurrentIndex(2)
-        elif page_id == "asset_map":
+        elif page_id == "workflows":
             self.content_stack.setCurrentIndex(3)
+        elif page_id == "asset_map":
+            self.content_stack.setCurrentIndex(4)
             # Refresh asset map when navigating to it
             self._refresh_asset_map()
         elif page_id == "settings":
-            self.content_stack.setCurrentIndex(4)
-        elif page_id == "metasploit":
             self.content_stack.setCurrentIndex(5)
+        elif page_id == "metasploit":
+            self.content_stack.setCurrentIndex(6)
 
     def toggle_documentation(self, show: bool):
         """Toggle the documentation panel"""
@@ -551,6 +562,14 @@ class MainWindow(QMainWindow):
         """Handle command being sent to beacon"""
         if utils.logger:
             utils.logger.log_message(f"Command sent to {beacon_id}: {command}")
+
+    def on_schema_created(self, schema_filename: str):
+        """Handle new schema being created by beacon builder"""
+        # Refresh the schema dropdown in beacon settings
+        if hasattr(self, 'beacon_settings_widget'):
+            self.beacon_settings_widget.refresh_schemas()
+            if utils.logger:
+                utils.logger.log_message(f"Schema created and available: {schema_filename}")
 
     def closeEvent(self, event):
         """Handle window close event"""

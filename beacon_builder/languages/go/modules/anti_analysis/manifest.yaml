@@ -1,0 +1,41 @@
+module:
+  id: anti_analysis
+  version: "1.0.0"
+  display_name: "Anti-Analysis"
+  description: "Detect analysis/sandbox environments"
+
+  requires: []
+
+  provides:
+    - moduleAntiAnalysis
+    - checkDebugger
+    - checkVM
+    - checkSandbox
+    - checkAnalysisTools
+    - checkLowResources
+
+  files:
+    - code.go
+
+  dispatch:
+    AntiAnalysis: moduleAntiAnalysis
+
+  schema:
+    category_id: evasion
+    category_name: "Evasion"
+    modules:
+      anti_analysis:
+        display_name: "Anti-Analysis"
+        description: "Check for debuggers, VMs, sandboxes, and analysis tools"
+        command_template: "execute_module|AntiAnalysis"
+        parameters: {}
+        documentation:
+          content: "Performs various checks to detect if running in an analysis environment including debuggers, virtual machines, sandboxes, and analysis tools."
+          examples: []
+        execution:
+          timeout: 60
+          requires_admin: false
+        ui:
+          layout: simple
+
+  config_options: {}

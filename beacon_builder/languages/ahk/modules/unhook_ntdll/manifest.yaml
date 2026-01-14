@@ -1,0 +1,37 @@
+module:
+  id: unhook_ntdll
+  version: "1.0.0"
+  display_name: "Unhook NTDLL"
+  description: "Restore clean NTDLL to evade API hooking by security products"
+
+  requires: []
+
+  provides:
+    - UnhookNTDLL
+    - NTDLLManipulator
+
+  files:
+    - code.ahk
+
+  dispatch:
+    UnhookNTDLL: UnhookNTDLL
+
+  schema:
+    category_id: evasion
+    category_name: "Evasion"
+    modules:
+      unhook_ntdll:
+        display_name: "Unhook NTDLL"
+        description: "Restore clean NTDLL from disk to remove API hooks"
+        command_template: "execute_module|UnhookNTDLL"
+        parameters: {}
+        documentation:
+          content: "Attempts to unhook NTDLL by reading a clean copy from System32 and restoring the .text section in memory. This can help evade EDR/AV products that use API hooking to monitor process behavior."
+          examples: []
+        execution:
+          timeout: 60
+          requires_admin: false
+        ui:
+          layout: simple
+
+  config_options: {}

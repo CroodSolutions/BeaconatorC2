@@ -1,0 +1,76 @@
+module:
+  id: port_scanner
+  version: "1.0.0"
+  display_name: "Port Scanner"
+  description: "TCP port scanner with CIDR support and service detection"
+
+  requires: []
+
+  provides:
+    - PortScanner
+
+  files:
+    - code.ahk
+
+  dispatch:
+    PortScanner: PortScanner
+
+  schema:
+    category_id: discovery
+    category_name: "Discovery"
+    modules:
+      port_scanner:
+        display_name: Port Scanner
+        description: Perform TCP port scanning by attempting socket connections
+        command_template: "execute_module|PortScanner|{target_ips},{ports},{timeout},{threads}"
+        parameters:
+          target_ips:
+            type: text
+            display_name: Target IPs
+            description: Comma-separated list of IP addresses or ranges to scan
+            required: true
+            default: "192.168.1.1"
+            validation:
+              pattern: "^[0-9.,\\-/\\s]+$"
+          ports:
+            type: text
+            display_name: Ports
+            description: Comma-separated list of ports to scan (e.g., 22,80,443 or 1-1000)
+            required: true
+            default: "22,80,443,3389"
+          timeout:
+            type: integer
+            display_name: Timeout (seconds)
+            description: Connection timeout for each port
+            required: true
+            default: 3
+            validation:
+              min_value: 1
+              max_value: 30
+          threads:
+            type: integer
+            display_name: Threads
+            description: Number of concurrent scanning threads
+            required: true
+            default: 50
+            validation:
+              min_value: 1
+              max_value: 200
+        documentation:
+          content: Performs TCP port scanning against specified targets and ports using socket connections.
+          examples:
+            - "192.168.1.1-254 for target range"
+            - "1-1000 for port range"
+            - "22,80,443,3389 for specific ports"
+        execution:
+          timeout: 1800
+          requires_admin: false
+        ui:
+          layout: advanced
+          grouping:
+            - - target_ips
+              - ports
+            - - timeout
+              - threads
+
+  config_options: {}

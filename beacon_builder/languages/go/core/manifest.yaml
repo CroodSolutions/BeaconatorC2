@@ -1,0 +1,42 @@
+module:
+  id: core
+  version: "1.0.0"
+  display_name: "Core"
+  description: "Core Go beacon infrastructure"
+
+  requires: []
+
+  provides:
+    - GoBeacon
+    - NewGoBeacon
+    - sendTCP
+    - register
+    - requestAction
+    - sendCommandOutput
+    - processCommand
+    - Run
+
+  files:
+    - header.go
+    - types.go
+    - network.go
+    - registration.go
+    - checkin.go
+    - main.go
+
+  config_options:
+    server_ip:
+      type: text
+      default: "127.0.0.1"
+      label: "Server IP"
+      required: true
+    server_port:
+      type: integer
+      default: 5074
+      label: "Server Port"
+      required: true
+    checkin_interval:
+      type: integer
+      default: 15
+      label: "Check-in Interval (seconds)"
+      required: true

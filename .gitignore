@@ -48,3 +48,7 @@ beacons/C/*.exe
 configs/receivers.json
 configs/receivers.json
 configs/receivers.json
+beacon_builder/__pycache__/__init__.cpython-311.pyc
+beacon_builder/__pycache__/builder.cpython-311.pyc
+beacons/logfile.txt
+custom_beacon.ahk

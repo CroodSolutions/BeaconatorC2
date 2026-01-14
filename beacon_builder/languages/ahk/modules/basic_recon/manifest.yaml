@@ -1,0 +1,36 @@
+module:
+  id: basic_recon
+  version: "1.0.0"
+  display_name: "Basic Reconnaissance"
+  description: "Collect basic system information (systeminfo, arp -a)"
+
+  requires: []
+
+  provides:
+    - BasicRecon
+
+  files:
+    - code.ahk
+
+  dispatch:
+    BasicRecon: BasicRecon
+
+  schema:
+    category_id: discovery
+    category_name: "Discovery"
+    modules:
+      basic_recon:
+        display_name: "Basic Recon"
+        description: "Perform basic reconnaissance by executing SystemInfo and arp -a"
+        command_template: "execute_module|BasicRecon"
+        parameters: {}
+        documentation:
+          content: "Gathers basic system information including OS details, hardware configuration, and network ARP table."
+          examples: []
+        execution:
+          timeout: 120
+          requires_admin: false
+        ui:
+          layout: simple
+
+  config_options: {}

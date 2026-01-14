@@ -1,0 +1,47 @@
+module:
+  id: dns_enum
+  version: "1.0.0"
+  display_name: "DNS Enumeration"
+  description: "Enumerate DNS records for a domain"
+
+  requires: []
+
+  provides:
+    - moduleDNSEnum
+
+  files:
+    - code.go
+
+  dispatch:
+    DNSEnum: moduleDNSEnum
+
+  schema:
+    category_id: network
+    category_name: "Network"
+    modules:
+      dns_enum:
+        display_name: "DNS Enumeration"
+        description: "Query DNS records (A, AAAA, MX, NS, TXT, CNAME) for a domain"
+        command_template: "execute_module|DNSEnum|{{domain}}"
+        parameters:
+          domain:
+            type: text
+            display_name: "Domain"
+            description: "Domain name to enumerate"
+            required: true
+            default: ""
+            validation:
+              min_length: 1
+              max_length: 256
+        documentation:
+          content: "Queries various DNS record types for the specified domain and performs reverse DNS lookups."
+          examples:
+            - "example.com"
+            - "corp.local"
+        execution:
+          timeout: 120
+          requires_admin: false
+        ui:
+          layout: simple
+
+  config_options: {}

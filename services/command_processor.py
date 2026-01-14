@@ -70,6 +70,13 @@ class CommandProcessor:
                 timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                 f.write(f"[{timestamp}] {output}\n")
 
+            # Log to main console - show truncated preview of output
+            if utils.logger:
+                preview = output[:100].replace('\n', ' ').replace('\r', '')
+                if len(output) > 100:
+                    preview += f"... ({len(output)} chars total)"
+                utils.logger.log_message(f"Command Output: {beacon_id} - {preview}")
+
             # Get the last executed command for parsing
             last_command = self.beacon_repository.get_last_executed_command(beacon_id)
 

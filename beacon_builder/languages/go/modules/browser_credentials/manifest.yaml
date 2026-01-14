@@ -1,0 +1,37 @@
+module:
+  id: browser_credentials
+  version: "1.0.0"
+  display_name: "Browser Credentials"
+  description: "Discover browser credential stores"
+
+  requires: []
+
+  provides:
+    - moduleBrowserCredentials
+    - getBrowserPaths
+
+  files:
+    - code.go
+
+  dispatch:
+    BrowserCredentials: moduleBrowserCredentials
+
+  schema:
+    category_id: credential_access
+    category_name: "Credential Access"
+    modules:
+      browser_credentials:
+        display_name: "Browser Credentials"
+        description: "Discover browser credential database locations"
+        command_template: "execute_module|BrowserCredentials"
+        parameters: {}
+        documentation:
+          content: "Locates browser credential stores for Chrome, Firefox, Edge, Opera, Brave, and Safari. Does not extract credentials, only identifies database locations."
+          examples: []
+        execution:
+          timeout: 60
+          requires_admin: false
+        ui:
+          layout: simple
+
+  config_options: {}

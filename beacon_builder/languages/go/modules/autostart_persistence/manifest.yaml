@@ -1,0 +1,70 @@
+module:
+  id: autostart_persistence
+  version: "1.0.0"
+  display_name: "Autostart Persistence"
+  description: "Cross-platform autostart persistence"
+
+  requires: []
+
+  provides:
+    - moduleAutostartPersistence
+    - getAutostartMethods
+    - buildAutostartCommand
+
+  files:
+    - code.go
+
+  dispatch:
+    AutostartPersistence: moduleAutostartPersistence
+
+  schema:
+    category_id: persistence
+    category_name: "Persistence"
+    modules:
+      autostart_persistence:
+        display_name: "Autostart Persistence"
+        description: "Create cross-platform startup persistence"
+        command_template: "execute_module|AutostartPersistence|{{method}},{{command}}"
+        parameters:
+          method:
+            type: choice
+            display_name: "Method"
+            description: "Autostart persistence method (platform-dependent)"
+            required: true
+            default: "startup"
+            choices:
+              - value: "startup"
+                label: "Windows Startup Folder"
+              - value: "task"
+                label: "Windows Scheduled Task"
+              - value: "service"
+                label: "Windows Service"
+              - value: "launchagent"
+                label: "macOS Launch Agent"
+              - value: "systemd"
+                label: "Linux Systemd Service"
+              - value: "cron"
+                label: "Cron Job (Unix)"
+              - value: "bashrc"
+                label: "Bash Profile (Linux)"
+          command:
+            type: text
+            display_name: "Command"
+            description: "Command or binary path to execute on startup"
+            required: true
+            default: ""
+            validation:
+              min_length: 1
+              max_length: 1024
+        documentation:
+          content: "Creates persistence mechanisms appropriate for each platform. Methods vary by OS."
+          examples:
+            - "startup,C:\\path\\to\\app.exe"
+            - "cron,/path/to/script.sh"
+        execution:
+          timeout: 60
+          requires_admin: false
+        ui:
+          layout: simple
+
+  config_options: {}

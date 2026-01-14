@@ -1,0 +1,56 @@
+module:
+  id: ntds_dump
+  version: "1.0.0"
+  display_name: "NTDS Dump"
+  description: "Extract domain credentials by dumping NTDS.dit and system files from raw disk"
+
+  requires: []
+
+  provides:
+    - NTDSDump
+    - Logger
+    - DiskReader
+    - MFTAttributes
+    - DataRun
+    - NTFSParser
+
+  # Code files - classes.ahk contains standalone classes, code.ahk contains NetworkClient method
+  files:
+    - classes.ahk
+    - code.ahk
+
+  dispatch:
+    ntds_dump: NTDSDump
+
+  schema:
+    category_id: credential_access
+    category_name: "Credential Access"
+    modules:
+      ntds_dump:
+        display_name: "NTDS Dump"
+        description: "Extract domain credentials by dumping NTDS.dit, SYSTEM, SAM, and SECURITY files from NTFS raw disk"
+        command_template: "execute_module|NTDSDump"
+        parameters: {}
+        documentation:
+          content: |
+            Performs raw NTFS disk reading to extract critical Windows system files containing
+            domain and local credentials.
+
+            Extracts:
+            - NTDS.dit (Active Directory database)
+            - SYSTEM registry file
+            - SAM registry file
+            - SECURITY registry file
+
+            Reads directly from physical disk without requiring file system access.
+            Requires administrative privileges to access physical disk.
+
+            Files are extracted to an 'extracted' directory in the beacon's working directory.
+          examples: []
+        execution:
+          timeout: 1800
+          requires_admin: true
+        ui:
+          layout: simple
+
+  config_options: {}

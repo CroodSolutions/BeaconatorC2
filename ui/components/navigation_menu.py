@@ -45,6 +45,7 @@ class NavigationMenu(QWidget):
             "toggle": ("Hide", QIcon("resources/arrow-big-left.svg")),
             "beacons": ("Beacons", QIcon("resources/building-broadcast-tower.svg")),
             "receivers": ("Receivers", QIcon("resources/server-bolt.svg")),
+            "builder": ("Builder", QIcon("resources/blocks.svg")),
             "workflows": ("Workflows", QIcon("resources/sitemap.svg")),
             "asset_map": ("Asset Map", QIcon("resources/route-square-2.svg")),
             #"settings": ("Settings", QStyle.StandardPixmap.SP_FileDialogListView),

@@ -1,0 +1,68 @@
+module:
+  id: create_scheduled_task
+  version: "1.0.0"
+  display_name: "Create Scheduled Task"
+  description: "Create a scheduled task for persistence"
+
+  requires: []
+
+  provides:
+    - CreateScheduledTask
+
+  files:
+    - code.ahk
+
+  dispatch:
+    CreateScheduledTask: CreateScheduledTask
+
+  schema:
+    category_id: persistence
+    category_name: "Persistence"
+    modules:
+      create_scheduled_task:
+        display_name: "Add Scheduled Task"
+        description: "Add a recurring scheduled task"
+        command_template: "execute_module|CreateScheduledTask|{task_name},{action},{delay}"
+        parameters:
+          task_name:
+            type: text
+            display_name: "Task Name"
+            description: "Name for the scheduled task"
+            required: true
+            default: "ScheduledTask"
+            validation:
+              min_length: 1
+              max_length: 64
+          action:
+            type: text
+            display_name: "Action"
+            description: "Command or executable to run"
+            required: true
+            default: "\"App.exe\" /param1"
+            validation:
+              min_length: 1
+              max_length: 512
+          delay:
+            type: integer
+            display_name: "Delay (Hours)"
+            description: "The task will execute every 24hrs after the delay"
+            required: true
+            default: 1
+            validation:
+              min_value: 1
+              max_value: 1000
+        documentation:
+          content: "Adds a recurring scheduled task. With inputs empty, it will add task to launch the beacon."
+          examples:
+            - "ScheduledTask / App.exe / 1"
+        execution:
+          timeout: 60
+          requires_admin: false
+        ui:
+          layout: simple
+          grouping:
+            - - task_name
+              - action
+            - - delay
+
+  config_options: {}
