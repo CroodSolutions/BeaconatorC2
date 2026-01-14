@@ -1,0 +1,31 @@
+{
+  "beacon": {
+    "id": "beacon_001",
+    "server_url": "http://127.0.0.1:8080",
+    "polling_interval_ms": 10000,
+    "max_retries": 5
+  },
+  "build": {
+    "output_name": "BeaconatorC2_C.exe",
+    "compiler_preference": [
+      "msvc",
+      "clang",
+      "gcc"
+    ],
+    "debug_mode": true,
+    "optimize": false
+  },
+  "comms": {
+    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+  },
+  "evasion": {
+    "heap_encryption": false,
+    "sleep_obfuscation": false
+  },
+  "modules": {
+    "execute_assembly": {
+      "auto_compile": true,
+      "dll_path": "src/modules/external/execute_assembly/x64/ExecuteAssembly.dll"
+    }
+  }
+}

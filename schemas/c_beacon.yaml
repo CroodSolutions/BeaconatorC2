@@ -1,0 +1,179 @@
+schema_version: "1.1"
+beacon_info:
+  beacon_type: "C"
+  version: "1.0.0"
+  description: "Native C beacon with indirect syscalls and heap encryption"
+  supported_platforms:
+    - windows
+  encoding_strategy: "plaintext"
+  file_transfer_supported: false
+  keylogger_supported: false
+
+categories:
+  recon:
+    display_name: "Reconnaissance"
+    description: "Basic host enumeration and situational awareness"
+    modules:
+      whoami:
+        display_name: "whoami"
+        description: "Get current user and computer name"
+        command_template: "execute_module|whoami"
+        parameters: {}
+        documentation:
+          content: "Returns DOMAIN\\Username format for the current security context."
+          examples: ["whoami"]
+        execution:
+          timeout: 30
+          requires_admin: false
+        ui:
+          icon: "user"
+          layout: "simple"
+      ps:
+        display_name: "ps"
+        description: "List running processes with PIDs"
+        command_template: "execute_module|ps"
+        parameters: {}
+        documentation:
+          content: "Enumerates running processes. Useful for finding injection targets or identifying security software."
+          examples: ["ps"]
+        execution:
+          timeout: 60
+          requires_admin: false
+        ui:
+          icon: "list"
+          layout: "simple"
+      pwd:
+        display_name: "pwd"
+        description: "Print current working directory"
+        command_template: "execute_module|pwd"
+        parameters: {}
+        documentation:
+          content: "Shows the beacon's current working directory path."
+          examples: ["pwd"]
+        execution:
+          timeout: 30
+          requires_admin: false
+        ui:
+          icon: "folder"
+          layout: "simple"
+
+  filesystem:
+    display_name: "File System"
+    description: "Directory and file operations"
+    modules:
+      ls:
+        display_name: "ls"
+        description: "List directory contents"
+        command_template: "execute_module|ls"
+        parameters: {}
+        documentation:
+          content: "Lists files and directories with sizes. Defaults to current directory."
+          examples: ["ls"]
+        execution:
+          timeout: 60
+          requires_admin: false
+        ui:
+          icon: "folder-open"
+          layout: "simple"
+
+  execution:
+    display_name: "Execution"
+    description: "Code execution and injection capabilities"
+    modules:
+      inject:
+        display_name: "Process Injection"
+        description: "Inject shellcode into a remote process using indirect syscalls"
+        command_template: "execute_module|inject|{targetpid}|{CMD_read_file_from_path}"
+        parameters:
+          targetpid:
+            type: text
+            display_name: "Target PID"
+            description: "Process ID to inject into"
+            required: true
+            default: ""
+            validation:
+              min_length: 1
+              max_length: 10
+              pattern: "^[0-9]+$"
+          CMD_read_file_from_path:
+            type: textarea
+            display_name: "Shellcode (PIC && AES encrypted)"
+            description: "AES encrypted PIC shellcode file path"
+            required: true
+            default: ""
+            validation:
+              min_length: 1
+              max_length: 1048576
+        documentation:
+          content: |
+            Injects shellcode into target process using NtAllocateVirtualMemory, 
+            NtWriteVirtualMemory, and NtCreateThreadEx via Hell's Gate/Halo's Gate.
+            Shellcode must be AES encrypted with the beacon's key.
+          examples:
+            - "inject into notepad.exe (PID 1234)"
+          references:
+            - "https://github.com/Maldev-Academy/HellHall"
+        execution:
+          timeout: 120
+          requires_admin: false
+        ui:
+          icon: "syringe"
+          layout: "simple"
+          color: "red"
+
+      execute_assembly:
+        display_name: "Execute Assembly"
+        description: "Run .NET assemblies in-memory via reflective DLL loading"
+        command_template: "execute_module|execute_assembly|{assembly_file}|{flags}|{assembly_args}"
+        parameters:
+          assembly_file:
+            type: file
+            display_name: ".NET Assembly"
+            description: "Assembly to execute (.exe or .dll)"
+            required: true
+            file_filters:
+              - "*.exe"
+              - "*.dll"
+            encoding: "base64_gzip"
+          bypass_amsi:
+            type: boolean
+            display_name: "Bypass AMSI"
+            description: "Patch AmsiScanBuffer before loading"
+            required: false
+            default: true
+          bypass_etw:
+            type: boolean
+            display_name: "Bypass ETW"
+            description: "Patch EtwEventWrite to prevent logging"
+            required: false
+            default: true
+          assembly_args:
+            type: textarea
+            display_name: "Arguments"
+            description: "Args for the assembly (space-separated, quote strings with spaces)"
+            required: false
+            default: ""
+            validation:
+              max_length: 8192
+        documentation:
+          content: |
+            Reflectively loads ExecuteAssembly.dll then hosts CLR to run .NET tools.
+            No files touch disk. Supports common offensive .NET tooling like Seatbelt,
+            SharpHound, Rubeus, etc.
+          examples:
+            - "Seatbelt.exe with args: LogonSessions"
+            - "SharpHound.exe with args: -c All --outputdirectory C:\\Windows\\Temp"
+            - "Rubeus.exe with args: triage"
+          references:
+            - "https://github.com/med0x2e/ExecuteAssembly"
+        execution:
+          timeout: 600
+          requires_admin: false
+        ui:
+          icon: "memory"
+          layout: "advanced"
+          color: "purple"
+          grouping:
+            - ["assembly_file"]
+            - ["bypass_amsi", "bypass_etw"]
+            - ["assembly_args"]

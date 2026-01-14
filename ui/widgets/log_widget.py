@@ -39,9 +39,30 @@ class LogWidget(QTextEdit):
             'DEBUG': '#6bff6b'
         }
 
+    def _truncate_long_segments(self, message: str, max_length: int = 100) -> str:
+        """Truncate segments between | delimiters if they exceed max_length"""
+        if '|' not in message:
+            return message
+        
+        parts = message.split('|')
+        truncated_parts = []
+        
+        for part in parts:
+            if len(part) > max_length:
+                # Show beginning and end with ellipsis in middle
+                half = (max_length - 3) // 2  # -3 for "..."
+                truncated = part[:half] + "..." + part[-half:]
+                truncated_parts.append(truncated)
+            else:
+                truncated_parts.append(part)
+        
+        return '|'.join(truncated_parts)
+
     @pyqtSlot(str)
     def append_log(self, message: str):
         """Append a log message to the widget"""
+        # Truncate long segments between | delimiters
+        message = self._truncate_long_segments(message)
         self.append(message)
         
         # Auto-scroll to bottom

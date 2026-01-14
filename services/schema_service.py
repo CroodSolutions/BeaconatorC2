@@ -6,6 +6,9 @@ Handles parsing and validation of beacon module schemas
 import yaml
 import re
 import os
+import gzip
+import base64
+import io
 from pathlib import Path
 from typing import Dict, List, Any, Optional, Union
 from dataclasses import dataclass, field
@@ -105,6 +108,7 @@ class SchemaCache:
         if schema_file in self._cache:
             self._cache[schema_file].raw_data = cached_data
 
+
 class ParameterType(Enum):
     """Supported parameter types for module inputs"""
     TEXT = "text"
@@ -115,6 +119,7 @@ class ParameterType(Enum):
     CHOICE = "choice"
     FILE = "file"
     DIRECTORY = "directory"
+
 
 @dataclass
 class ParameterValidation:
@@ -147,6 +152,7 @@ class ParameterValidation:
         except (ValueError, TypeError):
             return False, f"Invalid {param_type.value} value"
 
+
 @dataclass
 class ModuleParameter:
     """Definition of a module parameter"""
@@ -159,7 +165,8 @@ class ModuleParameter:
     validation: Optional[ParameterValidation] = None
     choices: Optional[List[str]] = None
     file_filters: Optional[List[str]] = None
-    encoding: Optional[str] = None  # e.g., "base64" for file parameters
+    encoding: Optional[str] = None  # e.g., "base64", "base64_gzip" for file parameters
+
 
 @dataclass
 class ModuleDocumentation:
@@ -168,6 +175,7 @@ class ModuleDocumentation:
     examples: List[str] = field(default_factory=list)
     references: List[str] = field(default_factory=list)
 
+
 @dataclass
 class ModuleExecution:
     """Module execution settings"""
@@ -175,12 +183,14 @@ class ModuleExecution:
     requires_admin: bool = False
     platform_specific: Dict[str, Any] = field(default_factory=dict)
 
+
 @dataclass
 class ModuleUI:
     """Module UI customization"""
     color: str = "default"
     layout: str = "simple"  # simple, advanced, tabbed
     grouping: List[List[str]] = field(default_factory=list)
+
 
 @dataclass
 class Module:
@@ -197,14 +207,32 @@ class Module:
     def format_command(self, parameter_values: Dict[str, Any]) -> str:
         """Format the command template with provided parameter values"""
         try:
-            # Handle simple parameter substitution
             command = self.command_template
             
-            # Replace {param_name} with actual values
+            # Handle execute_assembly specially due to complex encoding requirements
+            if self.name == "execute_assembly":
+                return self._format_execute_assembly_command(parameter_values)
+            
+            # Process parameters
+            processed_params = {}
             for param_name, value in parameter_values.items():
+                if param_name.startswith("CMD_"):
+                    # Handle special CMD_ parameters (file reads, compilation, etc.)
+                    processed_value = self._process_cmd_parameter(param_name, value)
+                    processed_params[param_name] = processed_value
+                else:
+                    # Check if this is a file parameter with encoding
+                    param_def = self.parameters.get(param_name)
+                    if param_def and param_def.type == ParameterType.FILE and param_def.encoding:
+                        processed_params[param_name] = self._process_file_parameter(value, param_def.encoding)
+                    else:
+                        processed_params[param_name] = value
+            
+            # Replace {param_name} with actual values
+            for param_name, value in processed_params.items():
                 if param_name in self.parameters:
                     command = command.replace(f"{{{param_name}}}", str(value))
-            
+                        
             # Handle comma-separated parameter lists in templates like {param1},{param2}
             if "|{" in command and "}," in command:
                 # Extract parameter section
@@ -212,13 +240,189 @@ class Module:
                 if len(parts) > 1:
                     param_section = parts[-1]
                     # Replace parameters in the section
-                    for param_name, value in parameter_values.items():
+                    for param_name, value in processed_params.items():
                         param_section = param_section.replace(f"{{{param_name}}}", str(value))
                     command = "|".join(parts[:-1]) + "|" + param_section
             
             return command
         except Exception as e:
             raise ValueError(f"Failed to format command template: {e}")
+    
+    def _format_execute_assembly_command(self, parameter_values: Dict[str, Any]) -> str:
+        """
+        Special formatting for execute_assembly module.
+        
+        Output format: execute_module|execute_assembly|<dll_size>|<dll_b64>|<asm_size>|<asm_b64>|<flags>|<args>
+        
+        - DLL is base64 encoded (no compression, needed for reflective loading bootstrap)
+        - Assembly is gzip compressed then base64 encoded (decompressed by loaded DLL)
+        - Flags are 4 chars: AMSI, ETW, StompHeaders, UnlinkModules (1=enabled, 0=disabled)
+        """
+        # Hardcoded path to the compiled ExecuteAssembly DLL
+        dll_path = Path("beacons/C/src/modules/external/execute_assembly/x64/ExecuteAssembly.dll")
+        
+        assembly_path = parameter_values.get('assembly_file', '')
+        bypass_amsi = parameter_values.get('bypass_amsi', True)
+        bypass_etw = parameter_values.get('bypass_etw', True)
+        stomp_headers = parameter_values.get('stomp_headers', False)
+        unlink_modules = parameter_values.get('unlink_modules', False)
+        assembly_args = parameter_values.get('assembly_args', '')
+        
+        if not assembly_path:
+            raise ValueError(".NET Assembly file is required")
+        
+        if not dll_path.exists():
+            raise ValueError(f"ExecuteAssembly DLL not found at {dll_path}. Please compile it first.")
+        
+        # Encode DLL (no compression - we can't decompress before reflective load)
+        dll_size, dll_b64 = self._encode_file_base64(str(dll_path))
+        
+        # Encode assembly (with gzip compression - DLL's decompress function handles this)
+        assembly_size, assembly_b64 = self._encode_file_gzip_base64(assembly_path)
+        
+        # Build flags string (4 characters: AMSI, ETW, StompHeaders, UnlinkModules)
+        flags = ""
+        flags += "1" if bypass_amsi else "0"
+        flags += "1" if bypass_etw else "0"
+        flags += "1" if stomp_headers else "0"
+        flags += "1" if unlink_modules else "0"
+        
+        # Clean up args
+        args_str = str(assembly_args).strip() if assembly_args else ""
+        
+        # Build final command
+        command = f"execute_module|execute_assembly|{dll_size}|{dll_b64}|{assembly_size}|{assembly_b64}|{flags}|{args_str}"
+        
+        return command
+    
+    def _encode_file_base64(self, file_path: str) -> tuple[int, str]:
+        """
+        Read a file and base64 encode it (no compression).
+        Returns (original_size, encoded_data)
+        """
+        try:
+            with open(file_path, 'rb') as f:
+                file_data = f.read()
+            
+            original_size = len(file_data)
+            encoded_data = base64.b64encode(file_data).decode('ascii')
+            
+            return original_size, encoded_data
+            
+        except Exception as e:
+            raise ValueError(f"Failed to encode file '{file_path}': {e}")
+    
+    def _encode_file_gzip_base64(self, file_path: str) -> tuple[int, str]:
+        """
+        Read a file, gzip compress it, and base64 encode it.
+        Returns (original_size, encoded_data)
+        
+        The original_size is needed by the beacon to allocate decompression buffer.
+        """
+        try:
+            with open(file_path, 'rb') as f:
+                file_data = f.read()
+            
+            original_size = len(file_data)
+            
+            # Gzip compress
+            compressed_buffer = io.BytesIO()
+            with gzip.GzipFile(fileobj=compressed_buffer, mode='wb') as gz:
+                gz.write(file_data)
+            
+            compressed_data = compressed_buffer.getvalue()
+            
+            # Base64 encode the compressed data
+            encoded_data = base64.b64encode(compressed_data).decode('ascii')
+            
+            return original_size, encoded_data
+            
+        except Exception as e:
+            raise ValueError(f"Failed to encode file '{file_path}': {e}")
+    
+    def _process_file_parameter(self, file_path: str, encoding: str) -> str:
+        """Process a file parameter based on the encoding type"""
+        try:
+            if encoding == "base64":
+                with open(file_path, 'rb') as f:
+                    return base64.b64encode(f.read()).decode('ascii')
+            
+            elif encoding == "base64_gzip":
+                _, encoded = self._encode_file_gzip_base64(file_path)
+                return encoded
+            
+            elif encoding == "raw":
+                with open(file_path, 'rb') as f:
+                    return f.read().decode('utf-8', errors='replace')
+            
+            else:
+                # Default: read as text
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    return f.read()
+                    
+        except Exception as e:
+            raise ValueError(f"Failed to process file parameter: {e}")
+    
+    def _process_cmd_parameter(self, param_name: str, value: Any) -> str:
+        """Process special CMD_ parameters and return processed value"""
+        try:
+            if param_name == "CMD_read_file_from_path":
+                # Read file content from the provided path
+                with open(value, 'r', encoding='utf-8', errors="strict") as f:
+                    return f.read()
+            
+            elif param_name.startswith("CMD_compile_"):
+                # Extract language from parameter name and compile
+                language = param_name.replace("CMD_compile_", "")
+                return self._handle_compile_command(language, value)
+            
+            elif param_name.startswith("CMD_"):
+                # Handle other CMD_ types - for future extensibility
+                # For now, just return the value as-is
+                return str(value)
+            
+            return str(value)
+            
+        except Exception as e:
+            raise ValueError(f"Failed to process CMD parameter '{param_name}': {e}")
+    
+    def _handle_compile_command(self, language: str, source_code: str) -> str:
+        """Handle compilation commands for different languages"""
+        import subprocess
+        
+        try:
+            # Determine OS and script extension
+            os_type = os.name
+            if os_type == "nt":  # Windows
+                script_ext = ".bat"
+            else:  # Linux/Mac
+                script_ext = ".sh"
+            
+            # Construct path to compiler script
+            compiler_script = Path("beacons") / language / f"compiler{script_ext}"
+            
+            if not compiler_script.exists():
+                raise FileNotFoundError(f"Compiler script not found: {compiler_script}")
+            
+            # Execute the compiler script
+            result = subprocess.run(
+                [str(compiler_script)],
+                capture_output=True,
+                text=True,
+                timeout=30
+            )
+            
+            if result.returncode == 0:
+                return result.stdout.strip()
+            else:
+                error_msg = f"Compilation failed (exit code {result.returncode})"
+                if result.stderr:
+                    error_msg += f": {result.stderr.strip()}"
+                raise RuntimeError(error_msg)
+            
+        except Exception as e:
+            raise ValueError(f"Failed to handle compile command for {language}: {e}")
+
 
 @dataclass
 class Category:
@@ -227,6 +431,7 @@ class Category:
     display_name: str
     description: str
     modules: Dict[str, Module] = field(default_factory=dict)
+
 
 @dataclass
 class BeaconInfo:
@@ -238,6 +443,7 @@ class BeaconInfo:
     encoding_strategy: str = "plaintext"
     file_transfer_supported: bool = True
     keylogger_supported: bool = True
+
 
 @dataclass
 class BeaconSchema:
@@ -260,6 +466,7 @@ class BeaconSchema:
             for mod_name, module in category.modules.items():
                 modules.append((cat_name, mod_name, module))
         return modules
+
 
 class SchemaService:
     """Service for loading and managing beacon schemas"""

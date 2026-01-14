@@ -1,0 +1,5 @@
+LIBRARY ExecuteAssembly
+EXPORTS
+    ReflectiveLoader
+    InjectAssembly
+    decompress

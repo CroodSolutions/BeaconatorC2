@@ -1,0 +1,16 @@
+// ----------------------------------------------------------------------------- 
+//  calc.exe payload :: msfvenom -p windows/x64/exec CMD=calc.exe -f raw -o calc.bin
+//  you must change this byte array as needed, using this as a template. 
+//  this current payload will not execute anything, however it serves as a variable/formatting reference.
+// ----------------------------------------------------------------------------- 
+
+unsigned char AesCipherText[] = {
+	0x94, 0x1E, 0xD7, 0xAB, 0x44, 0x5A, 0x2A, 0xD4, 0xBB, 0x05, 0x20, 0x1C, 0xC2, 0x6F, 0x2D, 0x78};
+
+
+unsigned char AesKey[] = {
+	0xD3, 0x88, 0x6F, 0xD5, 0xC2, 0x52, 0x8A, 0x5E, 0xDB, 0x24, 0xFA, 0x92, 0xEE, 0x1D, 0xBB, 0x92};
+
+
+unsigned char AesIv[] = {
+	0x21, 0xCA, 0x9F };
