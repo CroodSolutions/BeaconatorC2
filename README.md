@@ -22,6 +22,7 @@ This project has been started to help better test products, configurations, dete
   1. Clone the Repository
 
   git clone https://github.com/croodsolutions/BeaconatorC2.git
+  
   cd BeaconatorC2
 
   2. Create a Virtual Environment (Recommended)
