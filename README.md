@@ -29,10 +29,12 @@ This project has been started to help better test products, configurations, dete
 
   Windows:
   python -m venv venv
+  
   venv\Scripts\activate
 
   Linux/macOS:
   python3 -m venv venv
+  
   source venv/bin/activate
 
   3. Install Required Packages
