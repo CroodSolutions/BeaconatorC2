@@ -24,9 +24,15 @@ Attacks involving ClickFix and Fake CAPTCHA typically involve a few key elements
 
 Note: Sponsoring malicious advertizements (Malvertizing) is not appropriate for red team engagements to test ClickFix attacks, because they may catch unintended victems or exceed the scope of authorized testing. We do not recommend Malvertizing vectors for penetation tests, unless you come up with some sort of iron clad scoping mechanism beyond what we have thought of so far. For simulation, maybe something could be done with host files or on-prem DNS to simulate the real experience? This could have some risks though, so buyer beware.  
 
+## Testing / Adversary Emulation of ClickFix
+
+### Link to ClickFix and Fake CAPTCHA Project
+
+As mentioned above, BeaconatorC2 and the payloads provided here, should provide a viable foundation to get up and running quickly with a ClickFix style payloads. However, the delivery of these payloads via a website and the simulation of the type of user experience that would not set off (human) red flags could be considered another matter entirely. As such, we have setup a secondary repo for the Fake CAPTCHA, web delivery, and other elements required for successful adversary emulation of ClickFix style attack vectors.  
+
 ### Testing on Windows
 
-For getting up and running with a 
+For the SE aspect of of ClickFix and Fake CAPTCHA, refer to the suplmental repo for payload delivery. That said, the [simple_cmd-oneline_clickfix.txt](https://github.com/CroodSolutions/BeaconatorC2/blob/main/beacons/ClickFix_Testing/simple_cmd-oneline_clickfix.txt) should provide a workable payload to test with as a jumping off point.
 
 
 ### Testing on MacOS
