@@ -1,6 +1,6 @@
 ## ClickFix and Fake CAPTCHA
 
-ClickFix attacks, often involving Fake CAPTCHA lures, have become one of the fastest growing vectors for initial access. As of the time of this writing, the overall awareness level surrounding ClickFix seems to remain relatively low, compared with other initial access vectors. We build on existing BeaconatorC2 capabilities, as we seek to make it easier and more practical to setup a ClickFix/Fake CAPTCHA demos and testing. Although, hopefully this provides a jumping off point for Read Teamers looking to include ClickFix in Social Engineering engagements.  
+ClickFix attacks, often involving Fake CAPTCHA lures, have become one of the fastest growing vectors for initial access. As of the time of this writing, the overall awareness level surrounding ClickFix seems to remain relatively low, compared with other initial access vectors. We build on existing BeaconatorC2 capabilities, as we seek to make it easier and more practical to setup a ClickFix/Fake CAPTCHA demos and testing. Although, the initial focus is awareness demos and basic testing of detectability, hopefully this also provides a jumping off point for Read Teamers looking to include ClickFix in Social Engineering engagements.  
 
 ### Example Demo Video of ClickFix via BeaconatorC2
 
