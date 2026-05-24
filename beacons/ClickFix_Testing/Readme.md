@@ -1,6 +1,6 @@
 ## ClickFix Testing 
 
-ClickFix attacks, often involving Fake Captcha lures, have become one of the fastest growing vectors for initial access. As of the time of this writing, the overall awareness level surrounding ClickFix seems to remain relatively low, compared with other initial access vectors. We build on existing BeaconatorC2 capabiities, as we seek to make it easier and more practical to setup a ClickFix/Fake CAPTCHA demos and testing. Although, hopefully this provides a jumping off point for Read Teamers looking to include ClickFix in Social Engineering engagements.  
+ClickFix attacks, often involving Fake Captcha lures, have become one of the fastest growing vectors for initial access. As of the time of this writing, the overall awareness level surrounding ClickFix seems to remain relatively low, compared with other initial access vectors. We build on existing BeaconatorC2 capabilities, as we seek to make it easier and more practical to setup a ClickFix/Fake CAPTCHA demos and testing. Although, hopefully this provides a jumping off point for Read Teamers looking to include ClickFix in Social Engineering engagements.  
 
 ### Example Demo Video of ClickFix via BeaconatorC2
 
@@ -15,14 +15,14 @@ https://github.com/user-attachments/assets/5044de63-9c52-46c4-8a2a-1a6314f84a8c
 ### Role of ClickFix Delivery vs BeaconatorC2
 
 Attacks involving ClickFix and Fake CAPTCHA typically involve a few key elements:
- - Delivery Mechanism: For real attacks it is usually either a phishing email or a sponsored advertizement.
+ - Delivery Mechanism: For real attacks it is usually either a phishing email or a sponsored advertisement.
  - A viable payload and C2 framework.
  - The web delivery mechanism to serve up the payload to the clipboard.
  - Social Engineering language and visuals rendered to convince the user to run the payload.
  - Convincing follow-on experience
 
 
-Note: Sponsoring malicious advertizements (Malvertizing) is not appropriate for red team engagements to test ClickFix attacks, because they may catch unintended victems or exceed the scope of authorized testing. We do not recommend Malvertizing vectors for penetation tests, unless you come up with some sort of iron clad scoping mechanism beyond what we have thought of so far. For simulation, maybe something could be done with host files or on-prem DNS to simulate the real experience? This could have some risks though, so buyer beware.  
+Note: Sponsoring malicious advertisements (Malvertizing) is not appropriate for red team engagements to test ClickFix attacks, because they may catch unintended victims or exceed the scope of authorized testing. We do not recommend Malvertizing vectors for penetration tests, unless you come up with some sort of iron clad scoping mechanism beyond what we have thought of so far. For simulation, maybe something could be done with host files or on-prem DNS to simulate the real experience? This could have some risks though, so buyer beware.  
 
 ## Testing / Adversary Emulation of ClickFix
 
@@ -32,16 +32,16 @@ As mentioned above, BeaconatorC2 and the payloads provided here, should provide 
 
 ### Testing on Windows
 
-For the SE aspect of of ClickFix and Fake CAPTCHA, refer to the suplmental repo for payload delivery. That said, the [simple_cmd-oneline_clickfix.txt](https://github.com/CroodSolutions/BeaconatorC2/blob/main/beacons/ClickFix_Testing/simple_cmd-oneline_clickfix.txt) should provide a workable payload to test with as a jumping off point.
+For the SE aspect of ClickFix and Fake CAPTCHA, refer to the supplemental repo for payload delivery. That said, the [simple_cmd-oneline_clickfix.txt](https://github.com/CroodSolutions/BeaconatorC2/blob/main/beacons/ClickFix_Testing/simple_cmd-oneline_clickfix.txt) should provide a workable payload to test with as a jumping off point.
 
 
 ### Testing on MacOS
 
-For the SE aspect of of ClickFix and Fake CAPTCHA, refer to the suplmental repo for payload delivery. That said, the [zsh_oneliner_beacon.sh](https://github.com/CroodSolutions/BeaconatorC2/blob/main/beacons/zsh_oneliner_beacon.sh) and instructions should provide a workable payload as a foundation.  
+For the SE aspect of ClickFix and Fake CAPTCHA, refer to the supplemental repo for payload delivery. That said, the [zsh_oneliner_beacon.sh](https://github.com/CroodSolutions/BeaconatorC2/blob/main/beacons/zsh_oneliner_beacon.sh) and instructions should provide a workable payload as a foundation.  
 
 ### Testing on Linux
 
-For the SE aspect of of ClickFix and Fake CAPTCHA, refer to the suplmental repo for payload delivery. That said, the [bash_oneliner_beacon.sh](https://github.com/CroodSolutions/BeaconatorC2/blob/main/beacons/bash_oneliner_beacon.sh) and instructions should provide a workable payload as a foundation.  
+For the SE aspect of ClickFix and Fake CAPTCHA, refer to the supplemental repo for payload delivery. That said, the [bash_oneliner_beacon.sh](https://github.com/CroodSolutions/BeaconatorC2/blob/main/beacons/bash_oneliner_beacon.sh) and instructions should provide a workable payload as a foundation.  
 
 ## Legal and Ethical Note
 
