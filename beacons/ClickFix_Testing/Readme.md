@@ -12,14 +12,14 @@ https://github.com/user-attachments/assets/5044de63-9c52-46c4-8a2a-1a6314f84a8c
 
 
 
-### Role of ClickFix Delivery vs BeaconatorC2
+### Role of Fake CAPTCHA Delivery vs ClickFix and BeaconatorC2
 
 Attacks involving ClickFix and Fake CAPTCHA typically involve a few key elements:
- - Delivery Mechanism: For real attacks it is usually either a phishing email or a sponsored advertisement.
+ - Delivery Mechanism: For real attacks it is usually either an email/chat, compromised legitimate web site, or a sponsored advertisement.
  - A viable payload and C2 framework.
  - The web delivery mechanism to serve up the payload to the clipboard.
  - Social Engineering language and visuals rendered to convince the user to run the payload.
- - Convincing follow-on experience
+ - Convincing follow-on experience so the end user does not suspect anything. 
 
 
 Note: Sponsoring malicious advertisements (Malvertizing) is not appropriate for red team engagements to test ClickFix attacks, because they may catch unintended victims or exceed the scope of authorized testing. We do not recommend Malvertizing vectors for penetration tests, unless you come up with some sort of iron clad scoping mechanism beyond what we have thought of so far. For simulation, maybe something could be done with host files or on-prem DNS to simulate the real experience? This could have some risks though, so buyer beware.  
