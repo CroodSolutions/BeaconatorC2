@@ -124,7 +124,7 @@ categories:
       execute_assembly:
         display_name: "Execute Assembly"
         description: "Run .NET assemblies in-memory via reflective DLL loading"
-        command_template: "execute_module|execute_assembly|{assembly_file}|{flags}|{assembly_args}"
+        command_template: "execute_module|execute_assembly|{assembly_file}|{bypass_amsi}|{bypass_etw}|{assembly_args}"
         parameters:
           assembly_file:
             type: file

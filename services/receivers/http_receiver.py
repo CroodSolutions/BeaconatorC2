@@ -338,13 +338,16 @@ class HTTPReceiver(BaseReceiver):
                 return
             
             # Receive file data
+            # Note: the Content-Length header describes the initial
+            # "from_beacon|{filename}" command body (already consumed above),
+            # not the file itself. Beacons stream the file bytes on the same
+            # connection after the command and signal end-of-data by closing
+            # the connection, so we read until EOF.
             with open(filepath, 'wb') as f:
                 total_received = 0
-                remaining = content_length
                 
-                while remaining > 0:
-                    chunk_size = min(8192, remaining)
-                    encoded_chunk = request_handler.rfile.read(chunk_size)
+                while True:
+                    encoded_chunk = request_handler.rfile.read(8192)
                     if not encoded_chunk:
                         break
                         
@@ -353,7 +356,6 @@ class HTTPReceiver(BaseReceiver):
                     f.write(chunk)
                     
                     total_received += len(encoded_chunk)
-                    remaining -= len(encoded_chunk)
                     self.update_bytes_received(len(encoded_chunk))
                         
             # Send success response

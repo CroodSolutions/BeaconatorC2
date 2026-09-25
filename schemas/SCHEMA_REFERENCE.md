@@ -227,8 +227,8 @@ pattern: "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
 ```yaml
 port_scanner:
   display_name: "Port Scanner"
-  description: "TCP port scanning with threading"
-  command_template: "execute_module|PortScanner|{targets},{ports},{timeout},{threads}"
+  description: "TCP port scanning"
+  command_template: "execute_module|PortScanner|{targets}%2C{ports}"
   parameters:
     targets:
       type: "text"
@@ -242,37 +242,18 @@ port_scanner:
       type: "text"
       display_name: "Ports"
       description: "Ports to scan (e.g., 80,443 or 1-1000)"
-      required: true
+      required: false
       default: "22,80,443,3389"
-    timeout:
-      type: "integer"
-      display_name: "Timeout (seconds)"
-      description: "Connection timeout per port"
-      required: true
-      default: 3
-      validation:
-        min_value: 1
-        max_value: 30
-    threads:
-      type: "integer"
-      display_name: "Threads"
-      description: "Concurrent scanning threads"
-      required: true
-      default: 50
-      validation:
-        min_value: 1
-        max_value: 200
   documentation:
     content: "Performs TCP port scanning using socket connections"
     examples:
-      - "192.168.1.1-254 / 1-1000 / 5 / 100"
+      - "192.168.1.1-254 / 22,80,443,3389"
   execution:
     timeout: 1800
     requires_admin: false
   ui:
     icon: "network"
-    layout: "advanced"
+    layout: "simple"
     grouping:
       - ["targets", "ports"]
-      - ["timeout", "threads"]
 ```

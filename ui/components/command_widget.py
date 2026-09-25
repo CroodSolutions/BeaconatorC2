@@ -64,14 +64,14 @@ class ParameterWidget:
         if self.parameter.type == ParameterType.TEXT:
             self.widget = QLineEdit()
             self.widget.setPlaceholderText(self.parameter.description)
-            if self.parameter.default:
+            if self.parameter.default is not None:
                 self.widget.setText(str(self.parameter.default))
-                
+
         elif self.parameter.type == ParameterType.TEXTAREA:
             self.widget = QTextEdit()
             self.widget.setPlaceholderText(self.parameter.description)
             self.widget.setMaximumHeight(150)
-            if self.parameter.default:
+            if self.parameter.default is not None:
                 self.widget.setText(str(self.parameter.default))
                 
         elif self.parameter.type == ParameterType.INTEGER:
@@ -210,11 +210,11 @@ class ParameterWidget:
         value = self.get_value()
         
         # Check required fields
-        if self.parameter.required and not value:
+        if self.parameter.required and (value is None or (isinstance(value, str) and not value.strip())):
             return False, f"{self.parameter.display_name} is required"
-        
+
         # Run parameter validation if present
-        if self.parameter.validation and value:
+        if self.parameter.validation and value is not None and value != "":
             return self.parameter.validation.validate(value, self.parameter.type)
         
         return True, ""

@@ -166,7 +166,7 @@ categories:
       port_scanner:
         display_name: Port Scanner
         description: Perform TCP port scanning by attempting socket connections
-        command_template: execute_module|PortScanner|{target_ips},{ports},{timeout},{threads}
+        command_template: execute_module|PortScanner|{target_ips}%2C{ports}
         parameters:
           target_ips:
             type: text
@@ -181,26 +181,8 @@ categories:
             display_name: Ports
             description: Comma-separated list of ports to scan (e.g., 22,80,443 or
               1-1000)
-            required: true
+            required: false
             default: 22,80,443,3389
-          timeout:
-            type: integer
-            display_name: Timeout (seconds)
-            description: Connection timeout for each port
-            required: true
-            default: 3
-            validation:
-              min_value: 1
-              max_value: 30
-          threads:
-            type: integer
-            display_name: Threads
-            description: Number of concurrent scanning threads
-            required: true
-            default: 50
-            validation:
-              min_value: 1
-              max_value: 200
         documentation:
           content: Performs TCP port scanning against specified targets and ports
             using socket connections.
@@ -212,12 +194,10 @@ categories:
           timeout: 1800
           requires_admin: false
         ui:
-          layout: advanced
+          layout: simple
           grouping:
           - - target_ips
             - ports
-          - - timeout
-            - threads
   credential_access:
     display_name: Credential Access
     description: Modules for accessing and extracting credentials from target systems
@@ -382,12 +362,12 @@ categories:
       run_as_user:
         display_name: Run As User
         description: Execute commands in the context of a different user
-        command_template: execute_module|RunAsUser|{username},{password},{command}
+        command_template: execute_module|RunAsUser|{username},{password}
         parameters:
           username:
             type: text
             display_name: Username
-            description: Username to execute command as
+            description: Username to run the beacon as
             required: true
             default: ''
           password:
@@ -396,20 +376,11 @@ categories:
             description: Password for the specified user
             required: true
             default: ''
-          command:
-            type: text
-            display_name: Command
-            description: Command to execute as the specified user
-            required: true
-            default: whoami
-            validation:
-              min_length: 1
-              max_length: 1024
         documentation:
-          content: Execute commands in the context of a different user account using
+          content: Re-launches the beacon under a different user account using
             provided credentials.
           examples:
-          - Administrator / P@ssw0rd / net user
+          - Administrator / P@ssw0rd
         execution:
           timeout: 300
           requires_admin: true
@@ -418,7 +389,6 @@ categories:
           grouping:
           - - username
             - password
-          - - command
   persistence:
     display_name: Persistence
     description: Modules for maintaining persistent access to the target system
@@ -426,7 +396,7 @@ categories:
       add_admin_user:
         display_name: Add Admin User
         description: Create a new administrative user account
-        command_template: execute_module|AddAdminUser|{username},{password}
+        command_template: execute_module|AddAdminUser|{username},{password},{fullname}
         parameters:
           username:
             type: text
@@ -447,6 +417,14 @@ categories:
             validation:
               min_length: 8
               max_length: 128
+          fullname:
+            type: text
+            display_name: Full Name
+            description: Display name for the new user account
+            required: false
+            default: Test User
+            validation:
+              max_length: 64
         documentation:
           content: Creates a new user account and adds it to the local administrators
             group for persistent access.

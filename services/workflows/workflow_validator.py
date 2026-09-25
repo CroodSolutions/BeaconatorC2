@@ -317,7 +317,8 @@ class ParameterValidator(BaseValidator):
             required_params = self._get_required_parameters(node)
             
             for param_name in required_params:
-                if param_name not in node.parameters or not node.parameters[param_name]:
+                param_val = node.parameters.get(param_name)
+                if param_name not in node.parameters or (param_val is None or (isinstance(param_val, str) and not param_val.strip())):
                     issues.append(ValidationIssue(
                         id=f"missing_param_{id(node)}_{param_name}",
                         level=ValidationLevel.ERROR,

